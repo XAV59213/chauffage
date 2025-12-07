@@ -104,3 +104,20 @@ cards:
       - climate.radiateur_cuisine
     state_color: true
 ```
+## Pourquoi c’est mieux que les box commerciales ?
+
+| Critère                              | Chauffage Électrique Fil Pilote FR | Box Tydom / Sowee / Wiser / Netatmo |
+|--------------------------------------|------------------------------------|--------------------------------------|
+| **Prix**                             | Gratuit                            | 150–400 € + abonnement annuel       |
+| **Cloud obligatoire**                | Non                                | Oui                                  |
+| **Sécurité fenêtre ouverte par pièce** | Oui (coupure immédiate)           | Rarement ou jamais                   |
+| **Modes Confort –1 °C / –2 °C**      | Oui                                | Souvent absent                       |
+| **Hors-gel réglable**                | 7 → 10 °C (choix utilisateur)     | Fixe à 7 °C                          |
+| **Consommation détaillée par radiateur** | Oui (SIN-4-FP-21)                | Parfois ou payant                    |
+| **Automatisations Home Assistant**   | Illimitées                         | Très limitées                        |
+| **Mises à jour & nouvelles fonctions**| Instantanées (GitHub)             | Dépend du fabricant (lent ou jamais) |
+| **Confidentialité des données**      | 100 % local                        | Données dans le cloud                |
+| **Indépendance du fournisseur d’énergie** | Total                        | Lié au contrat électricité           |
+
+**Conclusion :**  
+Tu as exactement la même chose (voire mieux) que les box à 300 €… mais **gratuit, sans cloud, sans abonnement et avec toutes les automatisations que tu veux**.
