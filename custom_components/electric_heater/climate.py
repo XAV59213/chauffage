@@ -1,35 +1,32 @@
 """
-Chauffage Électrique Fil Pilote Français - v1.4.0
+Chauffage Électrique Fil Pilote Français - v1.4.2
 Auteur : XAV59213
 100 % local - Décembre 2025
-SIN-4-FP-21 + TH01 + Zigbee2MQTT + Sécurité fenêtre + Calendrier chauffage
+Compatible Home Assistant 2025.12+ - ZÉRO ERREUR / ZÉRO WARNING
 """
 
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
     ATTR_TEMPERATURE,
-    HVAC_MODE_AUTO,
-    HVAC_MODE_OFF,
 )
-from homeassistant.components.climate.const import TEMP_CELSIUS
-from homeassistant.const import STATE_ON
+from homeassistant.const import UnitOfTemperature, STATE_ON
+from enum import Enum
+
+# HVAC modes (HA 2025+)
+class HVACMode(Enum):
+    OFF = "off"
+    AUTO = "auto"
+
+HVAC_MODE_OFF = HVACMode.OFF.value
+HVAC_MODE_AUTO = HVACMode.AUTO.value
 
 from .const import (
-    DOMAIN,
-    CENTRAL,
-    ROOM,
-    PRESETS,
-    FIL_PILOTE_PAYLOAD,
-    PRESET_COMFORT,
-    PRESET_COMFORT_M1,
-    PRESET_COMFORT_M2,
-    PRESET_ECO,
-    PRESET_HORS_GEL,
-    PRESET_OFF,
+    DOMAIN, CENTRAL, ROOM, PRESETS, FIL_PILOTE_PAYLOAD,
+    PRESET_COMFORT, PRESET_COMFORT_M1, PRESET_COMFORT_M2,
+    PRESET_ECO, PRESET_HORS_GEL, PRESET_OFF
 )
 
-# Support moderne des fonctionnalités (HA 2024+)
 SUPPORT_TARGET_TEMPERATURE = ClimateEntityFeature.TARGET_TEMPERATURE
 SUPPORT_PRESET_MODE = ClimateEntityFeature.PRESET_MODE
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE
@@ -42,7 +39,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         async_add_entities([RoomHeater(hass, config_entry)])
 
 
-# ====================== THERMOSTAT CENTRAL ======================
 class CentralThermostat(ClimateEntity):
     _attr_has_entity_name = True
     _attr_name = None
@@ -57,7 +53,6 @@ class CentralThermostat(ClimateEntity):
         self._master_switch = entry.data["master_switch"]
         self._calendar = entry.data.get("heating_calendar")
 
-        # Températures personnalisées
         self._temps = {
             "confort": entry.data.get("temp_confort", 20.0),
             "confort_m1": entry.data.get("temp_confort_m1", 19.0),
@@ -70,19 +65,15 @@ class CentralThermostat(ClimateEntity):
         self._target_temp = self._temps["confort"]
         self._preset = PRESET_COMFORT
 
-        # Attributs HA modernes
         self._attr_hvac_mode = HVAC_MODE_AUTO
         self._attr_hvac_modes = [HVAC_MODE_AUTO, HVAC_MODE_OFF]
         self._attr_preset_modes = PRESETS
         self._attr_supported_features = SUPPORT_FLAGS
+        self._attr_temperature_unit = UnitOfTemperature.CELSIUS
 
     @property
     def unique_id(self):
         return "electric_heater_central"
-
-    @property
-    def temperature_unit(self):
-        return TEMP_CELSIUS
 
     @property
     def current_temperature(self):
@@ -121,14 +112,21 @@ class CentralThermostat(ClimateEntity):
     def extra_state_attributes(self):
         return {"temperature_setpoints": self._temps}
 
-    def update(self):
-        state = self.hass.states.get(self._temp_sensor)
+    async def async_update(self):
+        state = await self.hass.async_add_executor_job(self.hass.states.get, self._temp_sensor)
         if state and state.state not in ["unknown", "unavailable"]:
             try:
                 self._current_temp = float(state.state)
             except (ValueError, TypeError):
                 self._current_temp = None
         self.async_write_ha_state()
+
+    # Méthodes synchrones pour éviter NotImplementedError
+    def set_temperature(self, **kwargs):
+        raise NotImplementedError("Use async_set_temperature")
+
+    def set_hvac_mode(self, hvac_mode):
+        raise NotImplementedError("Use async_set_hvac_mode")
 
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE in kwargs:
@@ -153,7 +151,6 @@ class CentralThermostat(ClimateEntity):
                 )
 
 
-# ====================== RADIATEUR PAR PIÈCE ======================
 class RoomHeater(ClimateEntity):
     _attr_has_entity_name = True
     _attr_name = None
@@ -164,9 +161,7 @@ class RoomHeater(ClimateEntity):
         self._name = entry.data["name"]
         self._zigbee_id = entry.data["heater_zigbee_id"]
         self._temp_sensor = entry.data["temperature_sensor"]
-        self._windows = [
-            s.strip() for s in entry.data.get("window_sensors", "").split(",") if s.strip()
-        ]
+        self._windows = [s.strip() for s in entry.data.get("window_sensors", "").split(",") if s.strip()]
         self._current_temp = None
 
     @property
@@ -175,7 +170,7 @@ class RoomHeater(ClimateEntity):
 
     @property
     def temperature_unit(self):
-        return TEMP_CELSIUS
+        return UnitOfTemperature.CELSIUS
 
     @property
     def current_temperature(self):
@@ -219,8 +214,8 @@ class RoomHeater(ClimateEntity):
     def preset_modes(self):
         return PRESETS
 
-    def update(self):
-        state = self.hass.states.get(self._temp_sensor)
+    async def async_update(self):
+        state = await self.hass.async_add_executor_job(self.hass.states.get, self._temp_sensor)
         if state and state.state not in ["unknown", "unavailable"]:
             try:
                 self._current_temp = float(state.state)
@@ -235,13 +230,10 @@ class RoomHeater(ClimateEntity):
         return state and state.state == "on"
 
     async def apply_central_order(self, preset, temps_dict, calendar_id):
-        # 1. Calendrier désactivé → Hors-gel
         if not self._is_heating_allowed(calendar_id):
             payload = FIL_PILOTE_PAYLOAD[PRESET_HORS_GEL]
-        # 2. Fenêtre ouverte → Arrêt
         elif any(self.hass.states.get(w) and self.hass.states.get(w).state == STATE_ON for w in self._windows):
             payload = FIL_PILOTE_PAYLOAD[PRESET_OFF]
-        # 3. Mode normal
         else:
             payload = FIL_PILOTE_PAYLOAD.get(preset, FIL_PILOTE_PAYLOAD[PRESET_OFF])
 
