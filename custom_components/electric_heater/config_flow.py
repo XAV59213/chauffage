@@ -1,29 +1,24 @@
+# custom_components/electric_heater/config_flow.py
 from homeassistant import config_entries
 from homeassistant.helpers import selector
 import voluptuous as vol
 
-from .const import (
-    DOMAIN,
-    CENTRAL,
-    ROOM,
-    DEFAULT_FROST_TEMP,
-    DEFAULT_MQTT_BASE_TOPIC,
-)
+from .const import DOMAIN, CENTRAL, ROOM, DEFAULT_FROST_TEMP
 
 
 class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Flux de configuration pour Chauffage Électrique Fil Pilote FR."""
+    """Flux de configuration – version finale propre."""
 
     VERSION = 5
 
     async def async_step_user(self, user_input=None):
-        """Première étape : si pas de central -> central, sinon pièce."""
-        if not any(e.data.get("type") == CENTRAL for e in self.hass.config_entries.async_entries(DOMAIN)):
+        """Première étape : central ou pièce."""
+        if not any(e.entry_id == "electric_heater_central" for e in self.hass.config_entries.async_entries(DOMAIN)):
             return await self.async_step_central()
         return await self.async_step_room()
 
     async def async_step_central(self, user_input=None):
-        """Configuration du thermostat central."""
+        """Configuration du thermostat central (créé une seule fois)."""
         if user_input is not None:
             data = {
                 "type": CENTRAL,
@@ -37,7 +32,12 @@ class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "temp_eco": user_input.get("temp_eco", 16.5),
                 "frost_temp": user_input.get("frost_temp", DEFAULT_FROST_TEMP),
             }
-            return self.async_create_entry(title="Thermostat Central", data=data)
+            # ←←← LIGNE MAGIQUE : entry_id fixe → le central se crée à coup sûr
+            return self.async_create_entry(
+                title="Thermostat Central",
+                data=data,
+                entry_id="electric_heater_central"
+            )
 
         return self.async_show_form(
             step_id="central",
@@ -50,44 +50,35 @@ class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.EntitySelectorConfig(domain=["switch", "input_boolean"])
                 ),
                 vol.Optional("heating_calendar"): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=["input_boolean", "binary_sensor", "calendar"], multiple=False)
+                    selector.EntitySelectorConfig(domain=["input_boolean", "binary_sensor", "calendar"])
                 ),
                 vol.Optional("temp_confort", default=20.0): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=15.0, max=30.0, step=0.5, unit_of_measurement="°C", mode="box")
+                    selector.NumberSelectorConfig(min=15, max=30, step=0.5, mode="box", unit_of_measurement="°C")
                 ),
                 vol.Optional("temp_confort_m1", default=19.0): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=10.0, max=25.0, step=0.5, unit_of_measurement="°C", mode="box")
+                    selector.NumberSelectorConfig(min=10, max=25, step=0.5, mode="box", unit_of_measurement="°C")
                 ),
                 vol.Optional("temp_confort_m2", default=18.0): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=10.0, max=25.0, step=0.5, unit_of_measurement="°C", mode="box")
+                    selector.NumberSelectorConfig(min=10, max=25, step=0.5, mode="box", unit_of_measurement="°C")
                 ),
                 vol.Optional("temp_eco", default=16.5): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=10.0, max=22.0, step=0.5, unit_of_measurement="°C", mode="box")
+                    selector.NumberSelectorConfig(min=10, max=22, step=0.5, mode="box", unit_of_measurement="°C")
                 ),
                 vol.Optional("frost_temp", default=DEFAULT_FROST_TEMP): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=7.0, max=10.0, step=0.5, unit_of_measurement="°C", mode="slider")
+                    selector.NumberSelectorConfig(min=7, max=10, step=0.5, mode="slider", unit_of_measurement="°C")
                 ),
             }),
-            description_placeholders={"title": "Thermostat Central - Configuration principale"}
         )
 
     async def async_step_room(self, user_input=None):
-        """Ajout d'une pièce / radiateur fil pilote."""
+        """Ajout d’une pièce."""
         if user_input is not None:
-            relay_entity = user_input["heater_relay"]
-            state = self.hass.states.get(relay_entity)
-
-            # Friendly name du select Z2M, sinon ce qu'il y a après le point
-            zigbee_id = state.attributes.get("friendly_name") if state else relay_entity.split(".")[1]
-
             data = {
                 "type": ROOM,
                 "name": user_input["name"],
-                "heater_zigbee_id": zigbee_id,
-                "heater_relay": relay_entity,  # sauvegarde pour compat & debug
+                "heater_relay": user_input["heater_relay"],
                 "temperature_sensor": user_input["temperature_sensor"],
                 "window_sensors": ",".join(user_input.get("window_sensors", [])) or "",
-                "mqtt_base_topic": user_input.get("mqtt_base_topic", DEFAULT_MQTT_BASE_TOPIC),
             }
             return self.async_create_entry(title=user_input["name"], data=data)
 
@@ -105,13 +96,7 @@ class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.EntitySelectorConfig(domain="sensor", device_class="temperature")
                 ),
                 vol.Optional("window_sensors"): selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        multiple=True,
-                        domain="binary_sensor",
-                        device_class="window"
-                    )
+                    selector.EntitySelectorConfig(multiple=True, domain="binary_sensor", device_class="window")
                 ),
-                vol.Optional("mqtt_base_topic", default=DEFAULT_MQTT_BASE_TOPIC): str,
             }),
-            description_placeholders={"title": "Ajouter un radiateur fil pilote"}
         )
