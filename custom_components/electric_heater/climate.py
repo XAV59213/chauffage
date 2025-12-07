@@ -1,5 +1,5 @@
 """
-Chauffage Électrique Fil Pilote Français - v1.4.6
+Chauffage Électrique Fil Pilote Français - v1.4.7
 Auteur : XAV59213
 100 % local - Décembre 2025
 Compatible Home Assistant 2025.12+ - ZÉRO ERREUR / ZÉRO WARNING
@@ -7,8 +7,11 @@ Compatible Home Assistant 2025.12+ - ZÉRO ERREUR / ZÉRO WARNING
 import json
 from enum import Enum
 
-from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature
-from homeassistant.components.climate.const import HVAC_MODE_AUTO, HVAC_MODE_OFF
+from homeassistant.components.climate import (
+    ClimateEntity,
+    ClimateEntityFeature,
+    HVACMode,  # ← Import direct de l'Enum (HA 2025.12)
+)
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature, STATE_ON
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.entity import DeviceInfo
@@ -60,7 +63,7 @@ class CentralThermostat(ClimateEntity):
     _enable_turn_on_off_backwards_compatibility = False
 
     _attr_supported_features = SUPPORT_FLAGS_CENTRAL
-    _attr_hvac_modes = [HVAC_MODE_AUTO, HVAC_MODE_OFF]
+    _attr_hvac_modes = [HVACMode.AUTO.value, HVACMode.OFF.value]  # ← Utilise l'Enum .value
     _attr_preset_modes = PRESETS
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_unique_id = "electric_heater_central"
@@ -86,7 +89,7 @@ class CentralThermostat(ClimateEntity):
         self._current_temp: float | None = None
         self._target_temp: float = self._temps["confort"]
         self._preset: str = PRESET_COMFORT
-        self._attr_hvac_mode = HVAC_MODE_AUTO
+        self._attr_hvac_mode = HVACMode.AUTO.value  # ← Utilise l'Enum .value
 
     @property
     def unique_id(self):
@@ -99,7 +102,7 @@ class CentralThermostat(ClimateEntity):
             name=self._name,
             manufacturer="XAV59213",
             model="Thermostat central fil pilote",
-            sw_version="1.4.6",
+            sw_version="1.4.7",
         )
 
     @property
@@ -164,15 +167,15 @@ class CentralThermostat(ClimateEntity):
             self._target_temp = kwargs[ATTR_TEMPERATURE]
             self._temps["confort"] = self._target_temp
             self._preset = PRESET_COMFORT
-            self._attr_hvac_mode = HVAC_MODE_AUTO
+            self._attr_hvac_mode = HVACMode.AUTO.value  # ← Utilise l'Enum
             self.async_write_ha_state()
             await self._push_to_rooms()
 
     async def async_set_hvac_mode(self, hvac_mode: str):
-        if hvac_mode not in (HVAC_MODE_AUTO, HVAC_MODE_OFF):
+        if hvac_mode not in [HVACMode.AUTO.value, HVACMode.OFF.value]:  # ← Vérif avec Enum
             return
         self._attr_hvac_mode = hvac_mode
-        if hvac_mode == HVAC_MODE_OFF:
+        if hvac_mode == HVACMode.OFF.value:  # ← Utilise l'Enum
             self._preset = PRESET_OFF
         elif self._preset == PRESET_OFF:
             self._preset = PRESET_COMFORT
@@ -183,28 +186,26 @@ class CentralThermostat(ClimateEntity):
         if preset_mode not in PRESETS:
             return
         self._preset = preset_mode
-        self._attr_hvac_mode = HVAC_MODE_OFF if preset_mode == PRESET_OFF else HVAC_MODE_AUTO
+        self._attr_hvac_mode = HVACMode.OFF.value if preset_mode == PRESET_OFF else HVACMode.AUTO.value  # ← Utilise l'Enum
         self.async_write_ha_state()
         await self._push_to_rooms()
 
     async def _push_to_rooms(self):
         """Propager proprement l’ordre à toutes les pièces (sans recréer d’instances)."""
-        for entity in self.hass.data.get("entity_registry", {}).values():
-            if (
-                hasattr(entity, "entity_id")
-                and entity.entity_id.startswith("climate.")
-                and entity.entity_id != "climate.electric_heater_central"
-                and hasattr(entity, "apply_central_order")
-            ):
-                try:
-                    await entity.apply_central_order(
-                        self._preset,
-                        self._temps,
-                        self._calendar,
-                        self._master_switch,
-                    )
-                except Exception as err:  # sécurité absolue
-                    self.hass.log(f"Erreur push room {entity.entity_id}: {err}", level="WARNING")
+        # Correction pour HA 2025.12 : boucle sur les entités climate du domaine
+        for entry_id, entities in self.hass.data.get(DOMAIN, {}).items():
+            if isinstance(entities, list):
+                for entity in entities:
+                    if hasattr(entity, "apply_central_order"):
+                        try:
+                            await entity.apply_central_order(
+                                self._preset,
+                                self._temps,
+                                self._calendar,
+                                self._master_switch,
+                            )
+                        except Exception as err:
+                            self.hass.log(f"Erreur push room {entity.entity_id}: {err}", level="WARNING")
 
 
 class RoomHeater(ClimateEntity):
@@ -214,7 +215,7 @@ class RoomHeater(ClimateEntity):
     _attr_supported_features = 0
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
 
-    def __init__(self, hass: HomeAssistant, entry):
+    def __init__(self, hass: Home Assistant, entry):
         self.hass = hass
         self.entry = entry
         self._name = entry.data["name"]
@@ -291,11 +292,11 @@ class RoomHeater(ClimateEntity):
     @property
     def hvac_mode(self):
         c = self._central_state()
-        return c.state if c else HVAC_MODE_OFF
+        return c.state if c else HVACMode.OFF.value  # ← Utilise l'Enum
 
     @property
     def hvac_modes(self):
-        return [HVAC_MODE_AUTO, HVAC_MODE_OFF]
+        return [HVACMode.AUTO.value, HVACMode.OFF.value]  # ← Utilise l'Enum
 
     @property
     def preset_modes(self):
