@@ -1,5 +1,5 @@
 """
-Chauffage Électrique Fil Pilote Français - v1.3.0
+Chauffage Électrique Fil Pilote Français - v1.4.0
 Auteur : XAV59213
 100 % local - Décembre 2025
 """
@@ -11,9 +11,9 @@ from homeassistant.components.climate.const import (
 )
 from homeassistant.const import TEMP_CELSIUS, ATTR_TEMPERATURE, STATE_ON
 from .const import (
-    DOMAIN, CENTRAL, ROOM, PRESETS, OFFSET, FIL_PILOTE_PAYLOAD,
+    DOMAIN, CENTRAL, ROOM, PRESETS, FIL_PILOTE_PAYLOAD,
     PRESET_COMFORT, PRESET_COMFORT_M1, PRESET_COMFORT_M2,
-    PRESET_ECO, PRESET_HORS_GEL, PRESET_OFF, DEFAULT_FROST_TEMP
+    PRESET_ECO, PRESET_HORS_GEL, PRESET_OFF
 )
 
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE
@@ -32,10 +32,17 @@ class CentralThermostat(ClimateEntity):
         self._name = entry.data["name"]
         self._temp_sensor = entry.data["temperature_sensor"]
         self._master_switch = entry.data["master_switch"]
-        self._frost_temp = entry.data.get("frost_temp", DEFAULT_FROST_TEMP)
+        self._calendar = entry.data.get("heating_calendar")
+        self._temps = {
+            "confort": entry.data.get("temp_confort", 20.0),
+            "confort_m1": entry.data.get("temp_confort_m1", 19.0),
+            "confort_m2": entry.data.get("temp_confort_m2", 18.0),
+            "eco": entry.data.get("temp_eco", 16.5),
+            "hors_gel": entry.data.get("frost_temp", 7.0),
+        }
 
         self._current_temp = None
-        self._target_temp = 20.0
+        self._target_temp = self._temps["confort"]
         self._preset = PRESET_COMFORT
         self._hvac_mode = HVAC_MODE_AUTO
 
@@ -52,9 +59,8 @@ class CentralThermostat(ClimateEntity):
         if self._preset == PRESET_OFF:
             return None
         if self._preset == PRESET_HORS_GEL:
-            return self._frost_temp
-        base = self._target_temp
-        return base + OFFSET.get(self._preset, 0)
+            return self._temps["hors_gel"]
+        return self._temps.get(self._preset.replace("_", ""), self._temps["confort"])
 
     @property
     def hvac_mode(self): return self._hvac_mode
@@ -77,6 +83,7 @@ class CentralThermostat(ClimateEntity):
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE in kwargs:
             self._target_temp = kwargs[ATTR_TEMPERATURE]
+            self._temps["confort"] = self._target_temp
             self._preset = PRESET_COMFORT
             self.async_write_ha_state()
             await self._push_to_rooms()
@@ -85,17 +92,6 @@ class CentralThermostat(ClimateEntity):
         if preset_mode in PRESETS:
             self._preset = preset_mode
             self._hvac_mode = HVAC_MODE_OFF if preset_mode == PRESET_OFF else HVAC_MODE_AUTO
-
-            # Valeurs par défaut intelligentes au premier changement de mode
-            if self._target_temp <= 15:
-                defaults = {
-                    PRESET_COMFORT: 20.0,
-                    PRESET_COMFORT_M1: 19.0,
-                    PRESET_COMFORT_M2: 18.0,
-                    PRESET_ECO: 19.5,
-                }
-                self._target_temp = defaults.get(preset_mode, 20.0)
-
             self.async_write_ha_state()
             await self._push_to_rooms()
 
@@ -103,7 +99,7 @@ class CentralThermostat(ClimateEntity):
         for entry in self.hass.config_entries.async_entries(DOMAIN):
             if entry.data.get("type") == ROOM:
                 await RoomHeater(self.hass, entry).apply_central_order(
-                    self._preset, self._target_temp, self._frost_temp
+                    self._preset, self._temps, self._calendar
                 )
 
 # ====================== RADIATEUR PAR PIÈCE ======================
@@ -141,11 +137,12 @@ class RoomHeater(ClimateEntity):
         c = self._central_state()
         if not c: return 0
         preset = c.attributes.get("preset_mode")
-        base = float(c.attributes.get("temperature", 20))
-        frost = float(c.attributes.get("frost_temp", 7.0))
-        if preset == PRESET_HORS_GEL: return frost
-        if preset == PRESET_OFF: return 0
-        return base + OFFSET.get(preset, 0)
+        temps = c.attributes.get("temperature_setpoints", {})
+        if preset == PRESET_HORS_GEL:
+            return temps.get("hors_gel", 7.0)
+        if preset == PRESET_OFF:
+            return 0
+        return temps.get(preset.replace("_", ""), 20.0)
 
     @property
     def hvac_mode(self):
@@ -164,9 +161,20 @@ class RoomHeater(ClimateEntity):
             except: self._current_temp = None
         self.async_write_ha_state()
 
-    async def apply_central_order(self, preset, base_temp, frost_temp):
-        if any(self.hass.states.get(w) and self.hass.states.get(w).state == STATE_ON for w in self._windows):
+    def _is_heating_allowed(self, calendar_id):
+        if not calendar_id:
+            return True
+        state = self.hass.states.get(calendar_id)
+        return state and state.state == "on"
+
+    async def apply_central_order(self, preset, temps_dict, calendar_id):
+        # 1. Calendrier chauffage désactivé → Hors-gel
+        if not self._is_heating_allowed(calendar_id):
+            payload = FIL_PILOTE_PAYLOAD[PRESET_HORS_GEL]
+        # 2. Fenêtre ouverte → Arrêt
+        elif any(self.hass.states.get(w) and self.hass.states.get(w).state == STATE_ON for w in self._windows):
             payload = FIL_PILOTE_PAYLOAD[PRESET_OFF]
+        # 3. Mode normal
         else:
             payload = FIL_PILOTE_PAYLOAD.get(preset, FIL_PILOTE_PAYLOAD[PRESET_OFF])
 
