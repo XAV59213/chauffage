@@ -4,8 +4,39 @@ from homeassistant.helpers import selector
 import voluptuous as vol
 from .const import DOMAIN, CENTRAL, ROOM, DEFAULT_FROST_TEMP
 
+
+# LE SEUL ET UNIQUE BON ENDROIT POUR LE HANDLER EN HA 2025
+@config_entries.HANDLERS.register(DOMAIN)
+async def async_migrate_entry(hass, config_entry: config_entries.ConfigEntry):
+    """Migration automatique des anciennes configurations vers v5+"""
+    if config_entry.version >= 5:
+        return True
+
+    new_data = dict(config_entry.data)
+
+    defaults = {
+        "temp_confort": 20.0,
+        "temp_confort_m1": 19.0,
+        "temp_confort_m2": 18.0,
+        "temp_eco": 16.5,
+        "frost_temp": DEFAULT_FROST_TEMP,
+        "heating_calendar": None,
+    }
+
+    for key, default_value in defaults.items():
+        new_data.setdefault(key, default_value)
+
+    hass.config_entries.async_update_entry(
+        config_entry,
+        data=new_data,
+        version=5
+    )
+
+    return True
+
+
 class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 4  # version finale
+    VERSION = 5
 
     async def async_step_user(self, user_input=None):
         if not any(e.data.get("type") == CENTRAL for e in self.hass.config_entries.async_entries(DOMAIN)):
@@ -39,10 +70,7 @@ class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.EntitySelectorConfig(domain=["switch", "input_boolean"])
                 ),
                 vol.Optional("heating_calendar"): selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        domain=["input_boolean", "binary_sensor", "calendar"],
-                        multiple=False
-                    )
+                    selector.EntitySelectorConfig(domain=["input_boolean", "binary_sensor", "calendar"], multiple=False)
                 ),
                 vol.Optional("temp_confort", default=20.0): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=15.0, max=30.0, step=0.5, unit_of_measurement="°C", mode="box")
@@ -65,18 +93,38 @@ class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_room(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title=user_input["name"], data=user_input)
+            relay_entity = user_input["heater_relay"]
+            state = self.hass.states.get(relay_entity)
+            zigbee_id = state.attributes.get("friendly_name") if state else relay_entity.split(".")[1]
+
+            data = {
+                "type": ROOM,
+                "name": user_input["name"],
+                "heater_zigbee_id": zigbee_id,
+                "temperature_sensor": user_input["temperature_sensor"],
+                "window_sensors": ",".join(user_input.get("window_sensors", [])) or "",
+            }
+            return self.async_create_entry(title=user_input["name"], data=data)
 
         return self.async_show_form(
             step_id="room",
             data_schema=vol.Schema({
                 vol.Required("name"): str,
-                vol.Required("heater_zigbee_id"): str,
+                vol.Required("heater_relay"): selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain="select",
+                        filter=selector.EntityFilterSelectorConfig(integration="mqtt")
+                    )
+                ),
                 vol.Required("temperature_sensor"): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="sensor", device_class="temperature")
                 ),
                 vol.Optional("window_sensors"): selector.EntitySelector(
-                    selector.EntitySelectorConfig(multiple=True, domain="binary_sensor", device_class="window")
+                    selector.EntitySelectorConfig(
+                        multiple=True,
+                        domain="binary_sensor",
+                        device_class="window"
+                    )
                 ),
             }),
             description_placeholders={"title": "Ajouter un radiateur fil pilote"}
