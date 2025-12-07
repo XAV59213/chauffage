@@ -22,7 +22,7 @@
         "description": "Configuration d’un radiateur fil pilote",
         "data": {
           "name": "Nom de la pièce",
-          "heater_zigbee_id": "ID Zigbee du SIN-4-FP-21",
+          "heater_relay": "Choisir votre relais fil pilote",
           "temperature_sensor": "Sonde de température",
           "window_sensors": "Capteurs fenêtre (optionnel)"
         }
