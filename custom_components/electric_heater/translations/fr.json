@@ -1,0 +1,23 @@
+{
+  "title": "Chauffage Électrique Fil Pilote FR",
+  "config": {
+    "step": {
+      "central": {
+        "title": "Thermostat Central",
+        "description": "Configuration du thermostat principal"
+      },
+      "room": {
+        "title": "Ajouter une pièce"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "frost_temp": "Température hors-gel (°C)"
+        }
+      }
+    }
+  }
+}
