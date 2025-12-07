@@ -1,5 +1,6 @@
 {
   "title": "Chauffage Électrique Fil Pilote FR",
+
   "config": {
     "step": {
       "central": {
@@ -9,7 +10,11 @@
           "name": "Nom du thermostat",
           "temperature_sensor": "Sonde de température centrale",
           "master_switch": "Switch maître (optionnel)",
-          "frost_temp": "Température hors-gel (°C)"
+          "temp_confort": "Température Confort (°C)",
+          "temp_confort_m1": "Température Confort –1 °C",
+          "temp_confort_m2": "Température Confort –2 °C",
+          "temp_eco": "Température Éco (°C)",
+          "frost_temp": "Température Hors-gel (°C)"
         }
       },
       "room": {
@@ -17,34 +22,45 @@
         "description": "Configuration d’un radiateur fil pilote",
         "data": {
           "name": "Nom de la pièce",
-          "heater_zigbee_id": "ID Zigbee du SIN-4-FP-21 (friendly name ou 0x…)",
+          "heater_zigbee_id": "ID Zigbee du SIN-4-FP-21 (nom amical ou 0x…)",
           "temperature_sensor": "Sonde de température de la pièce",
-          "window_sensors": "Capteurs fenêtre (séparés par virgule, optionnel)"
+          "window_sensors": "Capteurs fenêtre / velux (optionnel)"
         }
       }
     },
     "error": {
-      "invalid_zigbee_id": "L’ID Zigbee est invalide ou non trouvé",
-      "cannot_connect": "Impossible de communiquer avec le module Zigbee"
+      "cannot_connect": "Impossible de communiquer avec le module Zigbee",
+      "invalid_zigbee_id": "ID Zigbee invalide ou introuvable"
+    },
+    "abort": {
+      "already_configured": "Ce thermostat central est déjà configuré"
     }
   },
+
   "options": {
     "step": {
       "init": {
         "title": "Options du thermostat central",
+        "description": "Personnalise les températures de consigne",
         "data": {
-          "frost_temp": "Température hors-gel (°C)"
+          "temp_confort": "Température Confort (°C)",
+          "temp_confort_m1": "Température Confort –1 °C",
+          "temp_confort_m2": "Température Confort –2 °C",
+          "temp_eco": "Température Éco (°C)",
+          "frost_temp": "Température Hors-gel (°C)"
         }
       }
     }
   },
+
   "entity": {
     "climate": {
       "electric_heater_central": {
-        "name": "Thermostat Central"
+        "name": "Thermostat Central Chauffage"
       }
     }
   },
+
   "state": {
     "climate": {
       "confort": "Confort",
@@ -53,6 +69,19 @@
       "eco": "Éco",
       "hors_gel": "Hors-gel",
       "off": "Arrêt"
+    }
+  },
+
+  "state_attributes": {
+    "preset_mode": {
+      "state": {
+        "confort": "Confort",
+        "confort_-1": "Confort –1 °C",
+        "confort_-2": "Confort –2 °C",
+        "eco": "Éco",
+        "hors_gel": "Hors-gel",
+        "off": "Arrêt"
+      }
     }
   }
 }
