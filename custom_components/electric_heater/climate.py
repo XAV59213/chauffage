@@ -1,7 +1,6 @@
 """
-Chauffage Électrique Fil Pilote Français
+Chauffage Électrique Fil Pilote Français - v1.3.0
 Auteur : XAV59213
-Compatible SIN-4-FP-21 + TH01 + Zigbee2MQTT
 100 % local - Décembre 2025
 """
 
@@ -12,7 +11,9 @@ from homeassistant.components.climate.const import (
 )
 from homeassistant.const import TEMP_CELSIUS, ATTR_TEMPERATURE, STATE_ON
 from .const import (
-    DOMAIN, CENTRAL, ROOM, PRESETS, OFFSET, FIL_PILOTE_PAYLOAD, DEFAULT_FROST_TEMP
+    DOMAIN, CENTRAL, ROOM, PRESETS, OFFSET, FIL_PILOTE_PAYLOAD,
+    PRESET_COMFORT, PRESET_COMFORT_M1, PRESET_COMFORT_M2,
+    PRESET_ECO, PRESET_HORS_GEL, PRESET_OFF, DEFAULT_FROST_TEMP
 )
 
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE
@@ -23,7 +24,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     else:
         async_add_entities([RoomHeater(hass, config_entry)])
 
-# ==================== THERMOSTAT CENTRAL ====================
+# ====================== THERMOSTAT CENTRAL ======================
 class CentralThermostat(ClimateEntity):
     def __init__(self, hass, entry):
         self.hass = hass
@@ -35,7 +36,7 @@ class CentralThermostat(ClimateEntity):
 
         self._current_temp = None
         self._target_temp = 20.0
-        self._preset = PRESETS[0]
+        self._preset = PRESET_COMFORT
         self._hvac_mode = HVAC_MODE_AUTO
 
     @property
@@ -47,7 +48,14 @@ class CentralThermostat(ClimateEntity):
     @property
     def current_temperature(self): return self._current_temp
     @property
-    def target_temperature(self): return self._target_temp
+    def target_temperature(self):
+        if self._preset == PRESET_OFF:
+            return None
+        if self._preset == PRESET_HORS_GEL:
+            return self._frost_temp
+        base = self._target_temp
+        return base + OFFSET.get(self._preset, 0)
+
     @property
     def hvac_mode(self): return self._hvac_mode
     @property
@@ -69,7 +77,7 @@ class CentralThermostat(ClimateEntity):
     async def async_set_temperature(self, **kwargs):
         if ATTR_TEMPERATURE in kwargs:
             self._target_temp = kwargs[ATTR_TEMPERATURE]
-            self._preset = PRESETS[0]
+            self._preset = PRESET_COMFORT
             self.async_write_ha_state()
             await self._push_to_rooms()
 
@@ -77,6 +85,17 @@ class CentralThermostat(ClimateEntity):
         if preset_mode in PRESETS:
             self._preset = preset_mode
             self._hvac_mode = HVAC_MODE_OFF if preset_mode == PRESET_OFF else HVAC_MODE_AUTO
+
+            # Valeurs par défaut intelligentes au premier changement de mode
+            if self._target_temp <= 15:
+                defaults = {
+                    PRESET_COMFORT: 20.0,
+                    PRESET_COMFORT_M1: 19.0,
+                    PRESET_COMFORT_M2: 18.0,
+                    PRESET_ECO: 19.5,
+                }
+                self._target_temp = defaults.get(preset_mode, 20.0)
+
             self.async_write_ha_state()
             await self._push_to_rooms()
 
@@ -87,7 +106,7 @@ class CentralThermostat(ClimateEntity):
                     self._preset, self._target_temp, self._frost_temp
                 )
 
-# ==================== RADIATEUR PAR PIÈCE ====================
+# ====================== RADIATEUR PAR PIÈCE ======================
 class RoomHeater(ClimateEntity):
     def __init__(self, hass, entry):
         self.hass = hass
@@ -154,8 +173,5 @@ class RoomHeater(ClimateEntity):
         await self.hass.services.async_call(
             "zigbee2mqtt",
             "publish",
-            {
-                "topic": f"{self._zigbee_id}/set",
-                "payload_json": payload
-            }
+            {"topic": f"{self._zigbee_id}/set", "payload_json": payload}
         )
