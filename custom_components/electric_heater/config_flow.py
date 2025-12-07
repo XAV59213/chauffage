@@ -5,7 +5,7 @@ import voluptuous as vol
 from .const import DOMAIN, CENTRAL, ROOM, DEFAULT_FROST_TEMP
 
 class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 2
+    VERSION = 4  # version finale
 
     async def async_step_user(self, user_input=None):
         if not any(e.data.get("type") == CENTRAL for e in self.hass.config_entries.async_entries(DOMAIN)):
@@ -14,13 +14,12 @@ class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_central(self, user_input=None):
         if user_input is not None:
-            # Valeurs par défaut si non définies
             data = {
                 "type": CENTRAL,
                 "name": user_input.get("name", "Thermostat Central"),
                 "temperature_sensor": user_input["temperature_sensor"],
                 "master_switch": user_input["master_switch"],
-                # Températures par défaut (peuvent être modifiées dans les options après)
+                "heating_calendar": user_input.get("heating_calendar"),
                 "temp_confort": user_input.get("temp_confort", 20.0),
                 "temp_confort_m1": user_input.get("temp_confort_m1", 19.0),
                 "temp_confort_m2": user_input.get("temp_confort_m2", 18.0),
@@ -39,6 +38,12 @@ class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("master_switch"): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=["switch", "input_boolean"])
                 ),
+                vol.Optional("heating_calendar"): selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain=["input_boolean", "binary_sensor", "calendar"],
+                        multiple=False
+                    )
+                ),
                 vol.Optional("temp_confort", default=20.0): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=15.0, max=30.0, step=0.5, unit_of_measurement="°C", mode="box")
                 ),
@@ -55,7 +60,7 @@ class ElectricHeaterFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.NumberSelectorConfig(min=7.0, max=10.0, step=0.5, unit_of_measurement="°C", mode="slider")
                 ),
             }),
-            description_placeholders={"title": "Configuration du thermostat principal"}
+            description_placeholders={"title": "Thermostat Central - Configuration principale"}
         )
 
     async def async_step_room(self, user_input=None):
