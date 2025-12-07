@@ -4,20 +4,55 @@
     "step": {
       "central": {
         "title": "Thermostat Central",
-        "description": "Configuration du thermostat principal"
+        "description": "Configuration du thermostat principal de la maison",
+        "data": {
+          "name": "Nom du thermostat",
+          "temperature_sensor": "Sonde de température centrale",
+          "master_switch": "Switch maître (optionnel)",
+          "frost_temp": "Température hors-gel (°C)"
+        }
       },
       "room": {
-        "title": "Ajouter une pièce"
+        "title": "Ajouter une pièce",
+        "description": "Configuration d’un radiateur fil pilote",
+        "data": {
+          "name": "Nom de la pièce",
+          "heater_zigbee_id": "ID Zigbee du SIN-4-FP-21 (friendly name ou 0x…)",
+          "temperature_sensor": "Sonde de température de la pièce",
+          "window_sensors": "Capteurs fenêtre (séparés par virgule, optionnel)"
+        }
       }
+    },
+    "error": {
+      "invalid_zigbee_id": "L’ID Zigbee est invalide ou non trouvé",
+      "cannot_connect": "Impossible de communiquer avec le module Zigbee"
     }
   },
   "options": {
     "step": {
       "init": {
+        "title": "Options du thermostat central",
         "data": {
           "frost_temp": "Température hors-gel (°C)"
         }
       }
+    }
+  },
+  "entity": {
+    "climate": {
+      "electric_heater_central": {
+        "name": "Thermostat Central"
+      }
+    }
+  },
+  "state": {
+    "climate": {
+      "confort": "Confort",
+      "confort_-1": "Confort –1 °C",
+      "confort_-2": "Confort –2 °C",
+      "eco": "Éco",
+      "hors_gel": "Hors-gel",
+      "off": "Arrêt"
     }
   }
 }
