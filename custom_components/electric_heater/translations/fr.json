@@ -2,17 +2,22 @@
   "title": "Chauffage Électrique Fil Pilote FR",
   "config": {
     "step": {
+      "user": {
+        "title": "Chauffage Électrique Fil Pilote FR",
+        "description": "Choisissez le type d'ajout"
+      },
       "central": {
-        "title": "Thermostat Central",
-        "description": "Configuration du thermostat principal",
+        "title": "Configuration du Thermostat Central",
+        "description": "Configuration du thermostat principal (une seule fois)",
         "data": {
           "name": "Nom",
-          "temperature_sensor": "Sonde de température centrale",
-          "master_switch": "Switch maître",
-          "heating_calendar": "Calendrier chauffage (input_boolean, binary_sensor, calendar)",
+          "temperature_sensor": "Sonde de température centrale (ex: salon)",
+          "master_switch": "Switch maître (optionnel)",
+          "heating_calendar": "Calendrier de chauffe (optionnel)",
+          "presence_sensor": "Capteur nombre de personnes (ex: sensor.nombre_famille_home)",
           "temp_confort": "Température Confort (°C)",
-          "temp_confort_m1": "Température Confort –1 °C",
-          "temp_confort_m2": "Température Confort –2 °C",
+          "temp_confort_m1": "Température Confort –1°C",
+          "temp_confort_m2": "Température Confort –2°C",
           "temp_eco": "Température Éco (°C)",
           "frost_temp": "Température Hors-gel (°C)"
         }
@@ -22,18 +27,65 @@
         "description": "Configuration d’un radiateur fil pilote",
         "data": {
           "name": "Nom de la pièce",
-          "heater_relay": "Choisir votre relais fil pilote",
-          "temperature_sensor": "Sonde de température",
-          "window_sensors": "Capteurs fenêtre (optionnel)"
+          "heater_relay": "Relais fil pilote (select MQTT du SIN-4-FP-21)",
+          "temperature_sensor": "Sonde de température de la pièce",
+          "window_sensors": "Capteurs fenêtre (optionnel, plusieurs possibles)"
         }
+      }
+    },
+    "error": {
+      "invalid_sensor": "Capteur invalide ou inexistant",
+      "unknown": "Erreur inconnue"
+    },
+    "abort": {
+      "already_configured": "Le thermostat central est déjà configuré"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options du thermostat central",
+        "data": {
+          "temp_confort": "Température Confort (°C)",
+          "temp_confort_m1": "Température Confort –1°C",
+          "temp_confort_m2": "Température Confort –2°C",
+          "temp_eco": "Température Éco (°C)",
+          "frost_temp": "Température Hors-gel (°C)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "electric_heater_central": {
+        "name": "Thermostat Central"
+      }
+    },
+    "sensor": {
+      "electric_heater_central_temperature": {
+        "name": "Température centrale"
+      },
+      "electric_heater_central_persons": {
+        "name": "Nombre de personnes"
+      }
+    },
+    "binary_sensor": {
+      "electric_heater_central_heating_active": {
+        "name": "Chauffage actif"
+      },
+      "electric_heater_central_presence": {
+        "name": "Présence"
+      },
+      "electric_heater_central_eco_auto": {
+        "name": "Mode Éco auto"
       }
     }
   },
   "state": {
     "climate": {
       "confort": "Confort",
-      "confort_-1": "Confort –1 °C",
-      "confort_-2": "Confort –2 °C",
+      "confort_-1": "Confort –1°C",
+      "confort_-2": "Confort –2°C",
       "eco": "Éco",
       "hors_gel": "Hors-gel",
       "off": "Arrêt"
