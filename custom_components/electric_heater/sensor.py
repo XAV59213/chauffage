@@ -10,7 +10,7 @@ from .const import DOMAIN, CENTRAL, ROOM, CONF_PRESENCE_SENSOR
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     entities = []
     if entry.data.get("type") == CENTRAL:
-        entities.append(CentralTemperatureSensor(hass, entry))
+        entities.append(CentralTemperatureSensor(hass))
         if entry.data.get(CONF_PRESENCE_SENSOR):
             entities.append(CentralPersonsSensor(hass, entry))
     else:
@@ -26,7 +26,7 @@ class CentralTemperatureSensor(SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+    def __init__(self, hass: HomeAssistant):
         self.hass = hass
 
     @property
@@ -35,7 +35,7 @@ class CentralTemperatureSensor(SensorEntity):
 
     async def async_added_to_hass(self):
         self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update)
-        await self._update()
+        self._update()
 
     @callback
     def _update(self, event=None):
@@ -61,7 +61,7 @@ class CentralPersonsSensor(SensorEntity):
 
     async def async_added_to_hass(self):
         async_track_state_change_event(self.hass, [self._sensor], self._update)
-        await self._update()
+        self._update()
 
     @callback
     def _update(self, event=None):
@@ -79,6 +79,7 @@ class RoomTemperatureSensor(SensorEntity):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
+        self.entry = entry
         self._sensor = entry.data["temperature_sensor"]
         self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_temperature"
 
@@ -88,7 +89,7 @@ class RoomTemperatureSensor(SensorEntity):
 
     async def async_added_to_hass(self):
         async_track_state_change_event(self.hass, [self._sensor], self._update)
-        await self._update()
+        self._update()
 
     @callback
     def _update(self, event=None):
