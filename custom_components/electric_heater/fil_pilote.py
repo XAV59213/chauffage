@@ -19,6 +19,26 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 _OFF_HINTS = ("off", "stop", "arret", "arrêt")
+_OPEN_STATES = {
+    "on",
+    "open",
+    "opened",
+    "true",
+    "1",
+    "ouvert",
+    "ouverte",
+}
+_CLOSED_STATES = {
+    "off",
+    "closed",
+    "close",
+    "false",
+    "0",
+    "ferme",
+    "fermé",
+    "fermee",
+    "fermée",
+}
 
 
 def room_fil_pilote_id(data: dict) -> str | None:
@@ -71,11 +91,25 @@ def parse_window_sensors(data: dict | None) -> list[str]:
     return [s for s in items if "." in s]
 
 
+def is_window_open_state(state: State | None) -> bool:
+    if state is None or state.state in ("unknown", "unavailable", None):
+        return False
+    raw = str(state.state).strip().lower()
+    if raw in _OPEN_STATES:
+        return True
+    if raw in _CLOSED_STATES:
+        contact = state.attributes.get("contact")
+        if contact is False or contact == 0:
+            return True
+        return False
+    contact = state.attributes.get("contact")
+    if contact is False or contact == 0:
+        return True
+    return False
+
+
 def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
-    return any(
-        (st := hass.states.get(eid)) is not None and st.state == "on"
-        for eid in sensors
-    )
+    return any(is_window_open_state(hass.states.get(eid)) for eid in sensors or [])
 
 
 def central_window_open(hass: HomeAssistant) -> bool:
