@@ -69,6 +69,13 @@ def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
     )
 
 
+def central_window_open(hass: HomeAssistant) -> bool:
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.data.get("type") == CENTRAL:
+            return any_window_open(hass, parse_window_sensors(entry.data))
+    return False
+
+
 def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str | None:
     aliases = FIL_PILOTE_ALIASES.get(preset, [preset])
     if not available:
@@ -94,6 +101,8 @@ def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str |
 
 
 async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: str) -> None:
+    if central_window_open(hass):
+        preset = PRESET_OFF
     if not entity_id:
         _LOGGER.warning("Aucun relais fil pilote configuré pour l'ordre %s", preset)
         return
