@@ -4,15 +4,16 @@
     "step": {
       "user": {
         "title": "French Pilot-Wire Electric Heating",
-        "description": "Create the central thermostat first, then add each radiator."
+        "description": "Create the virtual thermostat first, then add each radiator."
       },
       "central": {
-        "title": "Central thermostat",
-        "description": "Pick the temperature sensor that will drive the thermostat.",
+        "title": "Virtual thermostat",
+        "description": "Auto follows the heating calendar: active = Comfort, inactive = Eco. Heat and Off override the calendar.",
         "data": {
-          "name": "Thermostat name",
+          "name": "Virtual thermostat name",
           "temp_method": "Temperature source",
           "temperature_sensor": "Temperature sensor",
+          "heating_calendar": "Heating calendar (Auto mode)",
           "presence_sensor": "Presence sensor (optional)",
           "comfort_temp": "Comfort temperature",
           "comfort_m1_temp": "Comfort -1",
@@ -36,12 +37,47 @@
       }
     },
     "error": {
+      "invalid_sensor": "Invalid or missing sensor",
       "sensor_required": "Please choose a temperature sensor",
       "already_configured": "This device is already configured",
       "unknown": "Unknown error"
     },
     "abort": {
       "already_configured": "This device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edit configuration"
+      },
+      "central": {
+        "title": "Virtual thermostat options",
+        "data": {
+          "name": "Virtual thermostat name",
+          "temp_method": "Temperature source",
+          "temperature_sensor": "Temperature sensor",
+          "heating_calendar": "Heating calendar (Auto mode)",
+          "presence_sensor": "Presence sensor",
+          "comfort_temp": "Comfort temperature",
+          "comfort_m1_temp": "Comfort -1",
+          "comfort_m2_temp": "Comfort -2",
+          "eco_temp": "Eco temperature",
+          "frost_temp": "Frost-protection temperature",
+          "min_temp": "Minimum temperature",
+          "max_temp": "Maximum temperature",
+          "temp_step": "Step"
+        }
+      },
+      "room": {
+        "title": "Radiator options",
+        "data": {
+          "name": "Room / radiator name",
+          "fil_pilote_select": "Pilot-wire relay",
+          "temperature_sensor": "Room temperature sensor",
+          "window_sensors": "Window sensors"
+        }
+      }
     }
   }
 }
