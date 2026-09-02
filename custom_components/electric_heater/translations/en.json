@@ -3,7 +3,8 @@
   "config": {
     "entry_type": "Radiator",
     "initiate_flow": {
-      "user": "Add a radiator"
+      "user": "Add a radiator",
+      "reconfigure": "Configure"
     },
     "step": {
       "user": {
@@ -11,7 +12,7 @@
         "description": "Create the virtual thermostat first, then add each radiator."
       },
       "central": {
-        "title": "Virtual thermostat",
+        "title": "Configure the thermostat",
         "description": "Auto follows the heating calendar: active = Comfort, inactive = Eco. Heat and Off override the calendar.",
         "data": {
           "name": "Virtual thermostat name",
@@ -50,12 +51,16 @@
     }
   },
   "options": {
+    "initiate_flow": {
+      "user": "Configure the thermostat"
+    },
     "step": {
       "init": {
-        "title": "Edit configuration"
+        "title": "Configure"
       },
       "central": {
-        "title": "Virtual thermostat options",
+        "title": "Configure the thermostat",
+        "description": "Sensor, calendar, presence, salon windows, weather and setpoints.",
         "data": {
           "name": "Virtual thermostat name",
           "temp_method": "Temperature source",
@@ -73,7 +78,8 @@
         }
       },
       "room": {
-        "title": "Radiator options",
+        "title": "Configure the radiator",
+        "description": "Pilot-wire relay, room sensor and windows.",
         "data": {
           "name": "Room / radiator name",
           "fil_pilote_select": "Pilot-wire relay",
