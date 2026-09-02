@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import CENTRAL, CONF_PRESENCE_SENSOR, CONF_TEMPERATURE_SENSOR, DOMAIN
+from .fil_pilote import get_central_state
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -29,6 +30,7 @@ class CentralTemperatureSensor(SensorEntity):
 
     def __init__(self, hass: HomeAssistant):
         self.hass = hass
+        self._unsub = None
 
     @property
     def device_info(self):
@@ -36,14 +38,25 @@ class CentralTemperatureSensor(SensorEntity):
 
     async def async_added_to_hass(self):
         self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update)
+        central = get_central_state(self.hass)
+        if central:
+            self._unsub = async_track_state_change_event(
+                self.hass, [central.entity_id], self._update
+            )
         self._update()
 
     @callback
     def _update(self, event=None):
-        central = self.hass.states.get("climate.electric_heater_central")
-        self._attr_native_value = (
-            central.attributes.get("current_temperature") if central else None
-        )
+        central = get_central_state(self.hass)
+        value = None
+        if central:
+            raw = central.attributes.get("current_temperature")
+            if raw is not None:
+                try:
+                    value = round(float(raw), 1)
+                except (TypeError, ValueError):
+                    value = None
+        self._attr_native_value = value
         self.async_write_ha_state()
 
 
