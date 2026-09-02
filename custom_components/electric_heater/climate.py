@@ -28,6 +28,7 @@ from .const import (
     DOMAIN,
     EVENT_CENTRAL_CHANGED,
     EVENT_ROOMS_CHANGED,
+    EVENT_WINDOWS_CHANGED,
     HYSTERESIS,
     PRESET_COMFORT,
     PRESET_COMFORT_M1,
@@ -39,12 +40,13 @@ from .const import (
     VERSION,
 )
 from .fil_pilote import (
-    any_window_open,
     apply_fil_pilote,
+    central_window_open,
+    entry_windows_open,
     get_central_state,
     iter_room_entries,
-    parse_window_sensors,
     room_fil_pilote_id,
+    windows_from_entry,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,7 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class CentralThermostat(ClimateEntity, RestoreEntity):
-    """Thermostat virtuel : Auto suit le calendrier, Chauffage / Eteint forcent."""
+    """Thermostat virtuel : Auto suit le calendrier, ouverture salon = Off."""
 
     _attr_has_entity_name = True
     _attr_name = None
@@ -101,10 +103,12 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._last_manual_preset = PRESET_COMFORT
         self._auto_eco_active = False
         self._calendar_active = False
+        self._window_open = False
         self._unsub_temp = None
         self._unsub_presence = None
         self._unsub_calendar = None
         self._unsub_rooms = None
+        self._unsub_windows = None
 
     def _load_from_entry(self) -> None:
         data = self.entry.data
@@ -157,11 +161,13 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
 
     @property
     def preset_mode(self) -> str | None:
+        if self._window_open:
+            return PRESET_OFF
         return self._preset_mode
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        mode = PRESET_OFF if self._hvac_mode == HVACMode.OFF else self._preset_mode
+        mode = PRESET_OFF if self._window_open or self._hvac_mode == HVACMode.OFF else self._preset_mode
         return {
             "virtual": True,
             "fil_pilote_mode": mode,
@@ -176,6 +182,8 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             "current_temperature": self._current_temp,
             "temp_method": self._temp_method,
             "temperature_sensor": self._reference_sensor,
+            "window_open": self._window_open,
+            "fenetre": "Ouverte" if self._window_open else "Fermee",
             "rooms": [e.title for e in iter_room_entries(self.hass)],
         }
 
@@ -185,27 +193,38 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             if last_state.state in ("heat", "off", "auto"):
                 self._hvac_mode = HVACMode(last_state.state)
             self._preset_mode = last_state.attributes.get("preset_mode", PRESET_COMFORT)
+            if self._preset_mode == PRESET_OFF:
+                self._preset_mode = PRESET_COMFORT
             self._last_manual_preset = (
                 self._preset_mode if self._preset_mode in COMFORT_PRESETS else PRESET_COMFORT
             )
         self._subscribe_sensors()
         self._unsub_rooms = self.hass.bus.async_listen(EVENT_ROOMS_CHANGED, self._on_rooms_changed)
+        self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._handle_windows)
         self._refresh_calendar()
-        if self._hvac_mode == HVACMode.AUTO:
+        self._handle_windows()
+        if self._hvac_mode == HVACMode.AUTO and not self._window_open:
             self._apply_auto_from_calendar(push=False)
         self._update_central_temperature()
         self._update_target_temp()
         self._update_hvac_action()
-        if self._hvac_mode == HVACMode.OFF or (
+        if self._window_open or self._hvac_mode == HVACMode.OFF or (
             self._hvac_mode == HVACMode.AUTO and self._preset_mode == PRESET_OFF
         ):
             self.hass.create_task(self._push_to_all_rooms())
 
     async def async_will_remove_from_hass(self):
-        for unsub in (self._unsub_temp, self._unsub_presence, self._unsub_calendar, self._unsub_rooms):
+        for unsub in (
+            self._unsub_temp,
+            self._unsub_presence,
+            self._unsub_calendar,
+            self._unsub_rooms,
+            self._unsub_windows,
+        ):
             if unsub:
                 unsub()
-        self._unsub_temp = self._unsub_presence = self._unsub_calendar = self._unsub_rooms = None
+        self._unsub_temp = self._unsub_presence = self._unsub_calendar = None
+        self._unsub_rooms = self._unsub_windows = None
 
     @callback
     def _on_rooms_changed(self, event=None):
@@ -222,6 +241,9 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         if self._unsub_calendar:
             self._unsub_calendar()
             self._unsub_calendar = None
+        if self._unsub_windows:
+            self._unsub_windows()
+            self._unsub_windows = None
         sensors = self._get_temperature_sensors()
         if sensors:
             self._unsub_temp = async_track_state_change_event(
@@ -235,6 +257,30 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             self._unsub_calendar = async_track_state_change_event(
                 self.hass, [self._calendar], self._handle_calendar_change
             )
+        windows = windows_from_entry(self.entry)
+        if windows:
+            self._unsub_windows = async_track_state_change_event(
+                self.hass, windows, self._handle_windows
+            )
+
+    @callback
+    def _handle_windows(self, event=None):
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self.entry = current or self.entry
+        was_open = self._window_open
+        self._window_open = central_window_open(self.hass) or entry_windows_open(
+            self.hass, self.entry
+        )
+        self._update_target_temp()
+        self._update_hvac_action()
+        self.async_write_ha_state()
+        if self._window_open != was_open:
+            if self._window_open:
+                self.hass.create_task(self._push_to_all_rooms())
+            elif self._hvac_mode == HVACMode.AUTO:
+                self._apply_auto_from_calendar(push=True)
+            else:
+                self.hass.create_task(self._push_to_all_rooms())
 
     def _get_temperature_sensors(self):
         if self._temp_method == CONF_TEMP_METHOD_AVERAGE:
@@ -260,6 +306,13 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._calendar_active = self._is_calendar_active()
 
     def _apply_auto_from_calendar(self, push: bool = True) -> None:
+        if self._window_open:
+            self._update_target_temp()
+            self._update_hvac_action()
+            self.async_write_ha_state()
+            if push:
+                self.hass.create_task(self._push_to_all_rooms())
+            return
         self._refresh_calendar()
         if self._calendar_active:
             preset = self._calendar_on_mode
@@ -276,6 +329,8 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
 
     @callback
     def _handle_calendar_change(self, event=None):
+        if self._window_open:
+            return
         was_active = self._calendar_active
         self._refresh_calendar()
         if self._calendar_active and not was_active:
@@ -302,7 +357,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
 
     @callback
     def _handle_presence_change(self, event):
-        if self._hvac_mode == HVACMode.OFF:
+        if self._window_open or self._hvac_mode == HVACMode.OFF:
             return
         if self._hvac_mode == HVACMode.AUTO and not self._is_calendar_active():
             return
@@ -334,14 +389,14 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             self.hass.create_task(self._push_to_all_rooms())
 
     def _update_target_temp(self):
-        if self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF:
+        if self._window_open or self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF:
             self._target_temp = None
             return
         key = PRESET_TO_TEMP_KEY.get(self._preset_mode, "comfort")
         self._target_temp = self._temps[key]
 
     def _update_hvac_action(self):
-        if self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF:
+        if self._window_open or self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF:
             self._hvac_action = HVACAction.OFF
         elif self._current_temp is None or self._target_temp is None:
             self._hvac_action = HVACAction.IDLE
@@ -354,6 +409,8 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             )
 
     async def async_set_temperature(self, **kwargs):
+        if self._window_open:
+            return
         if temp := kwargs.get("temperature"):
             self._temps["comfort"] = temp
             self._preset_mode = PRESET_COMFORT
@@ -400,7 +457,11 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         await self._push_to_all_rooms()
 
     async def _push_to_all_rooms(self):
-        preset = PRESET_OFF if self._hvac_mode == HVACMode.OFF else self._preset_mode
+        preset = (
+            PRESET_OFF
+            if self._window_open or self._hvac_mode == HVACMode.OFF
+            else self._preset_mode
+        )
         rooms = iter_room_entries(self.hass)
         if not rooms:
             _LOGGER.warning("Aucun radiateur a commander pour l'ordre %s", preset)
@@ -436,7 +497,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         self._follow_central = True
         self._temp_sensor = entry.data[CONF_TEMPERATURE_SENSOR]
         self._fil_pilote_select = room_fil_pilote_id(entry.data)
-        self._window_sensors = parse_window_sensors(entry.data)
+        self._window_sensors = windows_from_entry(entry)
         self._unsub_temp = None
         self._unsub_windows = None
         self._unsub_central = None
@@ -478,13 +539,14 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
 
     @property
     def preset_mode(self) -> str | None:
-        return self._preset_mode
+        return PRESET_OFF if self._window_open else self._preset_mode
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         off = self._window_open or self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF
         return {
             "window_open": self._window_open,
+            "fenetre": "Ouverte" if self._window_open else "Fermee",
             "follow_central": self._follow_central,
             "fil_pilote_mode": PRESET_OFF if off else self._preset_mode,
             "temperature_sensor": self._temp_sensor,
@@ -508,6 +570,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             self._unsub_windows = async_track_state_change_event(
                 self.hass, self._window_sensors, self._check_windows
             )
+        self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._check_windows)
         self._update_room_temp()
         self._check_windows()
         self.hass.bus.async_fire(EVENT_ROOMS_CHANGED)
@@ -554,7 +617,10 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
 
     @callback
     def _check_windows(self, event=None):
-        self._window_open = any_window_open(self.hass, self._window_sensors)
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self.entry = current or self.entry
+        self._window_sensors = windows_from_entry(self.entry)
+        self._window_open = entry_windows_open(self.hass, self.entry)
         self.hass.create_task(self._apply_fil_pilote())
         self.async_write_ha_state()
 
