@@ -1,56 +1,78 @@
 {
-  "title": "Chauffage Électrique Fil Pilote FR",
+  "title": "Chauffage \u00c9lectrique Fil Pilote FR",
   "config": {
     "step": {
       "user": {
-        "title": "Chauffage Électrique Fil Pilote FR",
-        "description": "Choisissez le type d'ajout"
+        "title": "Chauffage \u00c9lectrique Fil Pilote FR",
+        "description": "Cr\u00e9ez d'abord le thermostat central, puis ajoutez chaque radiateur."
       },
       "central": {
-        "title": "Configuration du Thermostat Central",
-        "description": "Configuration du thermostat principal (une seule fois)",
+        "title": "Thermostat central",
+        "description": "Choisissez la sonde de temp\u00e9rature qui pilotera le thermostat. Ensuite vous ajouterez chaque radiateur fil pilote (NodOn, Legrand, Delta Dore\u2026).",
         "data": {
-          "name": "Nom",
-          "temperature_sensor": "Sonde de température centrale (ex: salon)",
-          "master_switch": "Switch maître (optionnel)",
-          "heating_calendar": "Calendrier de chauffe (optionnel)",
-          "presence_sensor": "Capteur nombre de personnes (ex: sensor.nombre_famille_home)",
-          "temp_confort": "Température Confort (°C)",
-          "temp_confort_m1": "Température Confort –1°C",
-          "temp_confort_m2": "Température Confort –2°C",
-          "temp_eco": "Température Éco (°C)",
-          "frost_temp": "Température Hors-gel (°C)"
+          "name": "Nom du thermostat",
+          "temp_method": "Source de la temp\u00e9rature",
+          "temperature_sensor": "Sonde de temp\u00e9rature (obligatoire si \u00ab Sonde que je choisis \u00bb)",
+          "presence_sensor": "Capteur de pr\u00e9sence / nombre de personnes (optionnel)",
+          "comfort_temp": "Temp\u00e9rature Confort (\u00b0C)",
+          "comfort_m1_temp": "Temp\u00e9rature Confort \u20131 \u00b0C",
+          "comfort_m2_temp": "Temp\u00e9rature Confort \u20132 \u00b0C",
+          "eco_temp": "Temp\u00e9rature \u00c9co (\u00b0C)",
+          "frost_temp": "Temp\u00e9rature Hors-gel (\u00b0C)",
+          "min_temp": "Temp\u00e9rature minimale",
+          "max_temp": "Temp\u00e9rature maximale",
+          "temp_step": "Pas de r\u00e9glage"
         }
       },
       "room": {
-        "title": "Ajouter une pièce",
-        "description": "Configuration d’un radiateur fil pilote",
+        "title": "Ajouter un radiateur",
+        "description": "Associez le relais fil pilote (entit\u00e9 select.xxx_pilot_wire_mode du NodOn) et la sonde de la pi\u00e8ce.",
         "data": {
-          "name": "Nom de la pièce",
-          "heater_relay": "Relais fil pilote (select MQTT du SIN-4-FP-21)",
-          "temperature_sensor": "Sonde de température de la pièce",
-          "window_sensors": "Capteurs fenêtre (optionnel, plusieurs possibles)"
+          "name": "Nom de la pi\u00e8ce / du radiateur",
+          "fil_pilote_select": "Relais fil pilote (select ou climate)",
+          "temperature_sensor": "Sonde de temp\u00e9rature de la pi\u00e8ce",
+          "window_sensors": "Capteurs fen\u00eatre (optionnel)"
         }
       }
     },
     "error": {
       "invalid_sensor": "Capteur invalide ou inexistant",
+      "sensor_required": "Choisissez une sonde de temp\u00e9rature",
       "unknown": "Erreur inconnue"
     },
     "abort": {
-      "already_configured": "Le thermostat central est déjà configuré"
+      "already_configured": "Cet \u00e9quipement est d\u00e9j\u00e0 configur\u00e9"
     }
   },
   "options": {
     "step": {
       "init": {
+        "title": "Modifier la configuration"
+      },
+      "central": {
         "title": "Options du thermostat central",
         "data": {
-          "temp_confort": "Température Confort (°C)",
-          "temp_confort_m1": "Température Confort –1°C",
-          "temp_confort_m2": "Température Confort –2°C",
-          "temp_eco": "Température Éco (°C)",
-          "frost_temp": "Température Hors-gel (°C)"
+          "name": "Nom du thermostat",
+          "temp_method": "Source de la temp\u00e9rature",
+          "temperature_sensor": "Sonde de temp\u00e9rature",
+          "presence_sensor": "Capteur de pr\u00e9sence / nombre de personnes",
+          "comfort_temp": "Temp\u00e9rature Confort (\u00b0C)",
+          "comfort_m1_temp": "Temp\u00e9rature Confort \u20131 \u00b0C",
+          "comfort_m2_temp": "Temp\u00e9rature Confort \u20132 \u00b0C",
+          "eco_temp": "Temp\u00e9rature \u00c9co (\u00b0C)",
+          "frost_temp": "Temp\u00e9rature Hors-gel (\u00b0C)",
+          "min_temp": "Temp\u00e9rature minimale",
+          "max_temp": "Temp\u00e9rature maximale",
+          "temp_step": "Pas de r\u00e9glage"
+        }
+      },
+      "room": {
+        "title": "Options du radiateur",
+        "data": {
+          "name": "Nom de la pi\u00e8ce / du radiateur",
+          "fil_pilote_select": "Relais fil pilote (select ou climate)",
+          "temperature_sensor": "Sonde de temp\u00e9rature de la pi\u00e8ce",
+          "window_sensors": "Capteurs fen\u00eatre"
         }
       }
     }
@@ -60,35 +82,6 @@
       "electric_heater_central": {
         "name": "Thermostat Central"
       }
-    },
-    "sensor": {
-      "electric_heater_central_temperature": {
-        "name": "Température centrale"
-      },
-      "electric_heater_central_persons": {
-        "name": "Nombre de personnes"
-      }
-    },
-    "binary_sensor": {
-      "electric_heater_central_heating_active": {
-        "name": "Chauffage actif"
-      },
-      "electric_heater_central_presence": {
-        "name": "Présence"
-      },
-      "electric_heater_central_eco_auto": {
-        "name": "Mode Éco auto"
-      }
-    }
-  },
-  "state": {
-    "climate": {
-      "confort": "Confort",
-      "confort_-1": "Confort –1°C",
-      "confort_-2": "Confort –2°C",
-      "eco": "Éco",
-      "hors_gel": "Hors-gel",
-      "off": "Arrêt"
     }
   }
 }

@@ -1,123 +1,37 @@
-# Chauffage Électrique Fil Pilote FR  
-**L’intégration ultime 100 % locale pour radiateurs fil pilote français**  
-**SIN-4-FP-21 • TH01 • Zigbee2MQTT • Sécurité fenêtre par pièce • Aucun cloud**
+# Chauffage \u00c9lectrique Fil Pilote FR
+**L\u2019int\u00e9gration 100 % locale pour radiateurs fil pilote fran\u00e7ais**
+**SIN-4-FP-21 \u2022 TH01 \u2022 Zigbee2MQTT / ZHA \u2022 S\u00e9curit\u00e9 fen\u00eatre par pi\u00e8ce \u2022 Aucun cloud**
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/github/v/release/XAV59213/chauffage?style=for-the-badge&label=Version)](https://github.com/XAV59213/chauffage/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-%3E%3D2025.1-00A1DF.svg?style=for-the-badge)](https://www.home-assistant.io)
+## Configuration (issue Thermostat Central)
 
-> Créée et maintenue par **XAV59213** – Décembre 2025  
-> La solution que tout le monde attendait pour remplacer les box Tydom, Sowee, Wiser, Netatmo, etc.
+### 1. Cr\u00e9er le thermostat central
 
----
+Param\u00e8tres \u2192 Appareils et services \u2192 Ajouter une int\u00e9gration \u2192 **Chauffage \u00c9lectrique Fil Pilote FR**
 
-## Fonctionnalités
+1. Nom (`Chauffage Central`).
+2. Source de temp\u00e9rature :
+   - **Sonde que je choisis** \u2192 n\u2019importe quelle sonde `sensor.*` de classe temp\u00e9rature.
+   - **Moyenne des sondes des pi\u00e8ces** \u2192 moyenne automatique une fois les radiateurs ajout\u00e9s.
+3. R\u00e9glez Confort / Confort \u20131 / Confort \u20132 / \u00c9co / Hors-gel.
+4. Validez. L\u2019entit\u00e9 `climate.electric_heater_central` commande **tous** les radiateurs.
 
-| Fonctionnalité                                    | État     |
-|---------------------------------------------------|----------|
-| Thermostat central virtuel avec vraie sonde       | Yes      |
-| 6 ordres fil pilote réels (SIN-4-FP-21)           | Yes      |
-| Confort • Confort –1 • Confort –2 • Éco • Hors-gel • Arrêt | Yes      |
-| Consigne Confort réglable à 0,1 °C près           | Yes      |
-| Température hors-gel réglable (7 → 10 °C)         | Yes      |
-| Sécurité fenêtre ouverte **par pièce**            | Yes      |
-| Chaque pièce avec sa propre sonde TH01            | Yes      |
-| Compatible Zigbee2MQTT (recommandé)               | Yes      |
-| Installation HACS en 1 clic                       | Yes      |
-| Aucun cloud • Aucun abonnement                    | Yes      |
+### 2. Ajouter chaque radiateur
 
----
+Ajoutez \u00e0 nouveau l\u2019int\u00e9gration. Pour chaque pi\u00e8ce :
 
-## Matériel 100 % testé et garanti compatible
+1. Nom (ex. `Salon`).
+2. Relais fil pilote : `select.radiateur_salon_pilot_wire_mode` (NodOn SIN-4-FP-21) ou un `climate.*`.
+3. Sonde de temp\u00e9rature de la pi\u00e8ce (TH01, Aqara, Xiaomi\u2026).
+4. Capteurs fen\u00eatre (optionnel).
 
-| Matériel                              | Résultat         | Notes                              |
-|---------------------------------------|------------------|------------------------------------|
-| NodOn SIN-4-FP-21                     | Parfait          | 6 ordres fil pilote                |
-| Sonoff SNZB-02 / SNZB-02D (TH01)      | Excellent        | Température + humidité             |
-| Aqara / Xiaomi température            | Parfait          | Plus fiable que le TH01            |
-| Tout capteur fenêtre Zigbee           | Fonctionne       | Sécurité locale immédiate          |
-| Zigbee2MQTT (addon)                   | Recommandé       | Meilleure stabilité                |
+### 3. Modifier plus tard
 
----
+Sur l\u2019entr\u00e9e \u2192 **Configurer** : changer la sonde, le relais ou les consignes.
 
-## Installation (5 minutes max)
+## Installation HACS
 
-### Via HACS (recommandé)
+1. HACS \u2192 Int\u00e9grations \u2192 D\u00e9p\u00f4ts personnalis\u00e9s
+2. URL : `https://github.com/XAV59213/chauffage`
+3. Cat\u00e9gorie Integration \u2192 Ajouter \u2192 Installer \u2192 Red\u00e9marrer HA
 
-1. HACS → **Intégrations**  
-2. Menu 3 points → **Dépôts personnalisés**  
-3. URL : `https://github.com/XAV59213/chauffage`  
-4. Catégorie : **Integration** → **Ajouter**  
-5. Cherche **"Chauffage Électrique Fil Pilote FR"** → **Installer**  
-6. Redémarre Home Assistant
-
-### Installation manuelle
-
-Copie le dossier `custom_components/electric_heater/` dans ton `config/custom_components/` → redémarre HA.
-
----
-
-## Configuration
-
-1. **Première fois** → création obligatoire du **Thermostat Central**  
-   - Nom  
-   - Sonde température centrale (ex: salon)  
-   - Switch maître (input_boolean ou module au tableau)  
-   - Température hors-gel (7 à 10 °C)
-
-2. **Ensuite** → ajout des pièces une par une :  
-   - Nom de la pièce  
-   - ID Zigbee du SIN-4-FP-21 (friendly name ou 0x…)  
-   - Sonde de température de la pièce  
-   - (Optionnel) Capteurs fenêtre (séparés par virgule)
-
-**Contrôle total depuis une seule entité** → `climate.electric_heater_central`
-
----
-
-## Carte Lovelace recommandée (copie-colle)
-
-```yaml
-type: vertical-stack
-cards:
-  - type: custom:mushroom-climate-card
-    entity: climate.electric_heater_central
-    name: Chauffage Maison
-    icon: mdi:home-thermometer-outline
-    show_temperature_control: true
-    hvac_modes: [auto, 'off']
-    preset_modes:
-      - confort
-      - confort_-1
-      - confort_-2
-      - eco
-      - hors_gel
-      - 'off'
-    collapsible_controls: false
-
-  - type: glance
-    title: Radiateurs
-    entities:
-      - climate.radiateur_salon
-      - climate.radiateur_chambre
-      - climate.radiateur_cuisine
-    state_color: true
-```
-## Pourquoi c’est mieux que les box commerciales ?
-
-| Critère                              | Chauffage Électrique Fil Pilote FR | Box Tydom / Sowee / Wiser / Netatmo |
-|--------------------------------------|------------------------------------|--------------------------------------|
-| **Prix**                             | Gratuit                            | 150–400 € + abonnement annuel       |
-| **Cloud obligatoire**                | Non                                | Oui                                  |
-| **Sécurité fenêtre ouverte par pièce** | Oui (coupure immédiate)           | Rarement ou jamais                   |
-| **Modes Confort –1 °C / –2 °C**      | Oui                                | Souvent absent                       |
-| **Hors-gel réglable**                | 7 → 10 °C (choix utilisateur)     | Fixe à 7 °C                          |
-| **Consommation détaillée par radiateur** | Oui (SIN-4-FP-21)                | Parfois ou payant                    |
-| **Automatisations Home Assistant**   | Illimitées                         | Très limitées                        |
-| **Mises à jour & nouvelles fonctions**| Instantanées (GitHub)             | Dépend du fabricant (lent ou jamais) |
-| **Confidentialité des données**      | 100 % local                        | Données dans le cloud                |
-| **Indépendance du fournisseur d’énergie** | Total                        | Lié au contrat électricité           |
-
-**Conclusion :**  
-Tu as exactement la même chose (voire mieux) que les box à 300 €… mais **gratuit, sans cloud, sans abonnement et avec toutes les automatisations que tu veux**.
+Le relais n\u2019est plus limit\u00e9 \u00e0 MQTT : Zigbee2MQTT **et** ZHA sont accept\u00e9s.

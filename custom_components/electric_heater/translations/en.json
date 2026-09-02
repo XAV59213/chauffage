@@ -1,0 +1,47 @@
+{
+  "title": "French Pilot-Wire Electric Heating",
+  "config": {
+    "step": {
+      "user": {
+        "title": "French Pilot-Wire Electric Heating",
+        "description": "Create the central thermostat first, then add each radiator."
+      },
+      "central": {
+        "title": "Central thermostat",
+        "description": "Pick the temperature sensor that will drive the thermostat. You will then add each pilot-wire radiator.",
+        "data": {
+          "name": "Thermostat name",
+          "temp_method": "Temperature source",
+          "temperature_sensor": "Temperature sensor",
+          "presence_sensor": "Presence / occupancy sensor (optional)",
+          "comfort_temp": "Comfort temperature (C)",
+          "comfort_m1_temp": "Comfort -1 C",
+          "comfort_m2_temp": "Comfort -2 C",
+          "eco_temp": "Eco temperature (C)",
+          "frost_temp": "Frost-protection temperature (C)",
+          "min_temp": "Minimum temperature",
+          "max_temp": "Maximum temperature",
+          "temp_step": "Step"
+        }
+      },
+      "room": {
+        "title": "Add a radiator",
+        "description": "Link the pilot-wire relay and the room temperature sensor.",
+        "data": {
+          "name": "Room / radiator name",
+          "fil_pilote_select": "Pilot-wire relay (select or climate)",
+          "temperature_sensor": "Room temperature sensor",
+          "window_sensors": "Window sensors (optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_sensor": "Invalid or missing sensor",
+      "sensor_required": "Please choose a temperature sensor",
+      "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "This device is already configured"
+    }
+  }
+}
