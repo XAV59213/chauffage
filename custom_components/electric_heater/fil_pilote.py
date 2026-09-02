@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, State
 
 from .const import (
     CENTRAL,
+    CONF_TEMPERATURE_SENSOR,
     CONF_WINDOW_INVERT,
     CONF_WINDOW_SENSORS,
     DOMAIN,
@@ -16,6 +17,7 @@ from .const import (
     FIL_PILOTE_DATA_KEYS,
     PRESET_OFF,
 )
+from .hysteresis import regulate_preset
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -237,3 +239,15 @@ async def apply_fil_pilote(
             _LOGGER.warning("Type d'entité fil pilote non supporté: %s", entity_id)
     except Exception:  # noqa: BLE001
         _LOGGER.exception("Impossible d'appliquer le mode %s sur %s", preset, entity_id)
+
+
+async def apply_room_order(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    base_preset: str,
+    target: float | None,
+) -> None:
+    entity_id = room_fil_pilote_id(entry.data)
+    current = room_current_temp(hass, entry.data.get(CONF_TEMPERATURE_SENSOR))
+    preset = regulate_preset(base_preset, current, target)
+    await apply_fil_pilote(hass, entity_id, preset, temperature=target)
