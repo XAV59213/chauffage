@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, State
 
 from .const import (
     CENTRAL,
+    CONF_WINDOW_SENSORS,
     DOMAIN,
     FIL_PILOTE_ALIASES,
     FIL_PILOTE_DATA_KEYS,
@@ -50,6 +51,22 @@ def get_central_state(hass: HomeAssistant) -> State | None:
         if state.attributes.get("virtual") is True:
             return state
     return None
+
+
+def parse_window_sensors(data: dict) -> list[str]:
+    raw = data.get(CONF_WINDOW_SENSORS)
+    if not raw:
+        return []
+    if isinstance(raw, (list, tuple)):
+        return [str(s).strip() for s in raw if str(s).strip()]
+    return [s.strip() for s in str(raw).split(",") if s.strip()]
+
+
+def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
+    return any(
+        (st := hass.states.get(eid)) is not None and st.state == "on"
+        for eid in sensors
+    )
 
 
 def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str | None:
