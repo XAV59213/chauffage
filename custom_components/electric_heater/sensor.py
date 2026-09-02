@@ -21,12 +21,15 @@ from .fil_pilote import (
     parse_window_sensors,
 )
 
+HOME_STATES = {"home", "on"}
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     entities = []
     if entry.data.get("type") == CENTRAL:
         entities.append(CentralTemperatureSensor(hass))
         entities.append(WindowStateSensor(hass, entry, central=True))
+        entities.append(WhoIsHomeSensor(hass, entry))
         if entry.data.get(CONF_PRESENCE_SENSOR):
             entities.append(CentralPersonsSensor(hass, entry))
     else:
@@ -106,6 +109,69 @@ class CentralPersonsSensor(SensorEntity):
             )
         except (ValueError, TypeError):
             self._attr_native_value = 0
+        self.async_write_ha_state()
+
+
+class WhoIsHomeSensor(SensorEntity):
+    """Noms des personnes a la maison (person.* et zone.home)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Presents"
+    _attr_unique_id = "electric_heater_central_presents"
+    _attr_icon = "mdi:account-group"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        self.hass = hass
+        self.entry = entry
+        self._unsub = None
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    @property
+    def extra_state_attributes(self):
+        names, entity_ids = self._who()
+        return {
+            "count": len(names),
+            "persons": entity_ids,
+            "names": names,
+        }
+
+    def _who(self) -> tuple[list[str], list[str]]:
+        names: list[str] = []
+        entity_ids: list[str] = []
+        zone = self.hass.states.get("zone.home")
+        listed = []
+        if zone and isinstance(zone.attributes.get("persons"), list):
+            listed = [eid for eid in zone.attributes["persons"] if eid]
+        if listed:
+            for eid in listed:
+                state = self.hass.states.get(eid)
+                entity_ids.append(eid)
+                names.append(state.name if state else eid.split(".", 1)[-1].replace("_", " ").title())
+        else:
+            for state in self.hass.states.async_all("person"):
+                if str(state.state).lower() in HOME_STATES:
+                    entity_ids.append(state.entity_id)
+                    names.append(state.name)
+        return names, entity_ids
+
+    async def async_added_to_hass(self):
+        tracked = ["zone.home"]
+        tracked.extend(state.entity_id for state in self.hass.states.async_all("person"))
+        self._unsub = async_track_state_change_event(self.hass, tracked, self._update)
+        self._update()
+
+    @callback
+    def _update(self, event=None):
+        names, _entity_ids = self._who()
+        if not names:
+            self._attr_native_value = "Personne"
+            self._attr_icon = "mdi:account-off"
+        else:
+            self._attr_native_value = ", ".join(names)
+            self._attr_icon = "mdi:account-group"
         self.async_write_ha_state()
 
 
