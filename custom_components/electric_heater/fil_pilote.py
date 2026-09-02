@@ -246,8 +246,12 @@ async def apply_room_order(
     entry: ConfigEntry,
     base_preset: str,
     target: float | None,
+    exact: bool = False,
 ) -> None:
     entity_id = room_fil_pilote_id(entry.data)
-    current = room_current_temp(hass, entry.data.get(CONF_TEMPERATURE_SENSOR))
-    preset = regulate_preset(base_preset, current, target)
+    if exact:
+        preset = base_preset
+    else:
+        current = room_current_temp(hass, entry.data.get(CONF_TEMPERATURE_SENSOR))
+        preset = regulate_preset(base_preset, current, target)
     await apply_fil_pilote(hass, entity_id, preset, temperature=target)
