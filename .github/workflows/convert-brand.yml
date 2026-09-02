@@ -2,6 +2,11 @@ name: Generate brand PNGs
 
 on:
   workflow_dispatch:
+  push:
+    branches: [feat/brand-assets]
+    paths:
+      - brand-src/**
+      - .github/workflows/convert-brand.yml
 
 permissions:
   contents: write
