@@ -145,7 +145,24 @@ def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str |
     return None
 
 
-async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: str) -> None:
+def room_current_temp(hass: HomeAssistant, sensor_id: str | None) -> float | None:
+    if not sensor_id:
+        return None
+    state = hass.states.get(sensor_id)
+    if not state or state.state in ("unknown", "unavailable"):
+        return None
+    try:
+        return float(state.state)
+    except (TypeError, ValueError):
+        return None
+
+
+async def apply_fil_pilote(
+    hass: HomeAssistant,
+    entity_id: str | None,
+    preset: str,
+    temperature: float | None = None,
+) -> None:
     if central_window_open(hass):
         preset = PRESET_OFF
     if not entity_id:
@@ -161,10 +178,11 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
     available = state.attributes.get("options") or state.attributes.get("preset_modes")
     option = resolve_fil_pilote_option(preset, available)
     _LOGGER.debug(
-        "Fil pilote %s -> %s (demande=%s, dispo=%s)",
+        "Fil pilote %s -> %s (demande=%s, consigne=%s, dispo=%s)",
         entity_id,
         option,
         preset,
+        temperature,
         available,
     )
     if option is None and domain != "climate":
@@ -206,6 +224,13 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
                         "climate",
                         "set_preset_mode",
                         {**data, "preset_mode": option},
+                        blocking=False,
+                    )
+                if temperature is not None:
+                    await hass.services.async_call(
+                        "climate",
+                        "set_temperature",
+                        {**data, "temperature": temperature},
                         blocking=False,
                     )
         else:
