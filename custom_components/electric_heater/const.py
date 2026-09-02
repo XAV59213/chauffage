@@ -102,4 +102,4 @@ FIL_PILOTE_DATA_KEYS = (
 EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 
-VERSION = "1.1.4"
+VERSION = "1.1.5"
