@@ -19,6 +19,15 @@ PRESETS = [
     PRESET_OFF,
 ]
 
+PRESET_LABELS = {
+    PRESET_COMFORT: "Confort",
+    PRESET_COMFORT_M1: "Confort -1 C",
+    PRESET_COMFORT_M2: "Confort -2 C",
+    PRESET_ECO: "Eco",
+    PRESET_FROST_PROTECTION: "Hors-gel",
+    PRESET_OFF: "Arret",
+}
+
 FIL_PILOTE_PAYLOAD = {
     PRESET_COMFORT: {"fil_pilote": "comfort"},
     PRESET_COMFORT_M1: {"fil_pilote": "comfort_-1"},
@@ -90,6 +99,9 @@ CONF_TEMPERATURE_SENSOR = "temperature_sensor"
 CONF_FIL_PILOTE_SELECT = "fil_pilote_select"
 CONF_WINDOW_SENSORS = "window_sensors"
 CONF_HEATING_CALENDAR = "heating_calendar"
+CONF_CALENDAR_ON_MODE = "calendar_on_mode"
+CONF_CALENDAR_OFF_MODE = "calendar_off_mode"
+CONF_PRESENCE_AWAY_MODE = "presence_away_mode"
 
 FIL_PILOTE_DATA_KEYS = (
     CONF_FIL_PILOTE_SELECT,
@@ -102,4 +114,4 @@ FIL_PILOTE_DATA_KEYS = (
 EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 
-VERSION = "1.1.5"
+VERSION = "1.1.6"

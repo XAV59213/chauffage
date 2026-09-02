@@ -9,8 +9,11 @@ from homeassistant.helpers import selector
 
 from .const import (
     CENTRAL,
+    CONF_CALENDAR_OFF_MODE,
+    CONF_CALENDAR_ON_MODE,
     CONF_FIL_PILOTE_SELECT,
     CONF_HEATING_CALENDAR,
+    CONF_PRESENCE_AWAY_MODE,
     CONF_PRESENCE_SENSOR,
     CONF_TEMP_METHOD,
     CONF_TEMP_METHOD_AVERAGE,
@@ -18,6 +21,11 @@ from .const import (
     CONF_TEMPERATURE_SENSOR,
     CONF_WINDOW_SENSORS,
     DOMAIN,
+    PRESET_COMFORT,
+    PRESET_ECO,
+    PRESET_LABELS,
+    PRESET_OFF,
+    PRESETS,
     ROOM,
 )
 
@@ -36,6 +44,12 @@ _FIL_PILOTE = selector.EntitySelector(
 _WINDOWS = selector.EntitySelector(
     selector.EntitySelectorConfig(
         multiple=True, domain="binary_sensor", device_class="window"
+    )
+)
+_PRESET = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=[{"value": p, "label": PRESET_LABELS[p]} for p in PRESETS],
+        mode="dropdown",
     )
 )
 
@@ -81,6 +95,22 @@ def _central_schema(defaults: dict | None = None) -> vol.Schema:
     }
     schema.update(_with_default(CONF_TEMPERATURE_SENSOR, _TEMP_SENSOR, d))
     schema.update(_with_default(CONF_HEATING_CALENDAR, _CALENDAR, d))
+    schema.update(
+        {
+            vol.Required(
+                CONF_CALENDAR_ON_MODE,
+                default=d.get(CONF_CALENDAR_ON_MODE, PRESET_COMFORT),
+            ): _PRESET,
+            vol.Required(
+                CONF_CALENDAR_OFF_MODE,
+                default=d.get(CONF_CALENDAR_OFF_MODE, PRESET_OFF),
+            ): _PRESET,
+            vol.Required(
+                CONF_PRESENCE_AWAY_MODE,
+                default=d.get(CONF_PRESENCE_AWAY_MODE, PRESET_ECO),
+            ): _PRESET,
+        }
+    )
     schema.update(_with_default(CONF_PRESENCE_SENSOR, _PRESENCE_SENSOR, d))
     schema.update(
         {
@@ -167,6 +197,15 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_TEMP_METHOD: method,
                         CONF_TEMPERATURE_SENSOR: sensor,
                         CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
+                        CONF_CALENDAR_ON_MODE: user_input.get(
+                            CONF_CALENDAR_ON_MODE, PRESET_COMFORT
+                        ),
+                        CONF_CALENDAR_OFF_MODE: user_input.get(
+                            CONF_CALENDAR_OFF_MODE, PRESET_OFF
+                        ),
+                        CONF_PRESENCE_AWAY_MODE: user_input.get(
+                            CONF_PRESENCE_AWAY_MODE, PRESET_ECO
+                        ),
                         CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
                         "comfort_temp": user_input["comfort_temp"],
                         "comfort_m1_temp": user_input["comfort_m1_temp"],
@@ -217,7 +256,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
-    """Permet de changer sonde, calendrier, relais et consignes."""
+    """Permet de changer sonde, calendrier, modes fil pilote et consignes."""
 
     async def async_step_init(self, user_input=None):
         if self.config_entry.data.get("type") == CENTRAL:

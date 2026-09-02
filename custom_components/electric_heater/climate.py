@@ -17,7 +17,10 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
+    CONF_CALENDAR_OFF_MODE,
+    CONF_CALENDAR_ON_MODE,
     CONF_HEATING_CALENDAR,
+    CONF_PRESENCE_AWAY_MODE,
     CONF_PRESENCE_SENSOR,
     CONF_TEMP_METHOD,
     CONF_TEMP_METHOD_AVERAGE,
@@ -30,7 +33,6 @@ from .const import (
     PRESET_COMFORT_M1,
     PRESET_COMFORT_M2,
     PRESET_ECO,
-    PRESET_FROST_PROTECTION,
     PRESET_OFF,
     PRESETS,
     VERSION,
@@ -117,6 +119,12 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._reference_sensor = data.get(CONF_TEMPERATURE_SENSOR)
         self._presence_sensor = data.get(CONF_PRESENCE_SENSOR)
         self._calendar = data.get(CONF_HEATING_CALENDAR)
+        on_mode = data.get(CONF_CALENDAR_ON_MODE, PRESET_COMFORT)
+        off_mode = data.get(CONF_CALENDAR_OFF_MODE, PRESET_OFF)
+        away_mode = data.get(CONF_PRESENCE_AWAY_MODE, PRESET_ECO)
+        self._calendar_on_mode = on_mode if on_mode in PRESETS else PRESET_COMFORT
+        self._calendar_off_mode = off_mode if off_mode in PRESETS else PRESET_OFF
+        self._presence_away_mode = away_mode if away_mode in PRESETS else PRESET_ECO
 
     @property
     def device_info(self):
@@ -157,6 +165,9 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             "fil_pilote_modes": PRESETS,
             "calendar": self._calendar,
             "calendar_active": self._calendar_active,
+            "calendar_on_mode": self._calendar_on_mode,
+            "calendar_off_mode": self._calendar_off_mode,
+            "presence_away_mode": self._presence_away_mode,
             "temperatures": self._temps,
             "auto_eco_active": self._auto_eco_active,
             "current_temperature": self._current_temp,
@@ -248,13 +259,11 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
     def _apply_auto_from_calendar(self, push: bool = True) -> None:
         self._refresh_calendar()
         if self._calendar_active:
-            preset = (
-                self._last_manual_preset
-                if self._last_manual_preset in COMFORT_PRESETS
-                else PRESET_COMFORT
-            )
+            preset = self._calendar_on_mode
+            if self._last_manual_preset in COMFORT_PRESETS and preset in COMFORT_PRESETS:
+                preset = self._last_manual_preset
         else:
-            preset = PRESET_OFF
+            preset = self._calendar_off_mode
         self._preset_mode = preset
         self._update_target_temp()
         self._update_hvac_action()
@@ -305,7 +314,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         if persons == 0 and not self._auto_eco_active:
             if self._preset_mode in COMFORT_PRESETS:
                 self._last_manual_preset = self._preset_mode
-            self._preset_mode = PRESET_ECO
+            self._preset_mode = self._presence_away_mode
             self._auto_eco_active = True
             changed = True
         elif persons > 0 and self._auto_eco_active:
