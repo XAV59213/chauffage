@@ -79,4 +79,4 @@ CONF_HEATING_CALENDAR = "heating_calendar"
 EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 
-VERSION = "1.5.0"
+VERSION = "1.1.2"
