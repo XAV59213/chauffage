@@ -5,8 +5,10 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import CENTRAL, CONF_PRESENCE_SENSOR, DOMAIN
+from .const import CENTRAL, CONF_HEATING_CALENDAR, CONF_PRESENCE_SENSOR, DOMAIN
 from .fil_pilote import get_central_state
+
+ACTIVE_CALENDAR_STATES = {"on", "active", "true", "home"}
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -17,6 +19,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 CentralHeatingActive(hass),
                 CentralPresence(hass, entry),
                 CentralAutoEcoMode(hass),
+                CentralCalendarActive(hass, entry),
             ]
         )
     elif entry.data.get("window_sensors", "").strip():
@@ -124,6 +127,73 @@ class CentralAutoEcoMode(BinarySensorEntity):
     def _update(self, event=None):
         central = get_central_state(self.hass)
         self._attr_is_on = bool(central and central.attributes.get("auto_eco_active"))
+        self.async_write_ha_state()
+
+
+class CentralCalendarActive(BinarySensorEntity):
+    """Etat du calendrier / planning de chauffage (on = creneau actif)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Calendrier chauffage"
+    _attr_unique_id = "electric_heater_central_calendrier"
+    _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_is_on = False
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        self.hass = hass
+        self._calendar = entry.data.get(CONF_HEATING_CALENDAR)
+        self._unsub = None
+        self._event = None
+        self._start = None
+        self._end = None
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    @property
+    def available(self) -> bool:
+        return bool(self._calendar)
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "calendar": self._calendar,
+            "event": self._event,
+            "start": self._start,
+            "end": self._end,
+        }
+
+    async def async_added_to_hass(self):
+        if self._calendar:
+            self._unsub = async_track_state_change_event(
+                self.hass, [self._calendar], self._update
+            )
+        self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update)
+        self._update()
+
+    @callback
+    def _update(self, event=None):
+        self._calendar = (
+            self.hass.config_entries.async_get_entry(self.hass.data.get("_unused"))
+            and self._calendar
+        ) or self._calendar
+        # Relit l'entree centrale au cas ou le calendrier a ete change via Options
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get("type") == CENTRAL:
+                self._calendar = entry.data.get(CONF_HEATING_CALENDAR) or self._calendar
+                break
+        state = self.hass.states.get(self._calendar) if self._calendar else None
+        if not state or state.state in ("unknown", "unavailable"):
+            self._attr_is_on = False
+            self._event = None
+            self._start = None
+            self._end = None
+        else:
+            self._attr_is_on = state.state.lower() in ACTIVE_CALENDAR_STATES
+            self._event = state.attributes.get("message")
+            self._start = state.attributes.get("start_time")
+            self._end = state.attributes.get("end_time")
         self.async_write_ha_state()
 
 
