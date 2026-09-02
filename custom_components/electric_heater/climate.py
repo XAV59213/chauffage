@@ -41,7 +41,7 @@ from .const import (
     WINDOW_OFF_DELAY,
 )
 from .fil_pilote import (
-    apply_fil_pilote,
+    apply_room_order,
     central_window_open,
     entry_windows_open,
     get_central_state,
@@ -81,7 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class CentralThermostat(ClimateEntity, RestoreEntity):
-    """Thermostat virtuel : Auto, fenetre salon = Off apres delai, maison vide = Eco."""
+    """Thermostat virtuel : consigne envoyee aux radiateurs."""
 
     _attr_has_entity_name = True
     _attr_name = None
@@ -319,7 +319,6 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         if self._window_open:
             return
         if not self._window_delay:
-            _LOGGER.debug("Fenetre salon ouverte : coupure dans %ss", WINDOW_OFF_DELAY)
             self._window_delay = async_call_later(
                 self.hass, WINDOW_OFF_DELAY, self._on_window_delay
             )
@@ -501,18 +500,16 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         await self._push_to_all_rooms()
 
     async def _push_to_all_rooms(self):
-        preset = (
+        base = (
             PRESET_OFF
             if self._window_open or self._hvac_mode == HVACMode.OFF
             else self._preset_mode
         )
         rooms = iter_room_entries(self.hass)
         if not rooms:
-            _LOGGER.warning("Aucun radiateur a commander pour l'ordre %s", preset)
+            _LOGGER.warning("Aucun radiateur a commander pour l'ordre %s", base)
         for entry in rooms:
-            entity_id = room_fil_pilote_id(entry.data)
-            _LOGGER.debug("Ordre %s -> %s (%s)", preset, entity_id, entry.title)
-            await apply_fil_pilote(self.hass, entity_id, preset)
+            await apply_room_order(self.hass, entry, base, self._target_temp)
         self.hass.bus.async_fire(EVENT_CENTRAL_CHANGED)
 
 
@@ -672,6 +669,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             )
         except (ValueError, TypeError):
             self._current_temp = None
+        self.hass.create_task(self._apply_fil_pilote())
         self.async_write_ha_state()
 
     @callback
@@ -690,21 +688,18 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         if self._window_open:
             return
         if not self._window_delay:
-            _LOGGER.debug(
-                "Fenetre %s ouverte : coupure dans %ss", self.entry.title, WINDOW_OFF_DELAY
-            )
             self._window_delay = async_call_later(
                 self.hass, WINDOW_OFF_DELAY, self._on_window_delay
             )
         self.async_write_ha_state()
 
     async def _apply_fil_pilote(self):
-        preset = (
+        base = (
             PRESET_OFF
             if self._window_open or self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF
             else self._preset_mode
         )
-        await apply_fil_pilote(self.hass, self._fil_pilote_select, preset)
+        await apply_room_order(self.hass, self.entry, base, self._target_temp)
 
     async def async_set_temperature(self, **kwargs):
         if temp := kwargs.get("temperature"):
