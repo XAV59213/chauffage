@@ -10,6 +10,7 @@ from homeassistant.helpers import selector
 from .const import (
     CENTRAL,
     CONF_FIL_PILOTE_SELECT,
+    CONF_HEATING_CALENDAR,
     CONF_PRESENCE_SENSOR,
     CONF_TEMP_METHOD,
     CONF_TEMP_METHOD_AVERAGE,
@@ -25,6 +26,9 @@ _TEMP_SENSOR = selector.EntitySelector(
 )
 _PRESENCE_SENSOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain="sensor")
+)
+_CALENDAR = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain=["calendar", "schedule"])
 )
 _FIL_PILOTE = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["select", "climate"])
@@ -76,6 +80,7 @@ def _central_schema(defaults: dict | None = None) -> vol.Schema:
         ),
     }
     schema.update(_with_default(CONF_TEMPERATURE_SENSOR, _TEMP_SENSOR, d))
+    schema.update(_with_default(CONF_HEATING_CALENDAR, _CALENDAR, d))
     schema.update(_with_default(CONF_PRESENCE_SENSOR, _PRESENCE_SENSOR, d))
     schema.update(
         {
@@ -161,6 +166,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_NAME: user_input[CONF_NAME],
                         CONF_TEMP_METHOD: method,
                         CONF_TEMPERATURE_SENSOR: sensor,
+                        CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
                         CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
                         "comfort_temp": user_input["comfort_temp"],
                         "comfort_m1_temp": user_input["comfort_m1_temp"],
@@ -211,7 +217,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
-    """Permet de changer sonde, relais et consignes apres coup."""
+    """Permet de changer sonde, calendrier, relais et consignes."""
 
     async def async_step_init(self, user_input=None):
         if self.config_entry.data.get("type") == CENTRAL:
@@ -230,6 +236,7 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
                     **self.config_entry.data,
                     **user_input,
                     CONF_TEMPERATURE_SENSOR: sensor,
+                    CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
                     CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
                 }
                 self.hass.config_entries.async_update_entry(

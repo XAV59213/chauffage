@@ -8,11 +8,12 @@
       },
       "central": {
         "title": "Thermostat virtuel",
-        "description": "Thermostat principal virtuel : choisissez la sonde, puis les 6 ordres fil pilote seront envoyes a tous les radiateurs.",
+        "description": "Le mode Auto suit le calendrier de chauffage : actif = Confort, inactif = Eco. Chauffage et Eteint forcent le mode.",
         "data": {
           "name": "Nom du thermostat virtuel",
           "temp_method": "Source de la temperature",
           "temperature_sensor": "Sonde de temperature",
+          "heating_calendar": "Calendrier de chauffage (mode Auto)",
           "presence_sensor": "Capteur de presence / nombre de personnes (optionnel)",
           "comfort_temp": "Temperature Confort",
           "comfort_m1_temp": "Temperature Confort -1 C",
@@ -55,6 +56,7 @@
           "name": "Nom du thermostat virtuel",
           "temp_method": "Source de la temperature",
           "temperature_sensor": "Sonde de temperature",
+          "heating_calendar": "Calendrier de chauffage (mode Auto)",
           "presence_sensor": "Capteur de presence",
           "comfort_temp": "Temperature Confort",
           "comfort_m1_temp": "Temperature Confort -1 C",
@@ -81,20 +83,6 @@
     "climate": {
       "central": {
         "name": "Thermostat virtuel",
-        "state_attributes": {
-          "preset_mode": {
-            "state": {
-              "comfort": "Confort",
-              "comfort_-1": "Confort -1 C",
-              "comfort_-2": "Confort -2 C",
-              "eco": "Eco",
-              "frost_protection": "Hors-gel",
-              "off": "Arret"
-            }
-          }
-        }
-      },
-      "room": {
         "state_attributes": {
           "preset_mode": {
             "state": {
