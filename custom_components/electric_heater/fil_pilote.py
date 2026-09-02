@@ -91,6 +91,15 @@ def parse_window_sensors(data: dict | None) -> list[str]:
     return [s for s in items if "." in s]
 
 
+def all_configured_windows(hass: HomeAssistant) -> list[str]:
+    seen: list[str] = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        for eid in parse_window_sensors(entry.data):
+            if eid not in seen:
+                seen.append(eid)
+    return seen
+
+
 def is_window_open_state(state: State | None) -> bool:
     if state is None or state.state in ("unknown", "unavailable", None):
         return False
@@ -110,6 +119,10 @@ def is_window_open_state(state: State | None) -> bool:
 
 def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
     return any(is_window_open_state(hass.states.get(eid)) for eid in sensors or [])
+
+
+def house_window_open(hass: HomeAssistant) -> bool:
+    return any_window_open(hass, all_configured_windows(hass))
 
 
 def central_window_open(hass: HomeAssistant) -> bool:
