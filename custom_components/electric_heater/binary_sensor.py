@@ -16,9 +16,9 @@ from .const import (
 )
 from .fil_pilote import (
     all_configured_windows,
-    any_window_open,
     apply_fil_pilote,
     central_window_open,
+    entry_windows_open,
     get_central_state,
     house_window_open,
     iter_room_entries,
@@ -221,8 +221,6 @@ class CentralCalendarActive(BinarySensorEntity):
 
 
 class CentralWindowOpen(BinarySensorEntity):
-    """Etat fenetre global : capteurs du thermostat + capteurs des pieces."""
-
     _attr_has_entity_name = True
     _attr_name = "Fenetre ouverte"
     _attr_unique_id = "electric_heater_central_fenetre"
@@ -234,7 +232,6 @@ class CentralWindowOpen(BinarySensorEntity):
         self.entry = entry
         self._sensors: list[str] = []
         self._unsub = None
-        self._unsub_rooms = None
 
     @property
     def device_info(self):
@@ -253,24 +250,18 @@ class CentralWindowOpen(BinarySensorEntity):
         return {"windows": self._sensors, "sources": sources}
 
     async def async_added_to_hass(self):
-        self._listen()
-        self._unsub_rooms = self.hass.bus.async_listen(EVENT_ROOMS_CHANGED, self._update)
-        self._update()
-
-    def _listen(self) -> None:
         self._sensors = all_configured_windows(self.hass)
-        if self._unsub:
-            self._unsub()
-            self._unsub = None
         if self._sensors:
             self._unsub = async_track_state_change_event(
                 self.hass, self._sensors, self._update
             )
+        self.hass.bus.async_listen(EVENT_ROOMS_CHANGED, self._update)
+        self._update()
 
     @callback
     def _update(self, event=None):
-        self._listen()
         was_on = self._attr_is_on
+        self._sensors = all_configured_windows(self.hass)
         self._attr_is_on = house_window_open(self.hass)
         self.async_write_ha_state()
         if central_window_open(self.hass) and not was_on:
@@ -285,14 +276,11 @@ class CentralWindowOpen(BinarySensorEntity):
 
 
 class _RoomWindowBase(BinarySensorEntity):
-    """Suit les contacts fenetre de la piece."""
-
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
         self._sensors = parse_window_sensors(entry.data)
         self._unsub = None
-        self._unsub_rooms = None
         self._attr_is_on = False
 
     @property
@@ -311,35 +299,22 @@ class _RoomWindowBase(BinarySensorEntity):
         return {"windows": self._sensors, "sources": sources}
 
     async def async_added_to_hass(self):
-        self._listen()
-        self._unsub_rooms = self.hass.bus.async_listen(EVENT_ROOMS_CHANGED, self._update)
-        self._update()
-
-    async def async_will_remove_from_hass(self):
-        if self._unsub:
-            self._unsub()
-        if self._unsub_rooms:
-            self._unsub_rooms()
-
-    def _listen(self) -> None:
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
-        self._sensors = parse_window_sensors(current.data if current else self.entry.data)
-        if self._unsub:
-            self._unsub()
-            self._unsub = None
+        self.entry = current or self.entry
+        self._sensors = parse_window_sensors(self.entry.data)
         if self._sensors:
             self._unsub = async_track_state_change_event(
                 self.hass, self._sensors, self._update
             )
+        self._update()
 
     @callback
     def _update(self, event=None):
-        previous = self._attr_is_on
-        self._listen()
-        self._attr_is_on = any_window_open(self.hass, self._sensors)
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self.entry = current or self.entry
+        self._sensors = parse_window_sensors(self.entry.data)
+        self._attr_is_on = entry_windows_open(self.hass, self.entry)
         self.async_write_ha_state()
-        if previous != self._attr_is_on:
-            self.hass.bus.async_fire(EVENT_ROOMS_CHANGED)
 
 
 class RoomWindowOpen(_RoomWindowBase):
