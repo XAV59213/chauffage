@@ -13,7 +13,7 @@ from homeassistant.components.climate import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PRECISION_TENTHS, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
@@ -38,6 +38,7 @@ from .const import (
     PRESET_OFF,
     PRESETS,
     VERSION,
+    WINDOW_OFF_DELAY,
 )
 from .fil_pilote import (
     apply_fil_pilote,
@@ -79,7 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class CentralThermostat(ClimateEntity, RestoreEntity):
-    """Thermostat virtuel : Auto, fenetre salon = Off, maison vide = Eco."""
+    """Thermostat virtuel : Auto, fenetre salon = Off apres delai, maison vide = Eco."""
 
     _attr_has_entity_name = True
     _attr_name = None
@@ -105,6 +106,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._auto_eco_active = False
         self._calendar_active = False
         self._window_open = False
+        self._window_delay = None
         self._unsub_temp = None
         self._unsub_presence = None
         self._unsub_calendar = None
@@ -133,6 +135,24 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._calendar_on_mode = on_mode if on_mode in PRESETS else PRESET_COMFORT
         self._calendar_off_mode = off_mode if off_mode in PRESETS else PRESET_OFF
         self._presence_away_mode = away_mode if away_mode in PRESETS else PRESET_ECO
+
+    def _windows_live_open(self) -> bool:
+        return central_window_open(self.hass) or entry_windows_open(self.hass, self.entry)
+
+    def _cancel_window_delay(self) -> None:
+        if self._window_delay:
+            self._window_delay()
+            self._window_delay = None
+
+    @callback
+    def _on_window_delay(self, _now=None):
+        self._window_delay = None
+        if self._windows_live_open() and not self._window_open:
+            self._window_open = True
+            self._update_target_temp()
+            self._update_hvac_action()
+            self.async_write_ha_state()
+            self.hass.create_task(self._push_to_all_rooms())
 
     @property
     def device_info(self):
@@ -187,6 +207,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             "temperature_sensor": self._reference_sensor,
             "window_open": self._window_open,
             "fenetre": "Ouverte" if self._window_open else "Fermee",
+            "window_delay_s": WINDOW_OFF_DELAY if self._window_delay else 0,
             "rooms": [e.title for e in iter_room_entries(self.hass)],
         }
 
@@ -218,6 +239,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             self.hass.create_task(self._push_to_all_rooms())
 
     async def async_will_remove_from_hass(self):
+        self._cancel_window_delay()
         for unsub in (
             self._unsub_temp,
             self._unsub_presence,
@@ -277,20 +299,29 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
     def _handle_windows(self, event=None):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
-        was_open = self._window_open
-        self._window_open = central_window_open(self.hass) or entry_windows_open(
-            self.hass, self.entry
-        )
-        self._update_target_temp()
-        self._update_hvac_action()
-        self.async_write_ha_state()
-        if self._window_open != was_open:
+        live = self._windows_live_open()
+        if not live:
+            self._cancel_window_delay()
             if self._window_open:
-                self.hass.create_task(self._push_to_all_rooms())
-            elif self._hvac_mode == HVACMode.AUTO:
-                self._apply_auto_from_calendar(push=True)
-            else:
-                self.hass.create_task(self._push_to_all_rooms())
+                self._window_open = False
+                self._update_target_temp()
+                self._update_hvac_action()
+                self.async_write_ha_state()
+                if self._hvac_mode == HVACMode.AUTO:
+                    self._apply_auto_from_calendar(push=True)
+                else:
+                    self.hass.create_task(self._push_to_all_rooms())
+                return
+            self.async_write_ha_state()
+            return
+        if self._window_open:
+            return
+        if not self._window_delay:
+            _LOGGER.debug("Fenetre salon ouverte : coupure dans %ss", WINDOW_OFF_DELAY)
+            self._window_delay = async_call_later(
+                self.hass, WINDOW_OFF_DELAY, self._on_window_delay
+            )
+        self.async_write_ha_state()
 
     def _get_temperature_sensors(self):
         if self._temp_method == CONF_TEMP_METHOD_AVERAGE:
@@ -507,6 +538,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         self._hvac_mode = HVACMode.AUTO
         self._hvac_action = HVACAction.IDLE
         self._window_open = False
+        self._window_delay = None
         self._hysteresis = 0.3
         self._follow_central = True
         self._temp_sensor = entry.data[CONF_TEMPERATURE_SENSOR]
@@ -516,6 +548,19 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         self._unsub_windows = None
         self._unsub_central = None
         self._unsub_central_state = None
+
+    def _cancel_window_delay(self) -> None:
+        if self._window_delay:
+            self._window_delay()
+            self._window_delay = None
+
+    @callback
+    def _on_window_delay(self, _now=None):
+        self._window_delay = None
+        if entry_windows_open(self.hass, self.entry) and not self._window_open:
+            self._window_open = True
+            self.hass.create_task(self._apply_fil_pilote())
+            self.async_write_ha_state()
 
     @property
     def device_info(self):
@@ -590,6 +635,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         self.hass.bus.async_fire(EVENT_ROOMS_CHANGED)
 
     async def async_will_remove_from_hass(self):
+        self._cancel_window_delay()
         for unsub in (self._unsub_temp, self._unsub_windows, self._unsub_central, self._unsub_central_state):
             if unsub:
                 unsub()
@@ -634,8 +680,23 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
         self._window_sensors = windows_from_entry(self.entry)
-        self._window_open = entry_windows_open(self.hass, self.entry)
-        self.hass.create_task(self._apply_fil_pilote())
+        live = entry_windows_open(self.hass, self.entry)
+        if not live:
+            self._cancel_window_delay()
+            if self._window_open:
+                self._window_open = False
+                self.hass.create_task(self._apply_fil_pilote())
+            self.async_write_ha_state()
+            return
+        if self._window_open:
+            return
+        if not self._window_delay:
+            _LOGGER.debug(
+                "Fenetre %s ouverte : coupure dans %ss", self.entry.title, WINDOW_OFF_DELAY
+            )
+            self._window_delay = async_call_later(
+                self.hass, WINDOW_OFF_DELAY, self._on_window_delay
+            )
         self.async_write_ha_state()
 
     async def _apply_fil_pilote(self):
