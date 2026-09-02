@@ -10,21 +10,12 @@ from .const import (
     CONF_HEATING_CALENDAR,
     CONF_PRESENCE_SENSOR,
     DOMAIN,
-    EVENT_CENTRAL_CHANGED,
-    EVENT_ROOMS_CHANGED,
     EVENT_WINDOWS_CHANGED,
-    PRESET_OFF,
 )
 from .fil_pilote import (
-    all_configured_windows,
-    apply_fil_pilote,
-    central_window_open,
     entry_windows_open,
     get_central_state,
-    house_window_open,
-    iter_room_entries,
     parse_window_sensors,
-    room_fil_pilote_id,
 )
 
 ACTIVE_CALENDAR_STATES = {"on", "active", "true", "home"}
@@ -39,11 +30,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 CentralPresence(hass, entry),
                 CentralAutoEcoMode(hass),
                 CentralCalendarActive(hass, entry),
-                CentralWindowOpen(hass, entry),
             ]
         )
     elif parse_window_sensors(entry.data):
-        entities.extend([RoomWindowOpen(hass, entry), RoomWindowSecurity(hass, entry)])
+        entities.append(RoomWindowSecurity(hass, entry))
     async_add_entities(entities)
 
 
@@ -221,64 +211,18 @@ class CentralCalendarActive(BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class CentralWindowOpen(BinarySensorEntity):
+class RoomWindowSecurity(BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Fenetre ouverte"
-    _attr_unique_id = "electric_heater_central_fenetre"
-    _attr_device_class = BinarySensorDeviceClass.WINDOW
+    _attr_name = "Securite Fenetre"
+    _attr_device_class = BinarySensorDeviceClass.SAFETY
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_is_on = False
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
-        self._sensors: list[str] = []
-        self._unsub = None
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
-
-    @property
-    def available(self) -> bool:
-        return bool(self._sensors)
-
-    @property
-    def extra_state_attributes(self):
-        sources = {}
-        for eid in self._sensors:
-            st = self.hass.states.get(eid)
-            sources[eid] = st.state if st else "inconnu"
-        return {"windows": self._sensors, "sources": sources}
-
-    async def async_added_to_hass(self):
-        self._sensors = all_configured_windows(self.hass)
-        self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update)
-        self.hass.bus.async_listen(EVENT_ROOMS_CHANGED, self._update)
-        self._update()
-
-    @callback
-    def _update(self, event=None):
-        was_on = self._attr_is_on
-        self._sensors = all_configured_windows(self.hass)
-        self._attr_is_on = house_window_open(self.hass)
-        self.async_write_ha_state()
-        if central_window_open(self.hass) and not was_on:
-            self.hass.create_task(self._cut_all())
-        elif was_on and not self._attr_is_on:
-            self.hass.bus.async_fire(EVENT_CENTRAL_CHANGED)
-
-    async def _cut_all(self):
-        for entry in iter_room_entries(self.hass):
-            await apply_fil_pilote(self.hass, room_fil_pilote_id(entry.data), PRESET_OFF)
-        self.hass.bus.async_fire(EVENT_CENTRAL_CHANGED)
-
-
-class _RoomWindowBase(BinarySensorEntity):
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
-        self.hass = hass
-        self.entry = entry
         self._sensors = parse_window_sensors(entry.data)
-        self._attr_is_on = False
+        self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_securite_fenetre"
 
     @property
     def device_info(self):
@@ -286,14 +230,6 @@ class _RoomWindowBase(BinarySensorEntity):
             "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
             "via_device": (DOMAIN, "electric_heater_central"),
         }
-
-    @property
-    def extra_state_attributes(self):
-        sources = {}
-        for eid in self._sensors:
-            st = self.hass.states.get(eid)
-            sources[eid] = st.state if st else "inconnu"
-        return {"windows": self._sensors, "sources": sources}
 
     async def async_added_to_hass(self):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
@@ -309,24 +245,3 @@ class _RoomWindowBase(BinarySensorEntity):
         self._sensors = parse_window_sensors(self.entry.data)
         self._attr_is_on = entry_windows_open(self.hass, self.entry)
         self.async_write_ha_state()
-
-
-class RoomWindowOpen(_RoomWindowBase):
-    _attr_has_entity_name = True
-    _attr_name = "Fenetre Ouverte"
-    _attr_device_class = BinarySensorDeviceClass.WINDOW
-
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
-        super().__init__(hass, entry)
-        self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_fenetre_ouverte"
-
-
-class RoomWindowSecurity(_RoomWindowBase):
-    _attr_has_entity_name = True
-    _attr_name = "Securite Fenetre"
-    _attr_device_class = BinarySensorDeviceClass.SAFETY
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
-        super().__init__(hass, entry)
-        self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_securite_fenetre"
