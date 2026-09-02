@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, State
 
 from .const import (
     CENTRAL,
+    CONF_TEMPERATURE_SENSOR,
     CONF_WINDOW_INVERT,
     CONF_WINDOW_SENSORS,
     DOMAIN,
@@ -16,6 +17,7 @@ from .const import (
     FIL_PILOTE_DATA_KEYS,
     PRESET_OFF,
 )
+from .hysteresis import regulate_preset
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -145,7 +147,24 @@ def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str |
     return None
 
 
-async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: str) -> None:
+def room_current_temp(hass: HomeAssistant, sensor_id: str | None) -> float | None:
+    if not sensor_id:
+        return None
+    state = hass.states.get(sensor_id)
+    if not state or state.state in ("unknown", "unavailable"):
+        return None
+    try:
+        return float(state.state)
+    except (TypeError, ValueError):
+        return None
+
+
+async def apply_fil_pilote(
+    hass: HomeAssistant,
+    entity_id: str | None,
+    preset: str,
+    temperature: float | None = None,
+) -> None:
     if central_window_open(hass):
         preset = PRESET_OFF
     if not entity_id:
@@ -161,10 +180,11 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
     available = state.attributes.get("options") or state.attributes.get("preset_modes")
     option = resolve_fil_pilote_option(preset, available)
     _LOGGER.debug(
-        "Fil pilote %s -> %s (demande=%s, dispo=%s)",
+        "Fil pilote %s -> %s (demande=%s, consigne=%s, dispo=%s)",
         entity_id,
         option,
         preset,
+        temperature,
         available,
     )
     if option is None and domain != "climate":
@@ -208,7 +228,26 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
                         {**data, "preset_mode": option},
                         blocking=False,
                     )
+                if temperature is not None:
+                    await hass.services.async_call(
+                        "climate",
+                        "set_temperature",
+                        {**data, "temperature": temperature},
+                        blocking=False,
+                    )
         else:
             _LOGGER.warning("Type d'entité fil pilote non supporté: %s", entity_id)
     except Exception:  # noqa: BLE001
         _LOGGER.exception("Impossible d'appliquer le mode %s sur %s", preset, entity_id)
+
+
+async def apply_room_order(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    base_preset: str,
+    target: float | None,
+) -> None:
+    entity_id = room_fil_pilote_id(entry.data)
+    current = room_current_temp(hass, entry.data.get(CONF_TEMPERATURE_SENSOR))
+    preset = regulate_preset(base_preset, current, target)
+    await apply_fil_pilote(hass, entity_id, preset, temperature=target)
