@@ -21,8 +21,6 @@ from .fil_pilote import (
     parse_window_sensors,
 )
 
-HOME_STATES = {"home", "on"}
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     entities = []
@@ -113,7 +111,7 @@ class CentralPersonsSensor(SensorEntity):
 
 
 class WhoIsHomeSensor(SensorEntity):
-    """Noms des personnes a la maison (person.* et zone.home)."""
+    """Suit uniquement le capteur choisi sur le thermostat (Nombre famille home)."""
 
     _attr_has_entity_name = True
     _attr_name = "Presents"
@@ -123,6 +121,7 @@ class WhoIsHomeSensor(SensorEntity):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
+        self._sensor = entry.data.get(CONF_PRESENCE_SENSOR)
         self._unsub = None
 
     @property
@@ -131,47 +130,51 @@ class WhoIsHomeSensor(SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        names, entity_ids = self._who()
         return {
-            "count": len(names),
-            "persons": entity_ids,
-            "names": names,
+            "source": self._sensor,
+            "count": self._count(),
         }
 
-    def _who(self) -> tuple[list[str], list[str]]:
-        names: list[str] = []
-        entity_ids: list[str] = []
-        zone = self.hass.states.get("zone.home")
-        listed = []
-        if zone and isinstance(zone.attributes.get("persons"), list):
-            listed = [eid for eid in zone.attributes["persons"] if eid]
-        if listed:
-            for eid in listed:
-                state = self.hass.states.get(eid)
-                entity_ids.append(eid)
-                names.append(state.name if state else eid.split(".", 1)[-1].replace("_", " ").title())
-        else:
-            for state in self.hass.states.async_all("person"):
-                if str(state.state).lower() in HOME_STATES:
-                    entity_ids.append(state.entity_id)
-                    names.append(state.name)
-        return names, entity_ids
+    def _count(self) -> int:
+        if not self._sensor:
+            return 0
+        state = self.hass.states.get(self._sensor)
+        if not state or state.state in ("unknown", "unavailable"):
+            return 0
+        try:
+            return int(float(state.state))
+        except (TypeError, ValueError):
+            return 0 if str(state.state).lower() in ("off", "false", "not_home", "personne") else 1
 
     async def async_added_to_hass(self):
-        tracked = ["zone.home"]
-        tracked.extend(state.entity_id for state in self.hass.states.async_all("person"))
-        self._unsub = async_track_state_change_event(self.hass, tracked, self._update)
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self.entry = current or self.entry
+        self._sensor = self.entry.data.get(CONF_PRESENCE_SENSOR)
+        if self._sensor:
+            self._unsub = async_track_state_change_event(
+                self.hass, [self._sensor], self._update
+            )
         self._update()
 
     @callback
     def _update(self, event=None):
-        names, _entity_ids = self._who()
-        if not names:
-            self._attr_native_value = "Personne"
-            self._attr_icon = "mdi:account-off"
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self.entry = current or self.entry
+        self._sensor = self.entry.data.get(CONF_PRESENCE_SENSOR)
+        if not self._sensor:
+            self._attr_native_value = "Non configure"
+            self._attr_icon = "mdi:account-question"
         else:
-            self._attr_native_value = ", ".join(names)
-            self._attr_icon = "mdi:account-group"
+            count = self._count()
+            if count <= 0:
+                self._attr_native_value = "Personne"
+                self._attr_icon = "mdi:account-off"
+            elif count == 1:
+                self._attr_native_value = "1 personne"
+                self._attr_icon = "mdi:account"
+            else:
+                self._attr_native_value = f"{count} personnes"
+                self._attr_icon = "mdi:account-group"
         self.async_write_ha_state()
 
 
@@ -215,7 +218,7 @@ class RoomTemperatureSensor(SensorEntity):
 
 
 class WindowStateSensor(SensorEntity):
-    """on = Ouverte, off = Fermee. Meme ecoute que la temperature."""
+    """on = Ouverte, off = Fermee."""
 
     _attr_has_entity_name = True
     _attr_name = "Etat fenetre"
