@@ -29,13 +29,14 @@ FIL_PILOTE_PAYLOAD = {
 }
 
 FIL_PILOTE_ALIASES = {
-    PRESET_COMFORT: ["comfort", "confort", "Comfort"],
+    PRESET_COMFORT: ["comfort", "confort", "Comfort", "Confort"],
     PRESET_COMFORT_M1: [
         "comfort_-1",
         "comfort-1",
         "confort_-1",
         "confort-1",
         "Comfort -1",
+        "Confort -1",
         "comfort_1",
     ],
     PRESET_COMFORT_M2: [
@@ -44,19 +45,33 @@ FIL_PILOTE_ALIASES = {
         "confort_-2",
         "confort-2",
         "Comfort -2",
+        "Confort -2",
         "comfort_2",
     ],
-    PRESET_ECO: ["eco", "Eco", "economique"],
+    PRESET_ECO: ["eco", "Eco", "economique", "éco", "Eco mode"],
     PRESET_FROST_PROTECTION: [
         "frost_protection",
         "frost-protection",
+        "frost",
         "anti-freeze",
         "antifreeze",
         "hors_gel",
         "hors-gel",
         "horsgel",
+        "holiday",
     ],
-    PRESET_OFF: ["off", "stop", "arret", "Off", "Stop"],
+    PRESET_OFF: [
+        "off",
+        "Off",
+        "OFF",
+        "stop",
+        "Stop",
+        "arret",
+        "arrêt",
+        "Arret",
+        "Arrêt",
+        "pilot_wire_off",
+    ],
 }
 
 HYSTERESIS = {
@@ -76,7 +91,15 @@ CONF_FIL_PILOTE_SELECT = "fil_pilote_select"
 CONF_WINDOW_SENSORS = "window_sensors"
 CONF_HEATING_CALENDAR = "heating_calendar"
 
+FIL_PILOTE_DATA_KEYS = (
+    CONF_FIL_PILOTE_SELECT,
+    "fil_pilote",
+    "mqtt_device",
+    "heater",
+    "relay",
+)
+
 EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"

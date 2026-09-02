@@ -4,18 +4,55 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, State
 
 from .const import (
+    CENTRAL,
+    DOMAIN,
     FIL_PILOTE_ALIASES,
+    FIL_PILOTE_DATA_KEYS,
     PRESET_OFF,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
+_OFF_HINTS = ("off", "stop", "arret", "arrêt")
+
+
+def room_fil_pilote_id(data: dict) -> str | None:
+    for key in FIL_PILOTE_DATA_KEYS:
+        val = data.get(key)
+        if val:
+            return val
+    return None
+
+
+def iter_room_entries(hass: HomeAssistant) -> list[ConfigEntry]:
+    rooms = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.data.get("type") == CENTRAL:
+            continue
+        rooms.append(entry)
+    return rooms
+
+
+def get_central_state(hass: HomeAssistant) -> State | None:
+    for eid in (
+        "climate.electric_heater_central",
+        "climate.chauffage_central",
+        "climate.thermostat_virtuel",
+    ):
+        state = hass.states.get(eid)
+        if state is not None:
+            return state
+    for state in hass.states.async_all("climate"):
+        if state.attributes.get("virtual") is True:
+            return state
+    return None
+
 
 def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str | None:
-    """Trouve l'option réelle exposée par l'entité (Z2M, ZHA, Legrand…)."""
     aliases = FIL_PILOTE_ALIASES.get(preset, [preset])
     if not available:
         return aliases[0]
@@ -25,19 +62,23 @@ def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str |
         if alias.casefold() in available_map:
             return available_map[alias.casefold()]
 
-    # Dernier recours : correspondance partielle (ex. "Comfort -1")
     for alias in aliases:
         needle = alias.replace("_", " ").replace("-", " ").casefold()
         for key, original in available_map.items():
             cleaned = key.replace("_", " ").replace("-", " ")
             if needle == cleaned or needle in cleaned:
                 return original
+
+    if preset == PRESET_OFF:
+        for key, original in available_map.items():
+            if any(hint in key for hint in _OFF_HINTS):
+                return original
     return None
 
 
 async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: str) -> None:
-    """Envoie l'ordre fil pilote à un select.* ou climate.*"""
     if not entity_id:
+        _LOGGER.warning("Aucun relais fil pilote configuré pour l'ordre %s", preset)
         return
 
     state = hass.states.get(entity_id)
@@ -46,16 +87,21 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
         return
 
     domain = entity_id.split(".", 1)[0]
-    option = resolve_fil_pilote_option(
+    available = state.attributes.get("options") or state.attributes.get("preset_modes")
+    option = resolve_fil_pilote_option(preset, available)
+    _LOGGER.debug(
+        "Fil pilote %s -> %s (demande=%s, dispo=%s)",
+        entity_id,
+        option,
         preset,
-        state.attributes.get("options") or state.attributes.get("preset_modes"),
+        available,
     )
-    if option is None:
+    if option is None and domain != "climate":
         _LOGGER.warning(
             "Aucun mode fil pilote correspondant à %s sur %s (dispo: %s)",
             preset,
             entity_id,
-            state.attributes.get("options") or state.attributes.get("preset_modes"),
+            available,
         )
         return
 
@@ -65,16 +111,22 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
                 "select",
                 "select_option",
                 {"entity_id": entity_id, "option": option},
-                blocking=False,
+                blocking=True,
             )
         elif domain == "climate":
             data: dict[str, Any] = {"entity_id": entity_id}
             if preset == PRESET_OFF:
                 await hass.services.async_call(
                     "climate",
+                    "turn_off",
+                    data,
+                    blocking=True,
+                )
+                await hass.services.async_call(
+                    "climate",
                     "set_hvac_mode",
                     {**data, "hvac_mode": "off"},
-                    blocking=False,
+                    blocking=True,
                 )
             else:
                 if state.state == "off":
@@ -82,14 +134,15 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
                         "climate",
                         "set_hvac_mode",
                         {**data, "hvac_mode": "heat"},
-                        blocking=False,
+                        blocking=True,
                     )
-                await hass.services.async_call(
-                    "climate",
-                    "set_preset_mode",
-                    {**data, "preset_mode": option},
-                    blocking=False,
-                )
+                if option:
+                    await hass.services.async_call(
+                        "climate",
+                        "set_preset_mode",
+                        {**data, "preset_mode": option},
+                        blocking=True,
+                    )
         else:
             _LOGGER.warning("Type d'entité fil pilote non supporté: %s", entity_id)
     except Exception:  # noqa: BLE001
