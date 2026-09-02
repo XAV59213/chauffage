@@ -20,6 +20,7 @@ from .fil_pilote import (
     house_window_open,
     parse_window_sensors,
 )
+from .occupancy import occupancy_count
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -28,8 +29,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         entities.append(CentralTemperatureSensor(hass))
         entities.append(WindowStateSensor(hass, entry, central=True))
         entities.append(WhoIsHomeSensor(hass, entry))
-        if entry.data.get(CONF_PRESENCE_SENSOR):
-            entities.append(CentralPersonsSensor(hass, entry))
     else:
         entities.append(RoomTemperatureSensor(hass, entry))
         entities.append(WindowStateSensor(hass, entry, central=False))
@@ -77,41 +76,8 @@ class CentralTemperatureSensor(SensorEntity):
         self.async_write_ha_state()
 
 
-class CentralPersonsSensor(SensorEntity):
-    _attr_has_entity_name = True
-    _attr_name = "Nombre de Personnes"
-    _attr_unique_id = "electric_heater_central_personnes"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "personnes"
-
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
-        self.hass = hass
-        self._sensor = entry.data[CONF_PRESENCE_SENSOR]
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
-
-    async def async_added_to_hass(self):
-        async_track_state_change_event(self.hass, [self._sensor], self._update)
-        self._update()
-
-    @callback
-    def _update(self, event=None):
-        state = self.hass.states.get(self._sensor)
-        try:
-            self._attr_native_value = (
-                int(float(state.state))
-                if state and state.state not in ("unknown", "unavailable")
-                else 0
-            )
-        except (ValueError, TypeError):
-            self._attr_native_value = 0
-        self.async_write_ha_state()
-
-
 class WhoIsHomeSensor(SensorEntity):
-    """Suit uniquement le capteur choisi sur le thermostat (Nombre famille home)."""
+    """Un seul capteur : suit Nombre famille home."""
 
     _attr_has_entity_name = True
     _attr_name = "Presents"
@@ -132,19 +98,8 @@ class WhoIsHomeSensor(SensorEntity):
     def extra_state_attributes(self):
         return {
             "source": self._sensor,
-            "count": self._count(),
+            "count": occupancy_count(self.hass, self._sensor),
         }
-
-    def _count(self) -> int:
-        if not self._sensor:
-            return 0
-        state = self.hass.states.get(self._sensor)
-        if not state or state.state in ("unknown", "unavailable"):
-            return 0
-        try:
-            return int(float(state.state))
-        except (TypeError, ValueError):
-            return 0 if str(state.state).lower() in ("off", "false", "not_home", "personne") else 1
 
     async def async_added_to_hass(self):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
@@ -165,7 +120,7 @@ class WhoIsHomeSensor(SensorEntity):
             self._attr_native_value = "Non configure"
             self._attr_icon = "mdi:account-question"
         else:
-            count = self._count()
+            count = occupancy_count(self.hass, self._sensor)
             if count <= 0:
                 self._attr_native_value = "Personne"
                 self._attr_icon = "mdi:account-off"
