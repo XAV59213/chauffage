@@ -10,6 +10,7 @@ from .const import (
     CENTRAL,
     CONF_PRESENCE_SENSOR,
     CONF_TEMPERATURE_SENSOR,
+    CONF_WEATHER,
     DOMAIN,
     EVENT_WINDOWS_CHANGED,
 )
@@ -21,6 +22,7 @@ from .fil_pilote import (
     parse_window_sensors,
 )
 from .occupancy import occupancy_count
+from .weather import outdoor_temperature, weather_condition
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -29,6 +31,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         entities.append(CentralTemperatureSensor(hass))
         entities.append(WindowStateSensor(hass, entry, central=True))
         entities.append(WhoIsHomeSensor(hass, entry))
+        entities.append(OutdoorWeatherSensor(hass, entry))
     else:
         entities.append(RoomTemperatureSensor(hass, entry))
         entities.append(WindowStateSensor(hass, entry, central=False))
@@ -73,6 +76,51 @@ class CentralTemperatureSensor(SensorEntity):
                 except (TypeError, ValueError):
                     value = None
         self._attr_native_value = value
+        self.async_write_ha_state()
+
+
+class OutdoorWeatherSensor(SensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Temperature exterieure"
+    _attr_unique_id = "electric_heater_central_exterieur"
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_icon = "mdi:weather-partly-cloudy"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        self.hass = hass
+        self.entry = entry
+        self._weather = entry.data.get(CONF_WEATHER)
+        self._unsub = None
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "weather": self._weather,
+            "condition": weather_condition(self.hass, self._weather),
+        }
+
+    async def async_added_to_hass(self):
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self.entry = current or self.entry
+        self._weather = self.entry.data.get(CONF_WEATHER)
+        if self._weather:
+            self._unsub = async_track_state_change_event(
+                self.hass, [self._weather], self._update
+            )
+        self._update()
+
+    @callback
+    def _update(self, event=None):
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self.entry = current or self.entry
+        self._weather = self.entry.data.get(CONF_WEATHER)
+        self._attr_native_value = outdoor_temperature(self.hass, self._weather)
         self.async_write_ha_state()
 
 
