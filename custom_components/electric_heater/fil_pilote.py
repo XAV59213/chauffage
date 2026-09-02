@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, State
 
 from .const import (
     CENTRAL,
+    CONF_WINDOW_INVERT,
     CONF_WINDOW_SENSORS,
     DOMAIN,
     FIL_PILOTE_ALIASES,
@@ -121,14 +122,27 @@ def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
     return any(is_window_open_state(hass.states.get(eid)) for eid in sensors or [])
 
 
+def entry_windows_open(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    sensors = parse_window_sensors(entry.data)
+    if not sensors:
+        return False
+    opened = any_window_open(hass, sensors)
+    if entry.data.get(CONF_WINDOW_INVERT):
+        return not opened
+    return opened
+
+
 def house_window_open(hass: HomeAssistant) -> bool:
-    return any_window_open(hass, all_configured_windows(hass))
+    return any(
+        entry_windows_open(hass, entry)
+        for entry in hass.config_entries.async_entries(DOMAIN)
+    )
 
 
 def central_window_open(hass: HomeAssistant) -> bool:
     for entry in hass.config_entries.async_entries(DOMAIN):
         if entry.data.get("type") == CENTRAL:
-            return any_window_open(hass, parse_window_sensors(entry.data))
+            return entry_windows_open(hass, entry)
     return False
 
 
