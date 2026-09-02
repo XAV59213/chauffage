@@ -19,6 +19,7 @@ from .const import (
     CONF_TEMP_METHOD_AVERAGE,
     CONF_TEMP_METHOD_REFERENCE,
     CONF_TEMPERATURE_SENSOR,
+    CONF_WEATHER,
     CONF_WINDOW_SENSORS,
     DOMAIN,
     PRESET_COMFORT,
@@ -37,6 +38,9 @@ _PRESENCE_SENSOR = selector.EntitySelector(
 )
 _CALENDAR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["calendar", "schedule"])
+)
+_WEATHER = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain="weather")
 )
 _FIL_PILOTE = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["select", "climate"])
@@ -138,6 +142,7 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
         ),
     }
     schema.update(_with_default(CONF_TEMPERATURE_SENSOR, _TEMP_SENSOR, d))
+    schema.update(_with_default(CONF_WEATHER, _WEATHER, d))
     schema.update(_with_default(CONF_HEATING_CALENDAR, _CALENDAR, d))
     schema.update(
         {
@@ -231,6 +236,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_NAME: user_input[CONF_NAME],
                         CONF_TEMP_METHOD: method,
                         CONF_TEMPERATURE_SENSOR: sensor,
+                        CONF_WEATHER: user_input.get(CONF_WEATHER),
                         CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
                         CONF_CALENDAR_ON_MODE: user_input.get(
                             CONF_CALENDAR_ON_MODE, PRESET_COMFORT
@@ -294,7 +300,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
-    """Permet de changer sonde, calendrier, modes, fenetres et consignes."""
+    """Permet de changer sonde, calendrier, meteo, modes, fenetres et consignes."""
 
     async def async_step_init(self, user_input=None):
         if self.config_entry.data.get("type") == CENTRAL:
@@ -313,6 +319,7 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
                     **self.config_entry.data,
                     **user_input,
                     CONF_TEMPERATURE_SENSOR: sensor,
+                    CONF_WEATHER: user_input.get(CONF_WEATHER),
                     CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
                     CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
                     CONF_WINDOW_SENSORS: _normalize_windows(
