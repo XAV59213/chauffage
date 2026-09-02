@@ -116,4 +116,4 @@ EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 EVENT_WINDOWS_CHANGED = f"{DOMAIN}_windows_changed"
 
-VERSION = "1.1.9"
+VERSION = "1.1.10"
