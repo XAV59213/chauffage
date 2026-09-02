@@ -48,9 +48,9 @@ from .fil_pilote import (
     room_fil_pilote_id,
     windows_from_entry,
 )
+from .occupancy import occupancy_count
 
 _LOGGER = logging.getLogger(__name__)
-HOME_STATES = {"home", "on"}
 
 SUPPORTED_FEATURES = (
     ClimateEntityFeature.TARGET_TEMPERATURE
@@ -178,6 +178,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             "calendar_on_mode": self._calendar_on_mode,
             "calendar_off_mode": self._calendar_off_mode,
             "presence_away_mode": self._presence_away_mode,
+            "presence_sensor": self._presence_sensor,
             "temperatures": self._temps,
             "auto_eco_active": self._auto_eco_active,
             "occupants": self._occupancy_count() if self._has_occupancy_source() else None,
@@ -252,14 +253,9 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             self._unsub_temp = async_track_state_change_event(
                 self.hass, sensors, self._update_central_temperature
             )
-        occupancy = ["zone.home"]
-        occupancy.extend(state.entity_id for state in self.hass.states.async_all("person"))
         if self._presence_sensor:
-            occupancy.append(self._presence_sensor)
-        occupancy = [eid for eid in dict.fromkeys(occupancy) if eid]
-        if occupancy:
             self._unsub_presence = async_track_state_change_event(
-                self.hass, occupancy, self._handle_presence_change
+                self.hass, [self._presence_sensor], self._handle_presence_change
             )
         if self._calendar:
             self._unsub_calendar = async_track_state_change_event(
@@ -272,32 +268,10 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             )
 
     def _has_occupancy_source(self) -> bool:
-        if self._presence_sensor:
-            return True
-        if any(True for _ in self.hass.states.async_all("person")):
-            return True
-        zone = self.hass.states.get("zone.home")
-        return bool(zone and zone.attributes.get("persons") is not None)
+        return bool(self._presence_sensor)
 
     def _occupancy_count(self) -> int:
-        zone = self.hass.states.get("zone.home")
-        if zone and isinstance(zone.attributes.get("persons"), list):
-            return len(zone.attributes["persons"])
-        persons = sum(
-            1
-            for state in self.hass.states.async_all("person")
-            if str(state.state).lower() in HOME_STATES
-        )
-        if persons:
-            return persons
-        if self._presence_sensor:
-            state = self.hass.states.get(self._presence_sensor)
-            if state and state.state not in ("unknown", "unavailable"):
-                try:
-                    return int(float(state.state))
-                except (TypeError, ValueError):
-                    return 0 if str(state.state).lower() in ("off", "false", "not_home") else 1
-        return 0
+        return occupancy_count(self.hass, self._presence_sensor)
 
     @callback
     def _handle_windows(self, event=None):
