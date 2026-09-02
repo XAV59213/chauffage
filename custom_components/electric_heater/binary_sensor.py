@@ -141,6 +141,7 @@ class CentralCalendarActive(BinarySensorEntity):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
+        self.entry = entry
         self._calendar = entry.data.get(CONF_HEATING_CALENDAR)
         self._unsub = None
         self._event = None
@@ -165,6 +166,7 @@ class CentralCalendarActive(BinarySensorEntity):
         }
 
     async def async_added_to_hass(self):
+        self._refresh_calendar_id()
         if self._calendar:
             self._unsub = async_track_state_change_event(
                 self.hass, [self._calendar], self._update
@@ -172,17 +174,21 @@ class CentralCalendarActive(BinarySensorEntity):
         self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update)
         self._update()
 
+    def _refresh_calendar_id(self) -> None:
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        data = current.data if current else self.entry.data
+        self._calendar = data.get(CONF_HEATING_CALENDAR)
+
     @callback
     def _update(self, event=None):
-        self._calendar = (
-            self.hass.config_entries.async_get_entry(self.hass.data.get("_unused"))
-            and self._calendar
-        ) or self._calendar
-        # Relit l'entree centrale au cas ou le calendrier a ete change via Options
-        for entry in self.hass.config_entries.async_entries(DOMAIN):
-            if entry.data.get("type") == CENTRAL:
-                self._calendar = entry.data.get(CONF_HEATING_CALENDAR) or self._calendar
-                break
+        previous = self._calendar
+        self._refresh_calendar_id()
+        if self._calendar and self._calendar != previous:
+            if self._unsub:
+                self._unsub()
+            self._unsub = async_track_state_change_event(
+                self.hass, [self._calendar], self._update
+            )
         state = self.hass.states.get(self._calendar) if self._calendar else None
         if not state or state.state in ("unknown", "unavailable"):
             self._attr_is_on = False
