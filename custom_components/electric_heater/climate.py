@@ -17,7 +17,6 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
-    CONF_FIL_PILOTE_SELECT,
     CONF_HEATING_CALENDAR,
     CONF_PRESENCE_SENSOR,
     CONF_TEMP_METHOD,
@@ -34,7 +33,6 @@ from .const import (
     PRESET_FROST_PROTECTION,
     PRESET_OFF,
     PRESETS,
-    ROOM,
     VERSION,
 )
 from .fil_pilote import (
@@ -184,7 +182,9 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._update_central_temperature()
         self._update_target_temp()
         self._update_hvac_action()
-        if self._hvac_mode == HVACMode.OFF:
+        if self._hvac_mode == HVACMode.OFF or (
+            self._hvac_mode == HVACMode.AUTO and self._preset_mode == PRESET_OFF
+        ):
             self.hass.create_task(self._push_to_all_rooms())
 
     async def async_will_remove_from_hass(self):
@@ -248,9 +248,13 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
     def _apply_auto_from_calendar(self, push: bool = True) -> None:
         self._refresh_calendar()
         if self._calendar_active:
-            preset = self._last_manual_preset if self._last_manual_preset in COMFORT_PRESETS else PRESET_COMFORT
+            preset = (
+                self._last_manual_preset
+                if self._last_manual_preset in COMFORT_PRESETS
+                else PRESET_COMFORT
+            )
         else:
-            preset = PRESET_ECO
+            preset = PRESET_OFF
         self._preset_mode = preset
         self._update_target_temp()
         self._update_hvac_action()
@@ -288,6 +292,8 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
     def _handle_presence_change(self, event):
         if self._hvac_mode == HVACMode.OFF:
             return
+        if self._hvac_mode == HVACMode.AUTO and not self._is_calendar_active():
+            return
         state = event.data.get("new_state")
         if not state or state.state in ("unknown", "unavailable"):
             return
@@ -323,7 +329,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._target_temp = self._temps[key]
 
     def _update_hvac_action(self):
-        if self._hvac_mode == HVACMode.OFF:
+        if self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF:
             self._hvac_action = HVACAction.OFF
         elif self._current_temp is None or self._target_temp is None:
             self._hvac_action = HVACAction.IDLE
@@ -452,7 +458,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
 
     @property
     def hvac_action(self) -> HVACAction:
-        if self._window_open or self._hvac_mode == HVACMode.OFF:
+        if self._window_open or self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF:
             return HVACAction.OFF
         if self._current_temp is None or self._target_temp is None:
             return HVACAction.IDLE
@@ -468,10 +474,11 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        off = self._window_open or self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF
         return {
             "window_open": self._window_open,
             "follow_central": self._follow_central,
-            "fil_pilote_mode": PRESET_OFF if self._window_open or self._hvac_mode == HVACMode.OFF else self._preset_mode,
+            "fil_pilote_mode": PRESET_OFF if off else self._preset_mode,
             "temperature_sensor": self._temp_sensor,
             "fil_pilote": self._fil_pilote_select,
         }
@@ -542,7 +549,11 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def _apply_fil_pilote(self):
-        preset = PRESET_OFF if self._window_open or self._hvac_mode == HVACMode.OFF else self._preset_mode
+        preset = (
+            PRESET_OFF
+            if self._window_open or self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF
+            else self._preset_mode
+        )
         await apply_fil_pilote(self.hass, self._fil_pilote_select, preset)
 
     async def async_set_temperature(self, **kwargs):
