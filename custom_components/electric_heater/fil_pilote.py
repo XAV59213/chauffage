@@ -20,26 +20,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 _OFF_HINTS = ("off", "stop", "arret", "arrêt")
-_OPEN_STATES = {
-    "on",
-    "open",
-    "opened",
-    "true",
-    "1",
-    "ouvert",
-    "ouverte",
-}
-_CLOSED_STATES = {
-    "off",
-    "closed",
-    "close",
-    "false",
-    "0",
-    "ferme",
-    "fermé",
-    "fermee",
-    "fermée",
-}
+_OPEN_STATES = {"on", "open", "opened", "opening", "true", "1"}
 
 
 def room_fil_pilote_id(data: dict) -> str | None:
@@ -92,10 +73,15 @@ def parse_window_sensors(data: dict | None) -> list[str]:
     return [s for s in items if "." in s]
 
 
+def windows_from_entry(entry: ConfigEntry) -> list[str]:
+    merged = {**dict(entry.data), **dict(entry.options or {})}
+    return parse_window_sensors(merged)
+
+
 def all_configured_windows(hass: HomeAssistant) -> list[str]:
     seen: list[str] = []
     for entry in hass.config_entries.async_entries(DOMAIN):
-        for eid in parse_window_sensors(entry.data):
+        for eid in windows_from_entry(entry):
             if eid not in seen:
                 seen.append(eid)
     return seen
@@ -104,18 +90,7 @@ def all_configured_windows(hass: HomeAssistant) -> list[str]:
 def is_window_open_state(state: State | None) -> bool:
     if state is None or state.state in ("unknown", "unavailable", None):
         return False
-    raw = str(state.state).strip().lower()
-    if raw in _OPEN_STATES:
-        return True
-    if raw in _CLOSED_STATES:
-        contact = state.attributes.get("contact")
-        if contact is False or contact == 0:
-            return True
-        return False
-    contact = state.attributes.get("contact")
-    if contact is False or contact == 0:
-        return True
-    return False
+    return str(state.state).strip().lower() in _OPEN_STATES
 
 
 def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
@@ -123,11 +98,11 @@ def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
 
 
 def entry_windows_open(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    sensors = parse_window_sensors(entry.data)
+    sensors = windows_from_entry(entry)
     if not sensors:
         return False
     opened = any_window_open(hass, sensors)
-    if entry.data.get(CONF_WINDOW_INVERT):
+    if entry.data.get(CONF_WINDOW_INVERT) or (entry.options or {}).get(CONF_WINDOW_INVERT):
         return not opened
     return opened
 
