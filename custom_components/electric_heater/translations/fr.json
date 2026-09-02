@@ -1,6 +1,10 @@
 {
   "title": "Chauffage Electrique Fil Pilote FR",
   "config": {
+    "entry_type": "Radiateur",
+    "initiate_flow": {
+      "user": "Ajouter un radiateur"
+    },
     "step": {
       "user": {
         "title": "Chauffage Electrique Fil Pilote FR",
