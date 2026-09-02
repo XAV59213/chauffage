@@ -380,6 +380,8 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._calendar_active = self._is_calendar_active()
 
     def _apply_auto_from_calendar(self, push: bool = True) -> None:
+        if self._hvac_mode != HVACMode.AUTO:
+            return
         if self._window_open:
             self._update_target_temp()
             self._update_hvac_action()
@@ -411,17 +413,14 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
 
     @callback
     def _handle_calendar_change(self, event=None):
-        if self._window_open:
+        if self._window_open or self._hvac_mode != HVACMode.AUTO:
             return
         was_active = self._calendar_active
         self._refresh_calendar()
         if self._calendar_active and not was_active:
-            if self._hvac_mode != HVACMode.OFF:
-                self._hvac_mode = HVACMode.AUTO
-                self._apply_auto_from_calendar(push=True)
-                return
-        if self._hvac_mode == HVACMode.AUTO:
             self._apply_auto_from_calendar(push=True)
+            return
+        self._apply_auto_from_calendar(push=True)
 
     @callback
     def _update_central_temperature(self, event=None):
@@ -439,11 +438,11 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
 
     @callback
     def _handle_presence_change(self, event=None):
-        if self._window_open or self._hvac_mode == HVACMode.OFF:
+        if self._window_open or self._hvac_mode != HVACMode.AUTO:
             return
         if not self._has_occupancy_source():
             return
-        if self._hvac_mode == HVACMode.AUTO and not self._is_calendar_active():
+        if not self._is_calendar_active():
             return
         persons = self._occupancy_count()
         changed = False
@@ -455,11 +454,8 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             changed = True
         elif persons > 0 and self._auto_eco_active:
             self._auto_eco_active = False
-            if self._hvac_mode == HVACMode.AUTO:
-                self._apply_auto_from_calendar(push=True)
-                return
-            self._preset_mode = self._last_manual_preset
-            changed = True
+            self._apply_auto_from_calendar(push=True)
+            return
         if changed:
             self._update_target_temp()
             self._update_hvac_action()
@@ -544,11 +540,12 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             else self._preset_mode
         )
         target = None if base == PRESET_OFF else self._target_temp
+        exact = self._hvac_mode == HVACMode.HEAT
         rooms = iter_room_entries(self.hass)
         if not rooms:
             _LOGGER.warning("Aucun radiateur a commander pour l'ordre %s", base)
         for entry in rooms:
-            await apply_room_order(self.hass, entry, base, target)
+            await apply_room_order(self.hass, entry, base, target, exact=exact)
         self.hass.bus.async_fire(EVENT_CENTRAL_CHANGED)
 
 
@@ -683,10 +680,12 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
 
     @callback
     def _sync_from_central(self, event=None):
-        if not self._follow_central:
-            return
         central = get_central_state(self.hass)
         if not central:
+            return
+        if central.state == "heat":
+            self._follow_central = True
+        if not self._follow_central:
             return
         if central.state in ("heat", "off", "auto"):
             self._hvac_mode = HVACMode(central.state)
@@ -715,7 +714,8 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             )
         except (ValueError, TypeError):
             self._current_temp = None
-        self.hass.create_task(self._apply_fil_pilote())
+        if self._hvac_mode != HVACMode.HEAT:
+            self.hass.create_task(self._apply_fil_pilote())
         self.async_write_ha_state()
 
     @callback
@@ -746,7 +746,8 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             else self._preset_mode
         )
         target = None if base == PRESET_OFF else self._target_temp
-        await apply_room_order(self.hass, self.entry, base, target)
+        exact = self._hvac_mode == HVACMode.HEAT
+        await apply_room_order(self.hass, self.entry, base, target, exact=exact)
 
     async def async_set_temperature(self, **kwargs):
         if temp := kwargs.get("temperature"):
