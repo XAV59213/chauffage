@@ -98,6 +98,7 @@ CONF_PRESENCE_SENSOR = "presence_sensor"
 CONF_TEMPERATURE_SENSOR = "temperature_sensor"
 CONF_FIL_PILOTE_SELECT = "fil_pilote_select"
 CONF_WINDOW_SENSORS = "window_sensors"
+CONF_WINDOW_INVERT = "window_invert"
 CONF_HEATING_CALENDAR = "heating_calendar"
 CONF_CALENDAR_ON_MODE = "calendar_on_mode"
 CONF_CALENDAR_OFF_MODE = "calendar_off_mode"
@@ -114,4 +115,4 @@ FIL_PILOTE_DATA_KEYS = (
 EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 
-VERSION = "1.1.7"
+VERSION = "1.1.8"
