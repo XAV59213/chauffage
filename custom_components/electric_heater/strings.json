@@ -1,6 +1,10 @@
 {
   "title": "French Pilot-Wire Electric Heating",
   "config": {
+    "entry_type": "Radiator",
+    "initiate_flow": {
+      "user": "Add a radiator"
+    },
     "step": {
       "user": {
         "title": "French Pilot-Wire Electric Heating",
