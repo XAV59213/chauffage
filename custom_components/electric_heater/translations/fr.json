@@ -3,7 +3,8 @@
   "config": {
     "entry_type": "Radiateur",
     "initiate_flow": {
-      "user": "Ajouter un radiateur"
+      "user": "Ajouter un radiateur",
+      "reconfigure": "Configurer"
     },
     "step": {
       "user": {
@@ -11,7 +12,7 @@
         "description": "Creez d'abord le thermostat virtuel, puis ajoutez chaque radiateur."
       },
       "central": {
-        "title": "Thermostat virtuel",
+        "title": "Configurer le thermostat",
         "description": "Les capteurs fenetre / ouverture coupent tous les radiateurs tant qu'une fenetre est ouverte.",
         "data": {
           "name": "Nom du thermostat virtuel",
@@ -55,12 +56,16 @@
     }
   },
   "options": {
+    "initiate_flow": {
+      "user": "Configurer le thermostat"
+    },
     "step": {
       "init": {
-        "title": "Modifier la configuration"
+        "title": "Configurer"
       },
       "central": {
-        "title": "Options du thermostat virtuel",
+        "title": "Configurer le thermostat",
+        "description": "Sonde, calendrier, presence, fenetres salon, meteo et consignes.",
         "data": {
           "name": "Nom du thermostat virtuel",
           "temp_method": "Source de la temperature",
@@ -83,7 +88,8 @@
         }
       },
       "room": {
-        "title": "Options du radiateur",
+        "title": "Configurer le radiateur",
+        "description": "Relais fil pilote, sonde et fenetres de la piece.",
         "data": {
           "name": "Nom de la piece / du radiateur",
           "fil_pilote_select": "Relais fil pilote",
