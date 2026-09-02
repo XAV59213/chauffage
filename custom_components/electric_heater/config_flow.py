@@ -42,11 +42,7 @@ _FIL_PILOTE = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["select", "climate"])
 )
 _WINDOWS = selector.EntitySelector(
-    selector.EntitySelectorConfig(
-        multiple=True,
-        domain="binary_sensor",
-        device_class=["window", "opening", "door"],
-    )
+    selector.EntitySelectorConfig(multiple=True, domain="binary_sensor")
 )
 _PRESET = selector.SelectSelector(
     selector.SelectSelectorConfig(
