@@ -46,7 +46,7 @@ FIL_PILOTE_ALIASES = {
         "Comfort -2",
         "comfort_2",
     ],
-    PRESET_ECO: ["eco", "Eco", "Eco", "economique"],
+    PRESET_ECO: ["eco", "Eco", "economique"],
     PRESET_FROST_PROTECTION: [
         "frost_protection",
         "frost-protection",
@@ -74,8 +74,9 @@ CONF_PRESENCE_SENSOR = "presence_sensor"
 CONF_TEMPERATURE_SENSOR = "temperature_sensor"
 CONF_FIL_PILOTE_SELECT = "fil_pilote_select"
 CONF_WINDOW_SENSORS = "window_sensors"
+CONF_HEATING_CALENDAR = "heating_calendar"
 
 EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 
-VERSION = "1.4.1"
+VERSION = "1.5.0"
