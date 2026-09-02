@@ -4,7 +4,7 @@ from __future__ import annotations
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .const import (
@@ -41,7 +41,7 @@ _CALENDAR = selector.EntitySelector(
 _FIL_PILOTE = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["select", "climate"])
 )
-_WINDOWS = selector.EntitySelector(
+_WINDOWS_FALLBACK = selector.EntitySelector(
     selector.EntitySelectorConfig(multiple=True, domain="binary_sensor")
 )
 _PRESET = selector.SelectSelector(
@@ -50,6 +50,7 @@ _PRESET = selector.SelectSelector(
         mode="dropdown",
     )
 )
+_WINDOW_CLASSES = {"window", "opening", "door", "garage_door"}
 
 
 def _number(min_v, max_v, step=0.1):
@@ -72,18 +73,48 @@ def _parse_windows(value):
     if not value:
         return []
     if isinstance(value, (list, tuple)):
-        return [s for s in value if s]
+        return [str(s) for s in value if s]
     return [s.strip() for s in str(value).split(",") if s.strip()]
 
 
-def _windows_field(defaults):
+def _window_options(hass: HomeAssistant | None):
+    options = []
+    if hass is None:
+        return options
+    for state in hass.states.async_all("binary_sensor"):
+        dc = state.attributes.get("device_class")
+        eid = state.entity_id
+        hint = f"{eid} {state.name}".lower()
+        if dc not in _WINDOW_CLASSES and "fenetre" not in hint and "window" not in hint and "porte" not in hint:
+            continue
+        label = f"{state.name}  —  {eid}"
+        options.append({"value": eid, "label": label})
+    options.sort(key=lambda item: item["label"].lower())
+    return options
+
+
+def _windows_selector(hass: HomeAssistant | None):
+    options = _window_options(hass)
+    if not options:
+        return _WINDOWS_FALLBACK
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options,
+            multiple=True,
+            mode="dropdown",
+        )
+    )
+
+
+def _windows_field(defaults, hass: HomeAssistant | None = None):
     windows = _parse_windows((defaults or {}).get(CONF_WINDOW_SENSORS))
+    selector_obj = _windows_selector(hass)
     if windows:
-        return {vol.Optional(CONF_WINDOW_SENSORS, default=windows): _WINDOWS}
-    return {vol.Optional(CONF_WINDOW_SENSORS): _WINDOWS}
+        return {vol.Optional(CONF_WINDOW_SENSORS, default=windows): selector_obj}
+    return {vol.Optional(CONF_WINDOW_SENSORS): selector_obj}
 
 
-def _central_schema(defaults: dict | None = None) -> vol.Schema:
+def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = None) -> vol.Schema:
     d = defaults or {}
     schema: dict = {
         vol.Optional(CONF_NAME, default=d.get(CONF_NAME, "Thermostat virtuel")): str,
@@ -125,7 +156,7 @@ def _central_schema(defaults: dict | None = None) -> vol.Schema:
         }
     )
     schema.update(_with_default(CONF_PRESENCE_SENSOR, _PRESENCE_SENSOR, d))
-    schema.update(_windows_field(d))
+    schema.update(_windows_field(d, hass))
     schema.update(
         {
             vol.Required(
@@ -153,7 +184,7 @@ def _central_schema(defaults: dict | None = None) -> vol.Schema:
     return vol.Schema(schema)
 
 
-def _room_schema(defaults: dict | None = None) -> vol.Schema:
+def _room_schema(defaults: dict | None = None, hass: HomeAssistant | None = None) -> vol.Schema:
     d = defaults or {}
     name_default = d.get(CONF_NAME)
     schema: dict = {}
@@ -163,7 +194,7 @@ def _room_schema(defaults: dict | None = None) -> vol.Schema:
         schema[vol.Required(CONF_NAME)] = str
     schema.update(_with_default(CONF_FIL_PILOTE_SELECT, _FIL_PILOTE, d, required=True))
     schema.update(_with_default(CONF_TEMPERATURE_SENSOR, _TEMP_SENSOR, d, required=True))
-    schema.update(_windows_field(d))
+    schema.update(_windows_field(d, hass))
     return vol.Schema(schema)
 
 
@@ -227,7 +258,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="central",
-            data_schema=_central_schema(),
+            data_schema=_central_schema(hass=self.hass),
             errors=errors,
         )
 
@@ -252,7 +283,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="room",
-            data_schema=_room_schema(),
+            data_schema=_room_schema(hass=self.hass),
             errors=errors,
         )
 
@@ -297,7 +328,7 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="central",
-            data_schema=_central_schema(dict(self.config_entry.data)),
+            data_schema=_central_schema(dict(self.config_entry.data), self.hass),
             errors=errors,
         )
 
@@ -319,5 +350,5 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="room",
-            data_schema=_room_schema(dict(self.config_entry.data)),
+            data_schema=_room_schema(dict(self.config_entry.data), self.hass),
         )
