@@ -16,7 +16,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             identifiers={(DOMAIN, "electric_heater_central")},
             name=entry.data.get("name", "Chauffage Central"),
             manufacturer="XAV59213",
-            model="Fil Pilote Français",
+            model="Thermostat virtuel 6 ordres",
             sw_version=VERSION,
         )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -29,5 +29,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    await hass.config_entries.async_reload(entry.entry_id)

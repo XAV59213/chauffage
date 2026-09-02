@@ -53,13 +53,22 @@ def get_central_state(hass: HomeAssistant) -> State | None:
     return None
 
 
-def parse_window_sensors(data: dict) -> list[str]:
-    raw = data.get(CONF_WINDOW_SENSORS)
+def parse_window_sensors(data: dict | None) -> list[str]:
+    if not data:
+        return []
+    raw = data.get(CONF_WINDOW_SENSORS) if isinstance(data, dict) else data
     if not raw:
         return []
-    if isinstance(raw, (list, tuple)):
-        return [str(s).strip() for s in raw if str(s).strip()]
-    return [s.strip() for s in str(raw).split(",") if s.strip()]
+    items: list[str] = []
+    if isinstance(raw, (list, tuple, set)):
+        for item in raw:
+            if isinstance(item, (list, tuple)):
+                items.extend(str(s).strip() for s in item if str(s).strip())
+            elif item:
+                items.append(str(item).strip())
+    else:
+        items.extend(s.strip() for s in str(raw).split(",") if s.strip())
+    return [s for s in items if "." in s]
 
 
 def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
@@ -137,22 +146,16 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
                 "select",
                 "select_option",
                 {"entity_id": entity_id, "option": option},
-                blocking=True,
+                blocking=False,
             )
         elif domain == "climate":
             data: dict[str, Any] = {"entity_id": entity_id}
             if preset == PRESET_OFF:
                 await hass.services.async_call(
                     "climate",
-                    "turn_off",
-                    data,
-                    blocking=True,
-                )
-                await hass.services.async_call(
-                    "climate",
                     "set_hvac_mode",
                     {**data, "hvac_mode": "off"},
-                    blocking=True,
+                    blocking=False,
                 )
             else:
                 if state.state == "off":
@@ -160,14 +163,14 @@ async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: s
                         "climate",
                         "set_hvac_mode",
                         {**data, "hvac_mode": "heat"},
-                        blocking=True,
+                        blocking=False,
                     )
                 if option:
                     await hass.services.async_call(
                         "climate",
                         "set_preset_mode",
                         {**data, "preset_mode": option},
-                        blocking=True,
+                        blocking=False,
                     )
         else:
             _LOGGER.warning("Type d'entité fil pilote non supporté: %s", entity_id)
