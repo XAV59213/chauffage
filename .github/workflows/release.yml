@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de la release"
+        required: true
+        default: "1.1.3"
+      name:
+        description: "Nom de la release"
+        required: true
+        default: "1.1.3"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ inputs.tag }}" \
+            --target main \
+            --title "${{ inputs.name }}" \
+            --notes "$(cat <<'EOF'
+## What's Changed
+* fix: capteurs Inconnu et extinction du radiateur by @XAV59213 in https://github.com/XAV59213/chauffage/pull/6
+
+Les capteurs Température Centrale et Chauffage Actif suivent maintenant le thermostat.
+Éteindre le thermostat virtuel envoie l'ordre off au relais fil pilote.
+
+**Full Changelog**: https://github.com/XAV59213/chauffage/compare/1.1.2...1.1.3
+EOF
+)"
