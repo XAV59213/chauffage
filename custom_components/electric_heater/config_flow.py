@@ -43,7 +43,9 @@ _FIL_PILOTE = selector.EntitySelector(
 )
 _WINDOWS = selector.EntitySelector(
     selector.EntitySelectorConfig(
-        multiple=True, domain="binary_sensor", device_class="window"
+        multiple=True,
+        domain="binary_sensor",
+        device_class=["window", "opening", "door"],
     )
 )
 _PRESET = selector.SelectSelector(
@@ -68,6 +70,21 @@ def _with_default(key, selector_obj, defaults, required=False):
     if val:
         return {marker(key, default=val): selector_obj}
     return {marker(key): selector_obj}
+
+
+def _parse_windows(value):
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [s for s in value if s]
+    return [s.strip() for s in str(value).split(",") if s.strip()]
+
+
+def _windows_field(defaults):
+    windows = _parse_windows((defaults or {}).get(CONF_WINDOW_SENSORS))
+    if windows:
+        return {vol.Optional(CONF_WINDOW_SENSORS, default=windows): _WINDOWS}
+    return {vol.Optional(CONF_WINDOW_SENSORS): _WINDOWS}
 
 
 def _central_schema(defaults: dict | None = None) -> vol.Schema:
@@ -112,6 +129,7 @@ def _central_schema(defaults: dict | None = None) -> vol.Schema:
         }
     )
     schema.update(_with_default(CONF_PRESENCE_SENSOR, _PRESENCE_SENSOR, d))
+    schema.update(_windows_field(d))
     schema.update(
         {
             vol.Required(
@@ -149,22 +167,12 @@ def _room_schema(defaults: dict | None = None) -> vol.Schema:
         schema[vol.Required(CONF_NAME)] = str
     schema.update(_with_default(CONF_FIL_PILOTE_SELECT, _FIL_PILOTE, d, required=True))
     schema.update(_with_default(CONF_TEMPERATURE_SENSOR, _TEMP_SENSOR, d, required=True))
-    windows = d.get(CONF_WINDOW_SENSORS)
-    if isinstance(windows, str) and windows:
-        windows = [s.strip() for s in windows.split(",") if s.strip()]
-    if windows:
-        schema[vol.Optional(CONF_WINDOW_SENSORS, default=windows)] = _WINDOWS
-    else:
-        schema[vol.Optional(CONF_WINDOW_SENSORS)] = _WINDOWS
+    schema.update(_windows_field(d))
     return vol.Schema(schema)
 
 
 def _normalize_windows(value) -> str:
-    if not value:
-        return ""
-    if isinstance(value, str):
-        return value
-    return ",".join(value)
+    return ",".join(_parse_windows(value))
 
 
 class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -207,6 +215,9 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_PRESENCE_AWAY_MODE, PRESET_ECO
                         ),
                         CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
+                        CONF_WINDOW_SENSORS: _normalize_windows(
+                            user_input.get(CONF_WINDOW_SENSORS)
+                        ),
                         "comfort_temp": user_input["comfort_temp"],
                         "comfort_m1_temp": user_input["comfort_m1_temp"],
                         "comfort_m2_temp": user_input["comfort_m2_temp"],
@@ -256,7 +267,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
-    """Permet de changer sonde, calendrier, modes fil pilote et consignes."""
+    """Permet de changer sonde, calendrier, modes, fenetres et consignes."""
 
     async def async_step_init(self, user_input=None):
         if self.config_entry.data.get("type") == CENTRAL:
@@ -277,6 +288,9 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
                     CONF_TEMPERATURE_SENSOR: sensor,
                     CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
                     CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
+                    CONF_WINDOW_SENSORS: _normalize_windows(
+                        user_input.get(CONF_WINDOW_SENSORS)
+                    ),
                 }
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,

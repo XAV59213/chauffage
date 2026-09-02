@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, State
 
 from .const import (
     CENTRAL,
+    CONF_WINDOW_SENSORS,
     DOMAIN,
     FIL_PILOTE_ALIASES,
     FIL_PILOTE_DATA_KEYS,
@@ -52,6 +53,29 @@ def get_central_state(hass: HomeAssistant) -> State | None:
     return None
 
 
+def parse_window_sensors(data: dict) -> list[str]:
+    raw = data.get(CONF_WINDOW_SENSORS)
+    if not raw:
+        return []
+    if isinstance(raw, (list, tuple)):
+        return [str(s).strip() for s in raw if str(s).strip()]
+    return [s.strip() for s in str(raw).split(",") if s.strip()]
+
+
+def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
+    return any(
+        (st := hass.states.get(eid)) is not None and st.state == "on"
+        for eid in sensors
+    )
+
+
+def central_window_open(hass: HomeAssistant) -> bool:
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.data.get("type") == CENTRAL:
+            return any_window_open(hass, parse_window_sensors(entry.data))
+    return False
+
+
 def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str | None:
     aliases = FIL_PILOTE_ALIASES.get(preset, [preset])
     if not available:
@@ -77,6 +101,8 @@ def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str |
 
 
 async def apply_fil_pilote(hass: HomeAssistant, entity_id: str | None, preset: str) -> None:
+    if central_window_open(hass):
+        preset = PRESET_OFF
     if not entity_id:
         _LOGGER.warning("Aucun relais fil pilote configuré pour l'ordre %s", preset)
         return
