@@ -11,6 +11,7 @@ from .const import (
     CONF_PRESENCE_SENSOR,
     DOMAIN,
     EVENT_CENTRAL_CHANGED,
+    EVENT_ROOMS_CHANGED,
     PRESET_OFF,
 )
 from .fil_pilote import (
@@ -244,16 +245,20 @@ class CentralWindowOpen(BinarySensorEntity):
         return {"windows": self._sensors}
 
     async def async_added_to_hass(self):
-        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
-        self._sensors = parse_window_sensors(current.data if current else self.entry.data)
+        self._refresh_sensors()
         if self._sensors:
             self._unsub = async_track_state_change_event(
                 self.hass, self._sensors, self._update
             )
         self._update()
 
+    def _refresh_sensors(self) -> None:
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self._sensors = parse_window_sensors(current.data if current else self.entry.data)
+
     @callback
     def _update(self, event=None):
+        self._refresh_sensors()
         was_on = self._attr_is_on
         self._attr_is_on = any_window_open(self.hass, self._sensors)
         self.async_write_ha_state()
@@ -268,17 +273,16 @@ class CentralWindowOpen(BinarySensorEntity):
         self.hass.bus.async_fire(EVENT_CENTRAL_CHANGED)
 
 
-class RoomWindowOpen(BinarySensorEntity):
-    _attr_has_entity_name = True
-    _attr_name = "Fenetre Ouverte"
-    _attr_device_class = BinarySensorDeviceClass.WINDOW
-    _attr_is_on = False
+class _RoomWindowBase(BinarySensorEntity):
+    """Suit les contacts fenetre de la piece."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
-        self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_fenetre_ouverte"
         self._sensors = parse_window_sensors(entry.data)
+        self._unsub = None
+        self._unsub_rooms = None
+        self._attr_is_on = False
 
     @property
     def device_info(self):
@@ -287,43 +291,59 @@ class RoomWindowOpen(BinarySensorEntity):
             "via_device": (DOMAIN, "electric_heater_central"),
         }
 
+    @property
+    def extra_state_attributes(self):
+        sources = {}
+        for eid in self._sensors:
+            st = self.hass.states.get(eid)
+            sources[eid] = st.state if st else "inconnu"
+        return {"windows": self._sensors, "sources": sources}
+
     async def async_added_to_hass(self):
+        self._listen()
+        self._unsub_rooms = self.hass.bus.async_listen(EVENT_ROOMS_CHANGED, self._update)
+        self._update()
+
+    async def async_will_remove_from_hass(self):
+        if self._unsub:
+            self._unsub()
+        if self._unsub_rooms:
+            self._unsub_rooms()
+
+    def _listen(self) -> None:
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self._sensors = parse_window_sensors(current.data if current else self.entry.data)
+        if self._unsub:
+            self._unsub()
+            self._unsub = None
         if self._sensors:
-            async_track_state_change_event(self.hass, self._sensors, self._update)
-            self._update()
+            self._unsub = async_track_state_change_event(
+                self.hass, self._sensors, self._update
+            )
 
     @callback
     def _update(self, event=None):
+        self._listen()
         self._attr_is_on = any_window_open(self.hass, self._sensors)
         self.async_write_ha_state()
 
 
-class RoomWindowSecurity(BinarySensorEntity):
+class RoomWindowOpen(_RoomWindowBase):
+    _attr_has_entity_name = True
+    _attr_name = "Fenetre Ouverte"
+    _attr_device_class = BinarySensorDeviceClass.WINDOW
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        super().__init__(hass, entry)
+        self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_fenetre_ouverte"
+
+
+class RoomWindowSecurity(_RoomWindowBase):
     _attr_has_entity_name = True
     _attr_name = "Securite Fenetre"
     _attr_device_class = BinarySensorDeviceClass.SAFETY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_is_on = False
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
-        self.hass = hass
-        self.entry = entry
+        super().__init__(hass, entry)
         self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_securite_fenetre"
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            "via_device": (DOMAIN, "electric_heater_central"),
-        }
-
-    async def async_added_to_hass(self):
-        self.hass.bus.async_listen(f"{DOMAIN}_rooms_changed", self._update)
-        self._update()
-
-    @callback
-    def _update(self, event=None):
-        self._attr_is_on = any_window_open(
-            self.hass, parse_window_sensors(self.entry.data)
-        )
-        self.async_write_ha_state()
