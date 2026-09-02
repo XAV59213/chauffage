@@ -50,6 +50,7 @@ from .fil_pilote import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+HOME_STATES = {"home", "on"}
 
 SUPPORTED_FEATURES = (
     ClimateEntityFeature.TARGET_TEMPERATURE
@@ -78,7 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class CentralThermostat(ClimateEntity, RestoreEntity):
-    """Thermostat virtuel : Auto suit le calendrier, ouverture salon = Off."""
+    """Thermostat virtuel : Auto, fenetre salon = Off, maison vide = Eco."""
 
     _attr_has_entity_name = True
     _attr_name = None
@@ -179,6 +180,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             "presence_away_mode": self._presence_away_mode,
             "temperatures": self._temps,
             "auto_eco_active": self._auto_eco_active,
+            "occupants": self._occupancy_count() if self._has_occupancy_source() else None,
             "current_temperature": self._current_temp,
             "temp_method": self._temp_method,
             "temperature_sensor": self._reference_sensor,
@@ -205,6 +207,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._handle_windows()
         if self._hvac_mode == HVACMode.AUTO and not self._window_open:
             self._apply_auto_from_calendar(push=False)
+        self._handle_presence_change()
         self._update_central_temperature()
         self._update_target_temp()
         self._update_hvac_action()
@@ -249,9 +252,14 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             self._unsub_temp = async_track_state_change_event(
                 self.hass, sensors, self._update_central_temperature
             )
+        occupancy = ["zone.home"]
+        occupancy.extend(state.entity_id for state in self.hass.states.async_all("person"))
         if self._presence_sensor:
+            occupancy.append(self._presence_sensor)
+        occupancy = [eid for eid in dict.fromkeys(occupancy) if eid]
+        if occupancy:
             self._unsub_presence = async_track_state_change_event(
-                self.hass, [self._presence_sensor], self._handle_presence_change
+                self.hass, occupancy, self._handle_presence_change
             )
         if self._calendar:
             self._unsub_calendar = async_track_state_change_event(
@@ -262,6 +270,34 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             self._unsub_windows = async_track_state_change_event(
                 self.hass, windows, self._handle_windows
             )
+
+    def _has_occupancy_source(self) -> bool:
+        if self._presence_sensor:
+            return True
+        if any(True for _ in self.hass.states.async_all("person")):
+            return True
+        zone = self.hass.states.get("zone.home")
+        return bool(zone and zone.attributes.get("persons") is not None)
+
+    def _occupancy_count(self) -> int:
+        zone = self.hass.states.get("zone.home")
+        if zone and isinstance(zone.attributes.get("persons"), list):
+            return len(zone.attributes["persons"])
+        persons = sum(
+            1
+            for state in self.hass.states.async_all("person")
+            if str(state.state).lower() in HOME_STATES
+        )
+        if persons:
+            return persons
+        if self._presence_sensor:
+            state = self.hass.states.get(self._presence_sensor)
+            if state and state.state not in ("unknown", "unavailable"):
+                try:
+                    return int(float(state.state))
+                except (TypeError, ValueError):
+                    return 0 if str(state.state).lower() in ("off", "false", "not_home") else 1
+        return 0
 
     @callback
     def _handle_windows(self, event=None):
@@ -318,8 +354,16 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             preset = self._calendar_on_mode
             if self._last_manual_preset in COMFORT_PRESETS and preset in COMFORT_PRESETS:
                 preset = self._last_manual_preset
+            if self._has_occupancy_source() and self._occupancy_count() == 0:
+                if preset in COMFORT_PRESETS:
+                    self._last_manual_preset = preset
+                preset = self._presence_away_mode
+                self._auto_eco_active = True
+            else:
+                self._auto_eco_active = False
         else:
             preset = self._calendar_off_mode
+            self._auto_eco_active = False
         self._preset_mode = preset
         self._update_target_temp()
         self._update_hvac_action()
@@ -356,18 +400,14 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
     @callback
-    def _handle_presence_change(self, event):
+    def _handle_presence_change(self, event=None):
         if self._window_open or self._hvac_mode == HVACMode.OFF:
+            return
+        if not self._has_occupancy_source():
             return
         if self._hvac_mode == HVACMode.AUTO and not self._is_calendar_active():
             return
-        state = event.data.get("new_state")
-        if not state or state.state in ("unknown", "unavailable"):
-            return
-        try:
-            persons = int(float(state.state))
-        except (ValueError, TypeError):
-            persons = 0 if state.state in ("off", "False", "false") else 1
+        persons = self._occupancy_count()
         changed = False
         if persons == 0 and not self._auto_eco_active:
             if self._preset_mode in COMFORT_PRESETS:
