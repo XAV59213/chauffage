@@ -1,4 +1,4 @@
-"""Climate entities for Chauffage Électrique Fil Pilote FR."""
+"""Climate : thermostat virtuel + radiateurs fil pilote."""
 from __future__ import annotations
 
 import logging
@@ -57,7 +57,6 @@ PRESET_TO_TEMP_KEY = {
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    """Set up climate entities."""
     if entry.data.get("type") == "central":
         async_add_entities([CentralThermostat(hass, entry)])
     else:
@@ -65,8 +64,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class CentralThermostat(ClimateEntity, RestoreEntity):
+    """Thermostat principal virtuel : 6 ordres fil pilote vers tous les radiateurs."""
+
     _attr_has_entity_name = True
     _attr_name = None
+    _attr_translation_key = "central"
     _attr_unique_id = "electric_heater_central"
     entity_id = "climate.electric_heater_central"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
@@ -110,9 +112,9 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, "electric_heater_central")},
-            "name": self.entry.data.get("name", "Chauffage Central"),
+            "name": self.entry.data.get("name", "Thermostat virtuel"),
             "manufacturer": "XAV59213",
-            "model": "Fil Pilote FR",
+            "model": "Thermostat virtuel 6 ordres",
             "sw_version": VERSION,
         }
 
@@ -138,7 +140,11 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        mode = PRESET_OFF if self._hvac_mode == HVACMode.OFF else self._preset_mode
         return {
+            "virtual": True,
+            "fil_pilote_mode": mode,
+            "fil_pilote_modes": PRESETS,
             "temperatures": self._temps,
             "auto_eco_active": self._auto_eco_active,
             "current_temperature": self._current_temp,
@@ -320,6 +326,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
 class RoomThermostat(ClimateEntity, RestoreEntity):
     _attr_has_entity_name = True
     _attr_name = None
+    _attr_translation_key = "room"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
     _attr_preset_modes = PRESETS
@@ -393,6 +400,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         return {
             "window_open": self._window_open,
             "follow_central": self._follow_central,
+            "fil_pilote_mode": PRESET_OFF if self._window_open or self._hvac_mode == HVACMode.OFF else self._preset_mode,
             "temperature_sensor": self._temp_sensor,
             "fil_pilote": self._fil_pilote_select,
         }

@@ -1,37 +1,132 @@
-# Chauffage \u00c9lectrique Fil Pilote FR
-**L\u2019int\u00e9gration 100 % locale pour radiateurs fil pilote fran\u00e7ais**
-**SIN-4-FP-21 \u2022 TH01 \u2022 Zigbee2MQTT / ZHA \u2022 S\u00e9curit\u00e9 fen\u00eatre par pi\u00e8ce \u2022 Aucun cloud**
+# Chauffage Electrique Fil Pilote FR
 
-## Configuration (issue Thermostat Central)
+Integration Home Assistant **100 % locale** pour les radiateurs electriques francais a **fil pilote**.
 
-### 1. Cr\u00e9er le thermostat central
+**NodOn SIN-4-FP-21 • Legrand • Delta Dore • sondes Zigbee • Zigbee2MQTT / ZHA • aucun cloud**
 
-Param\u00e8tres \u2192 Appareils et services \u2192 Ajouter une int\u00e9gration \u2192 **Chauffage \u00c9lectrique Fil Pilote FR**
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![Version](https://img.shields.io/github/v/release/XAV59213/chauffage?style=for-the-badge&label=Version)](https://github.com/XAV59213/chauffage/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-%3E%3D2025.1-00A1DF.svg?style=for-the-badge)](https://www.home-assistant.io)
 
-1. Nom (`Chauffage Central`).
-2. Source de temp\u00e9rature :
-   - **Sonde que je choisis** \u2192 n\u2019importe quelle sonde `sensor.*` de classe temp\u00e9rature.
-   - **Moyenne des sondes des pi\u00e8ces** \u2192 moyenne automatique une fois les radiateurs ajout\u00e9s.
-3. R\u00e9glez Confort / Confort \u20131 / Confort \u20132 / \u00c9co / Hors-gel.
-4. Validez. L\u2019entit\u00e9 `climate.electric_heater_central` commande **tous** les radiateurs.
+---
 
-### 2. Ajouter chaque radiateur
+## Principe
 
-Ajoutez \u00e0 nouveau l\u2019int\u00e9gration. Pour chaque pi\u00e8ce :
+Le **thermostat principal est virtuel**. Il n'y a pas de boitier physique : Home Assistant cree l'entite `climate.electric_heater_central`.
 
-1. Nom (ex. `Salon`).
-2. Relais fil pilote : `select.radiateur_salon_pilot_wire_mode` (NodOn SIN-4-FP-21) ou un `climate.*`.
-3. Sonde de temp\u00e9rature de la pi\u00e8ce (TH01, Aqara, Xiaomi\u2026).
-4. Capteurs fen\u00eatre (optionnel).
+Ce thermostat virtuel expose les **6 ordres fil pilote** et les envoie a tous les radiateurs equipes d'un relais :
+
+| Mode fil pilote | Preset Home Assistant | Effet sur le radiateur |
+|---|---|---|
+| Confort | `comfort` | Consigne du radiateur |
+| Confort -1 C | `comfort_-1` | Consigne - 1 C |
+| Confort -2 C | `comfort_-2` | Consigne - 2 C |
+| Eco | `eco` | Consigne - 3,5 C environ |
+| Hors-gel | `frost_protection` | 7 a 8 C |
+| Arret | `off` | Radiateur coupe |
+
+Chaque piece a ensuite sa **propre sonde** et son **relais fil pilote**.
+
+---
+
+## Fonctionnalites
+
+- Thermostat principal **virtuel** avec les 6 modes fil pilote
+- Sonde du thermostat : celle que vous choisissez, ou moyenne des pieces
+- Un radiateur = un relais + une sonde (ajout piece par piece)
+- Relais `select` (Zigbee2MQTT) **ou** `climate` (ZHA)
+- Coupure si une fenetre de la piece est ouverte
+- Eco automatique si un capteur de presence / nombre de personnes passe a 0
+- Modification de la sonde, du relais et des consignes sans tout recreer
+
+---
+
+## Materiel compatible
+
+| Materiel | Notes |
+|---|---|
+| NodOn SIN-4-FP-21 | Entite typique : `select.xxx_pilot_wire_mode` |
+| Legrand, Delta Dore, Equation / Adeo | Modes reconnus via alias (`comfort-1`, `anti-freeze`, `stop`...) |
+| Sonoff SNZB-02 / SNZB-02D (TH01) | Temperature piece ou thermostat |
+| Aqara / Xiaomi temperature | Idem |
+| Capteur fenetre Zigbee | Optionnel, par piece |
+| Zigbee2MQTT ou ZHA | Les deux sont acceptes |
+
+---
+
+## Installation
+
+### HACS (recommande)
+
+1. HACS -> Integrations -> menu -> **Depots personnalises**
+2. URL : `https://github.com/XAV59213/chauffage`
+3. Categorie : **Integration** -> Ajouter
+4. Rechercher **Chauffage Electrique Fil Pilote FR** -> Installer
+5. Redemarrer Home Assistant
+
+### Installation manuelle
+
+Copier le dossier `custom_components/electric_heater/` dans `config/custom_components/`, puis redemarrer Home Assistant.
+
+---
+
+## Configuration
+
+### 1. Thermostat virtuel (une seule fois)
+
+Parametres -> Appareils et services -> **Ajouter une integration** -> *Chauffage Electrique Fil Pilote FR*
+
+1. Nom (par defaut : Thermostat virtuel)
+2. Source de temperature :
+   - **Sonde que je choisis** : n'importe quel `sensor` de classe temperature
+   - **Moyenne des sondes des pieces** : calculee apres l'ajout des radiateurs
+3. Consignes Confort / Confort -1 / Confort -2 / Eco / Hors-gel
+4. Valider
+
+L'entite creee est `climate.electric_heater_central`. C'est le seul point de commande globale.
+
+### 2. Chaque radiateur
+
+Ajouter **a nouveau** l'integration pour chaque piece :
+
+1. Nom de la piece (ex. Salon)
+2. Relais fil pilote : `select.radiateur_salon_pilot_wire_mode` (ou un `climate`)
+3. Sonde de temperature de **cette** piece
+4. Capteurs fenetre (optionnel)
+
+Le thermostat virtuel envoie alors le meme ordre fil pilote a tous les relais.
 
 ### 3. Modifier plus tard
 
-Sur l\u2019entr\u00e9e \u2192 **Configurer** : changer la sonde, le relais ou les consignes.
+Sur l'entree concernee -> **Configurer** : changer la sonde, le relais ou les consignes.
 
-## Installation HACS
+---
 
-1. HACS \u2192 Int\u00e9grations \u2192 D\u00e9p\u00f4ts personnalis\u00e9s
-2. URL : `https://github.com/XAV59213/chauffage`
-3. Cat\u00e9gorie Integration \u2192 Ajouter \u2192 Installer \u2192 Red\u00e9marrer HA
+## Carte Lovelace
 
-Le relais n\u2019est plus limit\u00e9 \u00e0 MQTT : Zigbee2MQTT **et** ZHA sont accept\u00e9s.
+```yaml
+type: vertical-stack
+cards:
+  - type: thermostat
+    entity: climate.electric_heater_central
+    name: Thermostat virtuel
+
+  - type: glance
+    title: Radiateurs
+    entities:
+      - climate.chauffage_salon
+      - climate.chauffage_chambre
+      - climate.chauffage_cuisine
+    state_color: true
+```
+
+Les presets du thermostat virtuel sont : `comfort`, `comfort_-1`, `comfort_-2`, `eco`, `frost_protection`, `off`.
+
+---
+
+## Depannage
+
+- Le menu du relais est vide : dans Developpeur -> Etats, chercher `select.*pilot_wire*` ou `select.*fil_pilote*`.
+- Un radiateur ne change pas de mode : verifier que l'option exposee est bien l'un des alias reconnus (`comfort`, `comfort_-1`, `eco`, `frost_protection`, `off`...).
+- Le thermostat n'affiche pas de temperature : la sonde choisie est absente, ou aucune piece n'est encore ajoutee en mode moyenne.

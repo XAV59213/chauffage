@@ -28,7 +28,6 @@ FIL_PILOTE_PAYLOAD = {
     PRESET_OFF: {"fil_pilote": "off"},
 }
 
-# Alias pour Zigbee2MQTT, ZHA, Legrand, Delta Dore, Equation…
 FIL_PILOTE_ALIASES = {
     PRESET_COMFORT: ["comfort", "confort", "Comfort"],
     PRESET_COMFORT_M1: [
@@ -47,7 +46,7 @@ FIL_PILOTE_ALIASES = {
         "Comfort -2",
         "comfort_2",
     ],
-    PRESET_ECO: ["eco", "Eco", "Éco", "economique"],
+    PRESET_ECO: ["eco", "Eco", "Eco", "economique"],
     PRESET_FROST_PROTECTION: [
         "frost_protection",
         "frost-protection",
@@ -57,7 +56,7 @@ FIL_PILOTE_ALIASES = {
         "hors-gel",
         "horsgel",
     ],
-    PRESET_OFF: ["off", "stop", "arrêt", "arret", "Off", "Stop"],
+    PRESET_OFF: ["off", "stop", "arret", "Off", "Stop"],
 }
 
 HYSTERESIS = {
@@ -79,4 +78,4 @@ CONF_WINDOW_SENSORS = "window_sensors"
 EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"

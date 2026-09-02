@@ -1,47 +1,47 @@
 {
-  "title": "Chauffage \u00c9lectrique Fil Pilote FR",
+  "title": "Chauffage Electrique Fil Pilote FR",
   "config": {
     "step": {
       "user": {
-        "title": "Chauffage \u00c9lectrique Fil Pilote FR",
-        "description": "Cr\u00e9ez d'abord le thermostat central, puis ajoutez chaque radiateur."
+        "title": "Chauffage Electrique Fil Pilote FR",
+        "description": "Creez d'abord le thermostat virtuel, puis ajoutez chaque radiateur."
       },
       "central": {
-        "title": "Thermostat central",
-        "description": "Choisissez la sonde de temp\u00e9rature qui pilotera le thermostat. Ensuite vous ajouterez chaque radiateur fil pilote (NodOn, Legrand, Delta Dore\u2026).",
+        "title": "Thermostat virtuel",
+        "description": "Thermostat principal virtuel : choisissez la sonde, puis les 6 ordres fil pilote seront envoyes a tous les radiateurs.",
         "data": {
-          "name": "Nom du thermostat",
-          "temp_method": "Source de la temp\u00e9rature",
-          "temperature_sensor": "Sonde de temp\u00e9rature (obligatoire si \u00ab Sonde que je choisis \u00bb)",
-          "presence_sensor": "Capteur de pr\u00e9sence / nombre de personnes (optionnel)",
-          "comfort_temp": "Temp\u00e9rature Confort (\u00b0C)",
-          "comfort_m1_temp": "Temp\u00e9rature Confort \u20131 \u00b0C",
-          "comfort_m2_temp": "Temp\u00e9rature Confort \u20132 \u00b0C",
-          "eco_temp": "Temp\u00e9rature \u00c9co (\u00b0C)",
-          "frost_temp": "Temp\u00e9rature Hors-gel (\u00b0C)",
-          "min_temp": "Temp\u00e9rature minimale",
-          "max_temp": "Temp\u00e9rature maximale",
-          "temp_step": "Pas de r\u00e9glage"
+          "name": "Nom du thermostat virtuel",
+          "temp_method": "Source de la temperature",
+          "temperature_sensor": "Sonde de temperature",
+          "presence_sensor": "Capteur de presence / nombre de personnes (optionnel)",
+          "comfort_temp": "Temperature Confort",
+          "comfort_m1_temp": "Temperature Confort -1 C",
+          "comfort_m2_temp": "Temperature Confort -2 C",
+          "eco_temp": "Temperature Eco",
+          "frost_temp": "Temperature Hors-gel",
+          "min_temp": "Temperature minimale",
+          "max_temp": "Temperature maximale",
+          "temp_step": "Pas de reglages"
         }
       },
       "room": {
         "title": "Ajouter un radiateur",
-        "description": "Associez le relais fil pilote (entit\u00e9 select.xxx_pilot_wire_mode du NodOn) et la sonde de la pi\u00e8ce.",
+        "description": "Associez le relais fil pilote et la sonde de la piece.",
         "data": {
-          "name": "Nom de la pi\u00e8ce / du radiateur",
+          "name": "Nom de la piece / du radiateur",
           "fil_pilote_select": "Relais fil pilote (select ou climate)",
-          "temperature_sensor": "Sonde de temp\u00e9rature de la pi\u00e8ce",
-          "window_sensors": "Capteurs fen\u00eatre (optionnel)"
+          "temperature_sensor": "Sonde de temperature de la piece",
+          "window_sensors": "Capteurs fenetre (optionnel)"
         }
       }
     },
     "error": {
       "invalid_sensor": "Capteur invalide ou inexistant",
-      "sensor_required": "Choisissez une sonde de temp\u00e9rature",
+      "sensor_required": "Choisissez une sonde de temperature",
       "unknown": "Erreur inconnue"
     },
     "abort": {
-      "already_configured": "Cet \u00e9quipement est d\u00e9j\u00e0 configur\u00e9"
+      "already_configured": "Cet equipement est deja configure"
     }
   },
   "options": {
@@ -50,37 +50,63 @@
         "title": "Modifier la configuration"
       },
       "central": {
-        "title": "Options du thermostat central",
+        "title": "Options du thermostat virtuel",
         "data": {
-          "name": "Nom du thermostat",
-          "temp_method": "Source de la temp\u00e9rature",
-          "temperature_sensor": "Sonde de temp\u00e9rature",
-          "presence_sensor": "Capteur de pr\u00e9sence / nombre de personnes",
-          "comfort_temp": "Temp\u00e9rature Confort (\u00b0C)",
-          "comfort_m1_temp": "Temp\u00e9rature Confort \u20131 \u00b0C",
-          "comfort_m2_temp": "Temp\u00e9rature Confort \u20132 \u00b0C",
-          "eco_temp": "Temp\u00e9rature \u00c9co (\u00b0C)",
-          "frost_temp": "Temp\u00e9rature Hors-gel (\u00b0C)",
-          "min_temp": "Temp\u00e9rature minimale",
-          "max_temp": "Temp\u00e9rature maximale",
-          "temp_step": "Pas de r\u00e9glage"
+          "name": "Nom du thermostat virtuel",
+          "temp_method": "Source de la temperature",
+          "temperature_sensor": "Sonde de temperature",
+          "presence_sensor": "Capteur de presence",
+          "comfort_temp": "Temperature Confort",
+          "comfort_m1_temp": "Temperature Confort -1 C",
+          "comfort_m2_temp": "Temperature Confort -2 C",
+          "eco_temp": "Temperature Eco",
+          "frost_temp": "Temperature Hors-gel",
+          "min_temp": "Temperature minimale",
+          "max_temp": "Temperature maximale",
+          "temp_step": "Pas de reglages"
         }
       },
       "room": {
         "title": "Options du radiateur",
         "data": {
-          "name": "Nom de la pi\u00e8ce / du radiateur",
-          "fil_pilote_select": "Relais fil pilote (select ou climate)",
-          "temperature_sensor": "Sonde de temp\u00e9rature de la pi\u00e8ce",
-          "window_sensors": "Capteurs fen\u00eatre"
+          "name": "Nom de la piece / du radiateur",
+          "fil_pilote_select": "Relais fil pilote",
+          "temperature_sensor": "Sonde de temperature de la piece",
+          "window_sensors": "Capteurs fenetre"
         }
       }
     }
   },
   "entity": {
     "climate": {
-      "electric_heater_central": {
-        "name": "Thermostat Central"
+      "central": {
+        "name": "Thermostat virtuel",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "comfort": "Confort",
+              "comfort_-1": "Confort -1 C",
+              "comfort_-2": "Confort -2 C",
+              "eco": "Eco",
+              "frost_protection": "Hors-gel",
+              "off": "Arret"
+            }
+          }
+        }
+      },
+      "room": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "comfort": "Confort",
+              "comfort_-1": "Confort -1 C",
+              "comfort_-2": "Confort -2 C",
+              "eco": "Eco",
+              "frost_protection": "Hors-gel",
+              "off": "Arret"
+            }
+          }
+        }
       }
     }
   }
