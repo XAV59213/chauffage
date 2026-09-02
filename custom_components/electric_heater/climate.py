@@ -39,9 +39,11 @@ from .const import (
     VERSION,
 )
 from .fil_pilote import (
+    any_window_open,
     apply_fil_pilote,
     get_central_state,
     iter_room_entries,
+    parse_window_sensors,
     room_fil_pilote_id,
 )
 
@@ -434,11 +436,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         self._follow_central = True
         self._temp_sensor = entry.data[CONF_TEMPERATURE_SENSOR]
         self._fil_pilote_select = room_fil_pilote_id(entry.data)
-        self._window_sensors = [
-            s.strip()
-            for s in entry.data.get("window_sensors", "").split(",")
-            if s.strip()
-        ]
+        self._window_sensors = parse_window_sensors(entry.data)
         self._unsub_temp = None
         self._unsub_windows = None
         self._unsub_central = None
@@ -502,9 +500,10 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             self._unsub_central_state = async_track_state_change_event(
                 self.hass, [central.entity_id], self._sync_from_central
             )
-        self._unsub_temp = async_track_state_change_event(
-            self.hass, [self._temp_sensor], self._update_room_temp
-        )
+        if self._temp_sensor:
+            self._unsub_temp = async_track_state_change_event(
+                self.hass, [self._temp_sensor], self._update_room_temp
+            )
         if self._window_sensors:
             self._unsub_windows = async_track_state_change_event(
                 self.hass, self._window_sensors, self._check_windows
@@ -538,6 +537,10 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
 
     @callback
     def _update_room_temp(self, event=None):
+        if not self._temp_sensor:
+            self._current_temp = None
+            self.async_write_ha_state()
+            return
         state = self.hass.states.get(self._temp_sensor)
         try:
             self._current_temp = (
@@ -551,10 +554,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
 
     @callback
     def _check_windows(self, event=None):
-        self._window_open = any(
-            (st := self.hass.states.get(eid)) is not None and st.state == "on"
-            for eid in self._window_sensors
-        )
+        self._window_open = any_window_open(self.hass, self._window_sensors)
         self.hass.create_task(self._apply_fil_pilote())
         self.async_write_ha_state()
 
