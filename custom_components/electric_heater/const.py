@@ -92,6 +92,8 @@ HYSTERESIS = {
 }
 
 WINDOW_OFF_DELAY = 45
+WEATHER_MILD = 15.0
+WEATHER_WARM = 18.0
 
 CONF_TEMP_METHOD = "temp_method"
 CONF_TEMP_METHOD_AVERAGE = "average"
@@ -105,6 +107,7 @@ CONF_HEATING_CALENDAR = "heating_calendar"
 CONF_CALENDAR_ON_MODE = "calendar_on_mode"
 CONF_CALENDAR_OFF_MODE = "calendar_off_mode"
 CONF_PRESENCE_AWAY_MODE = "presence_away_mode"
+CONF_WEATHER = "weather"
 
 FIL_PILOTE_DATA_KEYS = (
     CONF_FIL_PILOTE_SELECT,
