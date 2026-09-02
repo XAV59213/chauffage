@@ -49,6 +49,7 @@ from .fil_pilote import (
     room_fil_pilote_id,
     windows_from_entry,
 )
+from .hysteresis import should_heat
 from .occupancy import occupancy_count
 
 _LOGGER = logging.getLogger(__name__)
@@ -102,6 +103,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self._preset_mode = PRESET_COMFORT
         self._hvac_mode = HVACMode.AUTO
         self._hvac_action = HVACAction.IDLE
+        self._heating = False
         self._last_manual_preset = PRESET_COMFORT
         self._auto_eco_active = False
         self._calendar_active = False
@@ -207,7 +209,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             "temperature_sensor": self._reference_sensor,
             "window_open": self._window_open,
             "fenetre": "Ouverte" if self._window_open else "Fermee",
-            "window_delay_s": WINDOW_OFF_DELAY if self._window_delay else 0,
+            "hysteresis": HYSTERESIS.get(self._preset_mode, 0.3),
             "rooms": [e.title for e in iter_room_entries(self.hass)],
         }
 
@@ -442,16 +444,13 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
 
     def _update_hvac_action(self):
         if self._window_open or self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF:
+            self._heating = False
             self._hvac_action = HVACAction.OFF
-        elif self._current_temp is None or self._target_temp is None:
-            self._hvac_action = HVACAction.IDLE
-        else:
-            hysteresis = HYSTERESIS.get(self._preset_mode, 0.3)
-            self._hvac_action = (
-                HVACAction.HEATING
-                if self._current_temp < self._target_temp - hysteresis
-                else HVACAction.IDLE
-            )
+            return
+        self._heating = should_heat(
+            self._current_temp, self._target_temp, self._preset_mode, self._heating
+        )
+        self._hvac_action = HVACAction.HEATING if self._heating else HVACAction.IDLE
 
     async def async_set_temperature(self, **kwargs):
         if self._window_open:
@@ -536,7 +535,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         self._target_temp: float | None = None
         self._preset_mode = PRESET_COMFORT
         self._hvac_mode = HVACMode.AUTO
-        self._hvac_action = HVACAction.IDLE
+        self._heating = False
         self._window_open = False
         self._window_delay = None
         self._hysteresis = 0.3
@@ -590,11 +589,10 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             return HVACAction.OFF
         if self._current_temp is None or self._target_temp is None:
             return HVACAction.IDLE
-        return (
-            HVACAction.HEATING
-            if self._current_temp < self._target_temp - self._hysteresis
-            else HVACAction.IDLE
+        self._heating = should_heat(
+            self._current_temp, self._target_temp, self._preset_mode, self._heating
         )
+        return HVACAction.HEATING if self._heating else HVACAction.IDLE
 
     @property
     def preset_mode(self) -> str | None:
@@ -610,6 +608,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             "fil_pilote_mode": PRESET_OFF if off else self._preset_mode,
             "temperature_sensor": self._temp_sensor,
             "fil_pilote": self._fil_pilote_select,
+            "hysteresis": HYSTERESIS.get(self._preset_mode, 0.3),
         }
 
     async def async_added_to_hass(self):
