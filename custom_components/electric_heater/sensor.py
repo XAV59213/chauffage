@@ -1,10 +1,11 @@
 """Sensors pour Chauffage Électrique Fil Pilote FR."""
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
-from homeassistant.const import UnitOfTemperature
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
-from .const import DOMAIN, CENTRAL, ROOM, CONF_PRESENCE_SENSOR
+
+from .const import CENTRAL, CONF_PRESENCE_SENSOR, CONF_TEMPERATURE_SENSOR, DOMAIN
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -40,7 +41,9 @@ class CentralTemperatureSensor(SensorEntity):
     @callback
     def _update(self, event=None):
         central = self.hass.states.get("climate.electric_heater_central")
-        self._attr_native_value = central.attributes.get("current_temperature") if central else None
+        self._attr_native_value = (
+            central.attributes.get("current_temperature") if central else None
+        )
         self.async_write_ha_state()
 
 
@@ -66,7 +69,14 @@ class CentralPersonsSensor(SensorEntity):
     @callback
     def _update(self, event=None):
         state = self.hass.states.get(self._sensor)
-        self._attr_native_value = int(float(state.state)) if state and state.state not in ("unknown", "unavailable") else 0
+        try:
+            self._attr_native_value = (
+                int(float(state.state))
+                if state and state.state not in ("unknown", "unavailable")
+                else 0
+            )
+        except (ValueError, TypeError):
+            self._attr_native_value = 0
         self.async_write_ha_state()
 
 
@@ -80,12 +90,15 @@ class RoomTemperatureSensor(SensorEntity):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
-        self._sensor = entry.data["temperature_sensor"]
+        self._sensor = entry.data[CONF_TEMPERATURE_SENSOR]
         self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_temperature"
 
     @property
     def device_info(self):
-        return {"identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")}, "via_device": (DOMAIN, "electric_heater_central")}
+        return {
+            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
+            "via_device": (DOMAIN, "electric_heater_central"),
+        }
 
     async def async_added_to_hass(self):
         async_track_state_change_event(self.hass, [self._sensor], self._update)
@@ -94,5 +107,12 @@ class RoomTemperatureSensor(SensorEntity):
     @callback
     def _update(self, event=None):
         state = self.hass.states.get(self._sensor)
-        self._attr_native_value = round(float(state.state), 1) if state and state.state not in ("unknown", "unavailable") else None
+        try:
+            self._attr_native_value = (
+                round(float(state.state), 1)
+                if state and state.state not in ("unknown", "unavailable")
+                else None
+            )
+        except (ValueError, TypeError):
+            self._attr_native_value = None
         self.async_write_ha_state()
