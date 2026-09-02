@@ -1,4 +1,4 @@
-"""Config flow : thermostat central + radiateurs fil pilote."""
+"""Config flow : thermostat virtuel + radiateurs fil pilote."""
 from __future__ import annotations
 
 import voluptuous as vol
@@ -39,7 +39,7 @@ _WINDOWS = selector.EntitySelector(
 def _number(min_v, max_v, step=0.1):
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
-            min=min_v, max=max_v, step=step, mode="box", unit_of_measurement="°C"
+            min=min_v, max=max_v, step=step, mode="box", unit_of_measurement="C"
         )
     )
 
@@ -55,7 +55,7 @@ def _with_default(key, selector_obj, defaults, required=False):
 def _central_schema(defaults: dict | None = None) -> vol.Schema:
     d = defaults or {}
     schema: dict = {
-        vol.Optional(CONF_NAME, default=d.get(CONF_NAME, "Chauffage Central")): str,
+        vol.Optional(CONF_NAME, default=d.get(CONF_NAME, "Thermostat virtuel")): str,
         vol.Required(
             CONF_TEMP_METHOD,
             default=d.get(CONF_TEMP_METHOD, CONF_TEMP_METHOD_REFERENCE),
@@ -68,7 +68,7 @@ def _central_schema(defaults: dict | None = None) -> vol.Schema:
                     },
                     {
                         "value": CONF_TEMP_METHOD_AVERAGE,
-                        "label": "Moyenne des sondes des pièces",
+                        "label": "Moyenne des sondes des pieces",
                     },
                 ],
                 mode="dropdown",
@@ -155,7 +155,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id("electric_heater_central")
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
-                    title=user_input.get(CONF_NAME, "Chauffage Central"),
+                    title=user_input.get(CONF_NAME, "Thermostat virtuel"),
                     data={
                         "type": CENTRAL,
                         CONF_NAME: user_input[CONF_NAME],
@@ -211,7 +211,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
-    """Permet de changer sonde, relais et consignes après coup."""
+    """Permet de changer sonde, relais et consignes apres coup."""
 
     async def async_step_init(self, user_input=None):
         if self.config_entry.data.get("type") == CENTRAL:
