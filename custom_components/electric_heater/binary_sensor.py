@@ -12,6 +12,7 @@ from .const import (
     DOMAIN,
     EVENT_CENTRAL_CHANGED,
     EVENT_ROOMS_CHANGED,
+    EVENT_WINDOWS_CHANGED,
     PRESET_OFF,
 )
 from .fil_pilote import (
@@ -251,10 +252,7 @@ class CentralWindowOpen(BinarySensorEntity):
 
     async def async_added_to_hass(self):
         self._sensors = all_configured_windows(self.hass)
-        if self._sensors:
-            self._unsub = async_track_state_change_event(
-                self.hass, self._sensors, self._update
-            )
+        self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update)
         self.hass.bus.async_listen(EVENT_ROOMS_CHANGED, self._update)
         self._update()
 
@@ -280,7 +278,6 @@ class _RoomWindowBase(BinarySensorEntity):
         self.hass = hass
         self.entry = entry
         self._sensors = parse_window_sensors(entry.data)
-        self._unsub = None
         self._attr_is_on = False
 
     @property
@@ -302,10 +299,7 @@ class _RoomWindowBase(BinarySensorEntity):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
         self._sensors = parse_window_sensors(self.entry.data)
-        if self._sensors:
-            self._unsub = async_track_state_change_event(
-                self.hass, self._sensors, self._update
-            )
+        self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update)
         self._update()
 
     @callback
