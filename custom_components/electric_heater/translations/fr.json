@@ -76,7 +76,6 @@
           "comfort_m1_temp": "Temperature Confort -1 C",
           "comfort_m2_temp": "Temperature Confort -2 C",
           "eco_temp": "Temperature Eco",
-          "frost_temp": "Temperature Eco",
           "frost_temp": "Temperature Hors-gel",
           "min_temp": "Temperature minimale",
           "max_temp": "Temperature maximale",
