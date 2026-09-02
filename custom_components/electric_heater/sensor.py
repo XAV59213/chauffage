@@ -1,8 +1,9 @@
-"""Sensors pour Chauffage Électrique Fil Pilote FR."""
+"""Sensors pour Chauffage Electrique Fil Pilote FR."""
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import CENTRAL, CONF_PRESENCE_SENSOR, CONF_TEMPERATURE_SENSOR, DOMAIN
@@ -22,11 +23,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 class CentralTemperatureSensor(SensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Température Centrale"
+    _attr_name = "Temperature Centrale"
     _attr_unique_id = "electric_heater_central_temperature"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, hass: HomeAssistant):
         self.hass = hass
@@ -95,10 +97,11 @@ class CentralPersonsSensor(SensorEntity):
 
 class RoomTemperatureSensor(SensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Température Pièce"
+    _attr_name = "Temperature Piece"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass

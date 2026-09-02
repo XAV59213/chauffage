@@ -1,7 +1,8 @@
-"""Binary sensors pour Chauffage Électrique Fil Pilote FR."""
+"""Binary sensors pour Chauffage Electrique Fil Pilote FR."""
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import CENTRAL, CONF_PRESENCE_SENSOR, DOMAIN
@@ -28,6 +29,7 @@ class CentralHeatingActive(BinarySensorEntity):
     _attr_name = "Chauffage Actif"
     _attr_unique_id = "electric_heater_central_chauffage_actif"
     _attr_device_class = BinarySensorDeviceClass.HEAT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_is_on = False
 
     def __init__(self, hass: HomeAssistant):
@@ -62,7 +64,7 @@ class CentralHeatingActive(BinarySensorEntity):
 
 class CentralPresence(BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Présence"
+    _attr_name = "Presence"
     _attr_unique_id = "electric_heater_central_presence"
     _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
     _attr_is_on = False
@@ -95,9 +97,10 @@ class CentralPresence(BinarySensorEntity):
 
 class CentralAutoEcoMode(BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Mode Éco Auto"
+    _attr_name = "Mode Eco Auto"
     _attr_unique_id = "electric_heater_central_mode_eco_auto"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_is_on = False
 
     def __init__(self, hass: HomeAssistant):
@@ -126,7 +129,7 @@ class CentralAutoEcoMode(BinarySensorEntity):
 
 class RoomWindowOpen(BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Fenêtre Ouverte"
+    _attr_name = "Fenetre Ouverte"
     _attr_device_class = BinarySensorDeviceClass.WINDOW
     _attr_is_on = False
 
@@ -163,8 +166,9 @@ class RoomWindowOpen(BinarySensorEntity):
 
 class RoomWindowSecurity(BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Sécurité Fenêtre"
+    _attr_name = "Securite Fenetre"
     _attr_device_class = BinarySensorDeviceClass.SAFETY
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_is_on = False
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
