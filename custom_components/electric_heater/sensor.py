@@ -6,18 +6,32 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import CENTRAL, CONF_PRESENCE_SENSOR, CONF_TEMPERATURE_SENSOR, DOMAIN
-from .fil_pilote import get_central_state
+from .const import (
+    CENTRAL,
+    CONF_PRESENCE_SENSOR,
+    CONF_TEMPERATURE_SENSOR,
+    DOMAIN,
+    EVENT_WINDOWS_CHANGED,
+)
+from .fil_pilote import (
+    all_configured_windows,
+    entry_windows_open,
+    get_central_state,
+    house_window_open,
+    parse_window_sensors,
+)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     entities = []
     if entry.data.get("type") == CENTRAL:
         entities.append(CentralTemperatureSensor(hass))
+        entities.append(WindowStateSensor(hass, entry, central=True))
         if entry.data.get(CONF_PRESENCE_SENSOR):
             entities.append(CentralPersonsSensor(hass, entry))
     else:
         entities.append(RoomTemperatureSensor(hass, entry))
+        entities.append(WindowStateSensor(hass, entry, central=False))
     async_add_entities(entities)
 
 
@@ -131,4 +145,82 @@ class RoomTemperatureSensor(SensorEntity):
             )
         except (ValueError, TypeError):
             self._attr_native_value = None
+        self.async_write_ha_state()
+
+
+class WindowStateSensor(SensorEntity):
+    """on = Ouverte, off = Fermee. Meme ecoute que la temperature."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Etat fenetre"
+    _attr_icon = "mdi:window-closed-variant"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, central: bool):
+        self.hass = hass
+        self.entry = entry
+        self._central = central
+        self._unsub = None
+        if central:
+            self._attr_unique_id = "electric_heater_central_etat_fenetre"
+        else:
+            self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_etat_fenetre"
+
+    @property
+    def device_info(self):
+        if self._central:
+            return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+        return {
+            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
+            "via_device": (DOMAIN, "electric_heater_central"),
+        }
+
+    @property
+    def extra_state_attributes(self):
+        sensors = (
+            all_configured_windows(self.hass)
+            if self._central
+            else parse_window_sensors(self.entry.data)
+        )
+        sources = {}
+        for eid in sensors:
+            st = self.hass.states.get(eid)
+            sources[eid] = st.state if st else "inconnu"
+        return {"windows": sensors, "sources": sources}
+
+    async def async_added_to_hass(self):
+        sensors = (
+            all_configured_windows(self.hass)
+            if self._central
+            else parse_window_sensors(self.entry.data)
+        )
+        if sensors:
+            self._unsub = async_track_state_change_event(
+                self.hass, sensors, self._update
+            )
+        self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update)
+        self._update()
+
+    @callback
+    def _update(self, event=None):
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
+        self.entry = current or self.entry
+        opened = (
+            house_window_open(self.hass)
+            if self._central
+            else entry_windows_open(self.hass, self.entry)
+        )
+        sensors = (
+            all_configured_windows(self.hass)
+            if self._central
+            else parse_window_sensors(self.entry.data)
+        )
+        if not sensors:
+            self._attr_native_value = "Non configuree"
+            self._attr_icon = "mdi:window-closed-variant"
+        elif opened:
+            self._attr_native_value = "Ouverte"
+            self._attr_icon = "mdi:window-open-variant"
+        else:
+            self._attr_native_value = "Fermee"
+            self._attr_icon = "mdi:window-closed-variant"
         self.async_write_ha_state()
