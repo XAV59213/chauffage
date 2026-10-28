@@ -7,6 +7,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
     CENTRAL,
+    CENTRAL_ENTITY_ID,
     CONF_HEATING_CALENDAR,
     CONF_PRESENCE_SENSOR,
     DOMAIN,
@@ -54,12 +55,10 @@ class CentralHeatingActive(BinarySensorEntity):
         return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     async def async_added_to_hass(self):
-        self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update)
-        central = get_central_state(self.hass)
-        if central:
-            self._unsub = async_track_state_change_event(
-                self.hass, [central.entity_id], self._update
-            )
+        self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
+        self.async_on_remove(
+            async_track_state_change_event(self.hass, [CENTRAL_ENTITY_ID], self._update)
+        )
         self._update()
 
     @callback
@@ -92,7 +91,9 @@ class CentralPresence(BinarySensorEntity):
 
     async def async_added_to_hass(self):
         if self._sensor:
-            async_track_state_change_event(self.hass, [self._sensor], self._update)
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, [self._sensor], self._update)
+            )
             self._update()
 
     @callback
@@ -125,12 +126,10 @@ class CentralAutoEcoMode(BinarySensorEntity):
         return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     async def async_added_to_hass(self):
-        self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update)
-        central = get_central_state(self.hass)
-        if central:
-            self._unsub = async_track_state_change_event(
-                self.hass, [central.entity_id], self._update
-            )
+        self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
+        self.async_on_remove(
+            async_track_state_change_event(self.hass, [CENTRAL_ENTITY_ID], self._update)
+        )
         self._update()
 
     @callback
@@ -175,11 +174,12 @@ class CentralCalendarActive(BinarySensorEntity):
 
     async def async_added_to_hass(self):
         self._refresh_calendar_id()
+        self.async_on_remove(lambda: self._unsub() if self._unsub else None)
         if self._calendar:
-            self._unsub = async_track_state_change_event(
-                self.hass, [self._calendar], self._update
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, [self._calendar], self._update)
             )
-        self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update)
+        self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
         self._update()
 
     def _refresh_calendar_id(self) -> None:
@@ -235,7 +235,7 @@ class RoomWindowSecurity(BinarySensorEntity):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
         self._sensors = parse_window_sensors(self.entry.data)
-        self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update)
+        self.async_on_remove(self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update))
         self._update()
 
     @callback

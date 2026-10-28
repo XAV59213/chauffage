@@ -13,7 +13,7 @@
       },
       "central": {
         "title": "Configurer le thermostat",
-        "description": "Les capteurs fenetre / ouverture coupent tous les radiateurs tant qu'une fenetre est ouverte.",
+        "description": "Les capteurs fenetre / ouverture passent tous les radiateurs dans le mode choisi (Hors-gel par defaut) tant qu'une fenetre est ouverte.",
         "data": {
           "name": "Nom du thermostat virtuel",
           "temp_method": "Source de la temperature",
@@ -32,7 +32,8 @@
           "frost_temp": "Temperature Hors-gel",
           "min_temp": "Temperature minimale",
           "max_temp": "Temperature maximale",
-          "temp_step": "Pas de reglages"
+          "temp_step": "Pas de reglages",
+          "window_mode": "Mode si une fenetre est ouverte (Hors-gel conseille)"
         }
       },
       "room": {
@@ -84,7 +85,8 @@
           "frost_temp": "Temperature Hors-gel",
           "min_temp": "Temperature minimale",
           "max_temp": "Temperature maximale",
-          "temp_step": "Pas de reglages"
+          "temp_step": "Pas de reglages",
+          "window_mode": "Mode si une fenetre est ouverte (Hors-gel conseille)"
         }
       },
       "room": {

@@ -1,32 +1,45 @@
 """Chauffage Électrique Fil Pilote FR - Intégration complète."""
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import CENTRAL, DOMAIN, EVENT_WINDOWS_CHANGED, VERSION
-from .fil_pilote import all_configured_windows
+from .const import (
+    CENTRAL,
+    DOMAIN,
+    EVENT_WINDOWS_CHANGED,
+    SETPOINT_KEYS,
+    SIGNAL_SETPOINTS_UPDATED,
+    VERSION,
+)
+from .fil_pilote import windows_from_entry
 
 PLATFORMS = ["climate", "sensor", "binary_sensor"]
 
 
-def _ensure_window_bus(hass: HomeAssistant) -> None:
-    store = hass.data.setdefault(DOMAIN, {})
-    if store.get("window_bus"):
+def _snapshot(entry: ConfigEntry) -> tuple:
+    """Configuration hors consignes : seule sa modification recharge l'entrée."""
+    data = {k: v for k, v in entry.data.items() if k not in SETPOINT_KEYS}
+    return (repr(sorted(data.items())), repr(sorted((entry.options or {}).items())))
+
+
+def _track_windows(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Relaie les changements des capteurs fenêtre de cette entrée (abonnement ciblé)."""
+    windows = windows_from_entry(entry)
+    if not windows:
         return
 
     @callback
-    def _on_state(event) -> None:
-        entity_id = event.data.get("entity_id")
-        if not entity_id:
-            return
-        if entity_id in all_configured_windows(hass):
-            hass.bus.async_fire(EVENT_WINDOWS_CHANGED, {"entity_id": entity_id})
+    def _on_window(event: Event) -> None:
+        hass.bus.async_fire(EVENT_WINDOWS_CHANGED, {"entity_id": event.data.get("entity_id")})
 
-    store["window_bus"] = hass.bus.async_listen("state_changed", _on_state)
+    entry.async_on_unload(async_track_state_change_event(hass, windows, _on_window))
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    _ensure_window_bus(hass)
+    hass.data.setdefault(DOMAIN, {}).setdefault("snapshots", {})[entry.entry_id] = _snapshot(entry)
+    _track_windows(hass, entry)
     if entry.data.get("type") == CENTRAL:
         device_registry = dr.async_get(hass)
         device_registry.async_get_or_create(
@@ -43,8 +56,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        hass.data.get(DOMAIN, {}).get("snapshots", {}).pop(entry.entry_id, None)
+    return unloaded
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    snapshots = hass.data.setdefault(DOMAIN, {}).setdefault("snapshots", {})
+    if snapshots.get(entry.entry_id) == _snapshot(entry):
+        # Seules les consignes ont changé : pas de rechargement, le thermostat les relit.
+        async_dispatcher_send(hass, SIGNAL_SETPOINTS_UPDATED.format(entry.entry_id))
+        return
     await hass.config_entries.async_reload(entry.entry_id)

@@ -7,12 +7,15 @@ La consigne reste visible et réglable. Elle part vers les radiateurs.
 | Condition | Ordre |
 |---|---|
 | Calendrier actif + quelqu'un à la maison | Confort (ou dernier Confort -1 / -2) |
-| Calendrier inactif | Mode configuré (souvent Arrêt) |
+| Calendrier inactif | Mode configuré (Hors-gel par défaut pour une nouvelle installation) |
+| Calendrier indisponible | Dernier mode gardé (Eco si aucun) |
 | Nombre famille home = 0 | Eco |
 | Extérieur ≥ 15 °C | Confort -1 |
 | Extérieur ≥ 18 °C | Confort -2 |
 
 Priorités : fenêtre salon (après 45 s) > calendrier off > maison vide > météo > confort.
+
+Un mode choisi à la main en Auto (ex. Hors-gel pour des vacances) est **maintenu** jusqu'au prochain changement du calendrier, même après un redémarrage.
 
 ## Chauffage forcé
 
@@ -23,10 +26,12 @@ Calendrier, présence et écart de température ne changent plus l'ordre.
 
 | Où | Effet |
 |---|---|
-| Fenêtre d'une pièce | Coupe **ce** radiateur après 45 s |
-| Baie / portes / fenêtre du salon (thermostat) | Thermostat Auto → Off, tous les radiateurs |
-| Refermée avant 45 s | Rien n'est coupé |
-| Refermée après coupure | Reprise immédiate |
+| Fenêtre d'une pièce | **Ce** radiateur passe dans le mode fenêtre après 45 s |
+| Baie / portes / fenêtre du salon (thermostat) | **Tous** les radiateurs passent dans le mode fenêtre après 45 s |
+| Refermée avant 45 s | Rien ne change |
+| Refermée après | Reprise immédiate du mode normal |
+
+Mode fenêtre : **Hors-gel** par défaut (réglable : Hors-gel, Eco ou Arrêt). Il ne fait que baisser l'ordre : un radiateur à l'Arrêt reste à l'Arrêt.
 
 Capteur affiché : **État fenêtre** (Ouverte / Fermée).
 
@@ -55,3 +60,15 @@ En Auto, le curseur règle la consigne du mode en cours et la pousse aux radiate
 | Hors-gel | 1,0 °C |
 
 Chauffe sous `consigne - bande`, coupe à la consigne.
+
+## Radiateur réglé à la main
+
+Changer le mode ou la consigne d'**un** radiateur le détache du thermostat : le réglage est gardé (aussi après un redémarrage).
+Pour qu'il suive de nouveau le thermostat : mettre le radiateur en **Auto**, ou changer le mode du thermostat virtuel (tous les radiateurs le suivent alors).
+
+## Relais
+
+- Un ordre n'est envoyé que s'il change (moins de trafic Zigbee).
+- Relais de retour après une coupure, ou changé à la main : l'ordre attendu est renvoyé (après 15 s s'il diffère).
+- Toutes les 10 min, l'ordre attendu est renvoyé à chaque relais.
+- Un échec d'envoi est écrit dans le journal.

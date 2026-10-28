@@ -16,7 +16,7 @@
 
 - État fenêtre pas à jour : vérifier l'entity_id dans Configurer (ex. `binary_sensor.fenetre_papa_3`).
 - Doublon Fenêtre ouverte : ancienne entité, à supprimer dans Réglages → Entités.
-- Coupure trop rapide : délai de 45 s avant Off.
+- Changement trop rapide : délai de 45 s avant le mode fenêtre (Hors-gel par défaut).
 
 ## Présence / Eco
 
