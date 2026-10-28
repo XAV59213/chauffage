@@ -1,6 +1,6 @@
 # Changelog
 
-## Non publié
+## 3.1.0 — 2026-10-28
 
 - `release.yml` : tag obligatoire (plus de valeur par défaut figée 1.1.3), contrôle que le tag = `manifest.json` = `const.py` et que la release n'existe pas encore, notes générées automatiquement (fin du texte figé de la 1.1.3). Le job « Zip HACS » est conservé
 
