@@ -159,34 +159,56 @@ def room_current_temp(hass: HomeAssistant, sensor_id: str | None) -> float | Non
         return None
 
 
+def relay_available(state: State | None) -> bool:
+    return state is not None and state.state != "unavailable"
+
+
+def relay_matches(state: State | None, preset: str, option: str | None) -> bool:
+    """Le relais est-il déjà dans l'ordre attendu ?"""
+    if state is None or state.state in ("unknown", "unavailable"):
+        return False
+    domain = state.entity_id.split(".", 1)[0]
+    if domain == "select":
+        return option is not None and state.state == option
+    if domain == "climate":
+        if preset == PRESET_OFF:
+            return state.state == "off"
+        if state.state == "off":
+            return False
+        return option is None or state.attributes.get("preset_mode") == option
+    return False
+
+
+def expected_option(hass: HomeAssistant, entity_id: str | None, preset: str) -> str | None:
+    state = hass.states.get(entity_id) if entity_id else None
+    if state is None:
+        return None
+    available = state.attributes.get("options") or state.attributes.get("preset_modes")
+    return resolve_fil_pilote_option(preset, available)
+
+
 async def apply_fil_pilote(
     hass: HomeAssistant,
     entity_id: str | None,
     preset: str,
     temperature: float | None = None,
-) -> None:
-    if central_window_open(hass):
-        preset = PRESET_OFF
+    force: bool = False,
+) -> bool:
+    """Envoie l'ordre au relais. Sans force, rien n'est envoyé s'il y est déjà.
+
+    Retourne True si l'ordre est en place (envoyé ou déjà appliqué).
+    """
     if not entity_id:
         _LOGGER.warning("Aucun relais fil pilote configuré pour l'ordre %s", preset)
-        return
+        return False
 
     state = hass.states.get(entity_id)
-    if state is None:
-        _LOGGER.warning("Entité fil pilote introuvable: %s", entity_id)
-        return
+    if not relay_available(state):
+        return False
 
     domain = entity_id.split(".", 1)[0]
     available = state.attributes.get("options") or state.attributes.get("preset_modes")
     option = resolve_fil_pilote_option(preset, available)
-    _LOGGER.debug(
-        "Fil pilote %s -> %s (demande=%s, consigne=%s, dispo=%s)",
-        entity_id,
-        option,
-        preset,
-        temperature,
-        available,
-    )
     if option is None and domain != "climate":
         _LOGGER.warning(
             "Aucun mode fil pilote correspondant à %s sur %s (dispo: %s)",
@@ -194,64 +216,75 @@ async def apply_fil_pilote(
             entity_id,
             available,
         )
-        return
+        return False
 
+    if not force and relay_matches(state, preset, option) and (
+        domain != "climate"
+        or preset == PRESET_OFF
+        or temperature is None
+        or state.attributes.get("temperature") == temperature
+    ):
+        return True
+
+    _LOGGER.debug(
+        "Fil pilote %s -> %s (demande=%s, consigne=%s, force=%s)",
+        entity_id,
+        option,
+        preset,
+        temperature,
+        force,
+    )
     try:
         if domain == "select":
             await hass.services.async_call(
                 "select",
                 "select_option",
                 {"entity_id": entity_id, "option": option},
-                blocking=False,
+                blocking=True,
             )
         elif domain == "climate":
             data: dict[str, Any] = {"entity_id": entity_id}
             if preset == PRESET_OFF:
                 await hass.services.async_call(
-                    "climate",
-                    "set_hvac_mode",
-                    {**data, "hvac_mode": "off"},
-                    blocking=False,
+                    "climate", "set_hvac_mode", {**data, "hvac_mode": "off"}, blocking=True
                 )
             else:
                 if state.state == "off":
                     await hass.services.async_call(
-                        "climate",
-                        "set_hvac_mode",
-                        {**data, "hvac_mode": "heat"},
-                        blocking=False,
+                        "climate", "set_hvac_mode", {**data, "hvac_mode": "heat"}, blocking=True
                     )
                 if option:
                     await hass.services.async_call(
                         "climate",
                         "set_preset_mode",
                         {**data, "preset_mode": option},
-                        blocking=False,
+                        blocking=True,
                     )
                 if temperature is not None:
                     await hass.services.async_call(
                         "climate",
                         "set_temperature",
                         {**data, "temperature": temperature},
-                        blocking=False,
+                        blocking=True,
                     )
         else:
             _LOGGER.warning("Type d'entité fil pilote non supporté: %s", entity_id)
-    except Exception:  # noqa: BLE001
-        _LOGGER.exception("Impossible d'appliquer le mode %s sur %s", preset, entity_id)
+            return False
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.error("Impossible d'appliquer le mode %s sur %s : %s", preset, entity_id, err)
+        return False
+    return True
 
 
-async def apply_room_order(
+def room_order(
     hass: HomeAssistant,
     entry: ConfigEntry,
     base_preset: str,
     target: float | None,
     exact: bool = False,
-) -> None:
-    entity_id = room_fil_pilote_id(entry.data)
+) -> str:
+    """Ordre à envoyer au radiateur (régulation par la sonde sauf en mode exact)."""
     if exact:
-        preset = base_preset
-    else:
-        current = room_current_temp(hass, entry.data.get(CONF_TEMPERATURE_SENSOR))
-        preset = regulate_preset(base_preset, current, target)
-    await apply_fil_pilote(hass, entity_id, preset, temperature=target)
+        return base_preset
+    current = room_current_temp(hass, entry.data.get(CONF_TEMPERATURE_SENSOR))
+    return regulate_preset(base_preset, current, target)

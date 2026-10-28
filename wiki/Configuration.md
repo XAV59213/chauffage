@@ -16,10 +16,11 @@ Paramètres → Appareils et services → Ajouter → **Chauffage Electrique Fil
 | Météo locale | Entité `weather.*` (optionnel) |
 | Calendrier | `calendar.*` ou `schedule.*` pour l'Auto |
 | Mode si calendrier actif | Souvent Confort |
-| Mode si calendrier inactif | Souvent Arrêt |
+| Mode si calendrier inactif | Hors-gel par défaut |
 | Mode si personne à la maison | Souvent Eco |
 | Capteur de présence | **Nombre famille home** |
-| Fenêtres salon | Baie, portes, fenêtre → coupure globale |
+| Fenêtres salon | Baie, portes, fenêtre → tous les radiateurs en mode fenêtre |
+| Mode si une fenêtre est ouverte | Hors-gel par défaut (ou Eco, Arrêt) |
 | Consignes | Confort, -1, -2, Eco, Hors-gel |
 
 Entité : `climate.electric_heater_central`.
@@ -33,7 +34,7 @@ Ajouter **à nouveau** l'intégration pour chaque pièce.
 | Nom | Ex. Chambre papa |
 | Relais fil pilote | `select.*pilot_wire_mode` ou `climate` |
 | Sonde de la pièce | Obligatoire |
-| Fenêtre(s) de la pièce | Coupe **ce** radiateur seulement |
+| Fenêtre(s) de la pièce | **Ce** radiateur seulement passe en mode fenêtre |
 
 ## 3. Modifier plus tard
 

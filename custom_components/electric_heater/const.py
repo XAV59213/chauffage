@@ -92,6 +92,10 @@ HYSTERESIS = {
 }
 
 WINDOW_OFF_DELAY = 45
+# Relais : délai avant de corriger un état différent de l'ordre attendu (s)
+RELAY_CHECK_DELAY = 15
+# Relais : renvoi périodique de l'ordre attendu (min)
+RESYNC_INTERVAL_MIN = 10
 WEATHER_MILD = 15.0
 WEATHER_WARM = 18.0
 
@@ -108,6 +112,23 @@ CONF_CALENDAR_ON_MODE = "calendar_on_mode"
 CONF_CALENDAR_OFF_MODE = "calendar_off_mode"
 CONF_PRESENCE_AWAY_MODE = "presence_away_mode"
 CONF_WEATHER = "weather"
+CONF_WINDOW_MODE = "window_mode"
+
+# Modes proposés quand une fenêtre est ouverte
+WINDOW_MODES = [PRESET_FROST_PROTECTION, PRESET_ECO, PRESET_OFF]
+DEFAULT_WINDOW_MODE = PRESET_FROST_PROTECTION
+DEFAULT_CALENDAR_OFF_MODE = PRESET_FROST_PROTECTION
+
+# Consignes : leur modification ne recharge pas l'intégration
+SETPOINT_KEYS = (
+    "comfort_temp",
+    "comfort_m1_temp",
+    "comfort_m2_temp",
+    "eco_temp",
+    "frost_temp",
+)
+
+CENTRAL_ENTITY_ID = "climate.electric_heater_central"
 
 FIL_PILOTE_DATA_KEYS = (
     CONF_FIL_PILOTE_SELECT,
@@ -120,5 +141,8 @@ FIL_PILOTE_DATA_KEYS = (
 EVENT_CENTRAL_CHANGED = f"{DOMAIN}_central_changed"
 EVENT_ROOMS_CHANGED = f"{DOMAIN}_rooms_changed"
 EVENT_WINDOWS_CHANGED = f"{DOMAIN}_windows_changed"
+# Commande manuelle sur le thermostat virtuel : les radiateurs le suivent de nouveau
+EVENT_CENTRAL_COMMAND = f"{DOMAIN}_central_command"
+SIGNAL_SETPOINTS_UPDATED = f"{DOMAIN}_setpoints_updated_{{}}"
 
 VERSION = "3.0.3"

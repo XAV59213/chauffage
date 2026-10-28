@@ -20,14 +20,17 @@ from .const import (
     CONF_TEMP_METHOD_REFERENCE,
     CONF_TEMPERATURE_SENSOR,
     CONF_WEATHER,
+    CONF_WINDOW_MODE,
     CONF_WINDOW_SENSORS,
+    DEFAULT_CALENDAR_OFF_MODE,
+    DEFAULT_WINDOW_MODE,
     DOMAIN,
     PRESET_COMFORT,
     PRESET_ECO,
     PRESET_LABELS,
-    PRESET_OFF,
     PRESETS,
     ROOM,
+    WINDOW_MODES,
 )
 
 _TEMP_SENSOR = selector.EntitySelector(
@@ -51,6 +54,12 @@ _WINDOWS_FALLBACK = selector.EntitySelector(
 _PRESET = selector.SelectSelector(
     selector.SelectSelectorConfig(
         options=[{"value": p, "label": PRESET_LABELS[p]} for p in PRESETS],
+        mode="dropdown",
+    )
+)
+_WINDOW_MODE = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=[{"value": p, "label": PRESET_LABELS[p]} for p in WINDOW_MODES],
         mode="dropdown",
     )
 )
@@ -152,7 +161,7 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
             ): _PRESET,
             vol.Required(
                 CONF_CALENDAR_OFF_MODE,
-                default=d.get(CONF_CALENDAR_OFF_MODE, PRESET_OFF),
+                default=d.get(CONF_CALENDAR_OFF_MODE, DEFAULT_CALENDAR_OFF_MODE),
             ): _PRESET,
             vol.Required(
                 CONF_PRESENCE_AWAY_MODE,
@@ -162,6 +171,14 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
     )
     schema.update(_with_default(CONF_PRESENCE_SENSOR, _PRESENCE_SENSOR, d))
     schema.update(_windows_field(d, hass))
+    schema.update(
+        {
+            vol.Required(
+                CONF_WINDOW_MODE,
+                default=d.get(CONF_WINDOW_MODE, DEFAULT_WINDOW_MODE),
+            ): _WINDOW_MODE,
+        }
+    )
     schema.update(
         {
             vol.Required(
@@ -242,7 +259,10 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_CALENDAR_ON_MODE, PRESET_COMFORT
                         ),
                         CONF_CALENDAR_OFF_MODE: user_input.get(
-                            CONF_CALENDAR_OFF_MODE, PRESET_OFF
+                            CONF_CALENDAR_OFF_MODE, DEFAULT_CALENDAR_OFF_MODE
+                        ),
+                        CONF_WINDOW_MODE: user_input.get(
+                            CONF_WINDOW_MODE, DEFAULT_WINDOW_MODE
                         ),
                         CONF_PRESENCE_AWAY_MODE: user_input.get(
                             CONF_PRESENCE_AWAY_MODE, PRESET_ECO

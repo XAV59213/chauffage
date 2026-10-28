@@ -43,9 +43,11 @@ Chaque piece a sa **sonde**, son **relais** et éventuellement sa **fenetre**.
 En **Auto** :
 
 - calendrier **actif** → Confort (ou dernier Confort -1 / -2)
-- calendrier **inactif** → mode configure (souvent Arret)
+- calendrier **inactif** → mode configure (Hors-gel par defaut)
+- calendrier **indisponible** → dernier mode garde
 - **Nombre famille home** = 0 → Eco
-- fenetre salon ouverte 45 s → Off global
+- fenetre salon ouverte 45 s → tous les radiateurs en mode fenetre (Hors-gel par defaut)
+- mode choisi a la main en Auto → garde jusqu'au prochain changement du calendrier
 - exterieur ≥ 15 C → Confort -1 ; ≥ 18 C → Confort -2
 
 ---
@@ -57,8 +59,10 @@ En **Auto** :
 - Attributs `consigne`, `consigne_mode`, `consignes`
 - Calendrier / planning pour l'Auto
 - Presence = capteur choisi (Nombre famille home)
-- Fenetre piece = ce radiateur ; ouvertures salon = thermostat Off
-- Delai 45 s avant coupure fenetre
+- Fenetre piece = ce radiateur ; ouvertures salon = tous les radiateurs (mode fenetre : Hors-gel par defaut)
+- Radiateur regle a la main : garde jusqu'au retour en Auto
+- Ordre renvoye au retour d'un relais, s'il differe, et toutes les 10 min
+- Delai 45 s avant le mode fenetre
 - Meteo locale (`weather.*`)
 - Relais `select` (Zigbee2MQTT) ou `climate` (ZHA)
 
