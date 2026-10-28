@@ -1,10 +1,8 @@
 {
   "title": "Chauffage Electrique Fil Pilote FR",
   "config": {
-    "entry_type": "Radiateur",
     "initiate_flow": {
-      "user": "Ajouter un radiateur",
-      "reconfigure": "Configurer"
+      "user": "Ajouter un radiateur"
     },
     "step": {
       "user": {
@@ -13,7 +11,7 @@
       },
       "central": {
         "title": "Configurer le thermostat",
-        "description": "Les capteurs fenetre / ouverture passent tous les radiateurs dans le mode choisi (Hors-gel par defaut) tant qu'une fenetre est ouverte.",
+        "description": "Auto suit le calendrier : actif = mode choisi (Confort par defaut), inactif = mode choisi (Hors-gel par defaut pour une nouvelle installation). Apres 45 s, une fenetre ouverte passe les radiateurs dans le mode fenetre (Hors-gel par defaut).",
         "data": {
           "name": "Nom du thermostat virtuel",
           "temp_method": "Source de la temperature",
@@ -66,7 +64,7 @@
       },
       "central": {
         "title": "Configurer le thermostat",
-        "description": "Sonde, calendrier, presence, fenetres salon, meteo et consignes.",
+        "description": "Sonde, calendrier, presence, fenetres salon et mode fenetre, meteo et consignes.",
         "data": {
           "name": "Nom du thermostat virtuel",
           "temp_method": "Source de la temperature",

@@ -1,5 +1,14 @@
 # Changelog
 
+## Non publié
+
+- **hassfest sans erreur** :
+  - `manifest.json` : retrait de la clé `homeassistant` (non autorisée ; la version minimale 2025.1.0 reste dans `hacs.json`) et clés triées dans l'ordre attendu ;
+  - traductions : retrait des clés non autorisées `config.entry_type` et `config.initiate_flow.reconfigure` ;
+  - libellés des presets `comfort_-1` / `comfort_-2` : clés refusées par hassfest (`_-`). Les valeurs des presets ne changent **pas** (automatisations et relais intacts) ; les libellés « Confort -1 C » / « Confort -2 C » restent en français (`translations/fr.json`) mais sont retirés de `strings.json` et de l'anglais, où Home Assistant affiche donc la valeur brute `comfort_-1` / `comfort_-2`.
+- **Traductions complètes** : `strings.json`, `translations/en.json` et `translations/fr.json` ont les mêmes clés (section des entités, descriptions des options) ; descriptions FR/EN du thermostat alignées sur le fonctionnement actuel (Hors-gel par défaut si calendrier inactif pour une nouvelle installation, mode fenêtre après 45 s).
+- **Documentation** (README et wiki) : exemple Lovelace avec les vrais `entity_id` des radiateurs (`climate.salon_chauffage_salon`…), délai fenêtre de 45 s, réglage « Mode si une fenêtre est ouverte », radiateur réglé à la main et retour en Auto, renvoi des ordres aux relais ; la météo est indiquée comme simple affichage (elle ne change pas encore les ordres).
+
 ## 3.1.0 — 2026-10-28
 
 - `release.yml` : tag obligatoire (plus de valeur par défaut figée 1.1.3), contrôle que le tag = `manifest.json` = `const.py` et que la release n'existe pas encore, notes générées automatiquement (fin du texte figé de la 1.1.3). Le job « Zip HACS » est conservé

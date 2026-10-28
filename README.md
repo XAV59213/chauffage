@@ -36,7 +36,7 @@ Chaque piece a sa **sonde**, son **relais** et éventuellement sa **fenetre**.
 
 | Mode HVAC | Role |
 |---|---|
-| **Auto** | Calendrier, presence, meteo. Consigne visible et reglable. |
+| **Auto** | Calendrier, presence, fenetres. Consigne visible et reglable. |
 | **Chauffage** | Mode + consigne envoyes tels quels aux radiateurs. |
 | **Eteint** | Tous les radiateurs a l'arret. |
 
@@ -46,9 +46,10 @@ En **Auto** :
 - calendrier **inactif** → mode configure (Hors-gel par defaut)
 - calendrier **indisponible** → dernier mode garde
 - **Nombre famille home** = 0 → Eco
-- fenetre salon ouverte 45 s → tous les radiateurs en mode fenetre (Hors-gel par defaut)
-- mode choisi a la main en Auto → garde jusqu'au prochain changement du calendrier
-- exterieur ≥ 15 C → Confort -1 ; ≥ 18 C → Confort -2
+- fenetre salon ouverte **plus de 45 s** → tous les radiateurs en mode fenetre (Hors-gel par defaut) ; refermee avant 45 s → rien ne change ; refermee apres → reprise immediate
+- mode choisi a la main en Auto → garde jusqu'au prochain changement du calendrier (remettre le thermostat en Auto pour revenir au calendrier tout de suite)
+
+La meteo (`weather.*`) est **affichee** (capteur Temperature exterieure) ; elle ne change pas encore les ordres.
 
 ---
 
@@ -60,10 +61,11 @@ En **Auto** :
 - Calendrier / planning pour l'Auto
 - Presence = capteur choisi (Nombre famille home)
 - Fenetre piece = ce radiateur ; ouvertures salon = tous les radiateurs (mode fenetre : Hors-gel par defaut)
-- Radiateur regle a la main : garde jusqu'au retour en Auto
-- Ordre renvoye au retour d'un relais, s'il differe, et toutes les 10 min
+- Mode si une fenetre est ouverte : Hors-gel (defaut), Eco ou Arret, dans **Configurer** ; une fenetre ne fait que baisser l'ordre
+- Radiateur regle a la main (mode ou consigne) : garde, aussi apres un redemarrage ; il suit de nouveau le thermostat quand on le remet en **Auto** ou qu'on change le mode du thermostat
+- Ordre envoye seulement s'il change ; renvoye au retour d'un relais, s'il differe depuis 15 s, et toutes les 10 min
 - Delai 45 s avant le mode fenetre
-- Meteo locale (`weather.*`)
+- Meteo locale (`weather.*`) : temperature exterieure affichee
 - Relais `select` (Zigbee2MQTT) ou `climate` (ZHA)
 
 ---
@@ -106,11 +108,13 @@ cards:
   - type: glance
     title: Radiateurs
     entities:
-      - climate.chauffage_salon
-      - climate.chauffage_chambre
-      - climate.chauffage_cuisine
+      - climate.salon_chauffage_salon
+      - climate.chambre_chauffage_chambre
+      - climate.cuisine_chauffage_cuisine
     state_color: true
 ```
+
+L'entity_id d'un radiateur = nom de la piece + « Chauffage » + nom de la piece (ex. piece « Salon » → `climate.salon_chauffage_salon`). Verifier dans **Parametres → Entites**.
 
 ---
 

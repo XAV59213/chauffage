@@ -18,6 +18,11 @@
 - Doublon Fenêtre ouverte : ancienne entité, à supprimer dans Réglages → Entités.
 - Changement trop rapide : délai de 45 s avant le mode fenêtre (Hors-gel par défaut).
 
+## Radiateur qui ne suit plus le thermostat
+
+- Il a été réglé à la main (mode ou consigne) : le remettre en **Auto**, ou changer le mode du thermostat virtuel.
+- Fenêtre ouverte : le radiateur est dans le **mode fenêtre** (Hors-gel par défaut, réglable dans Configurer).
+
 ## Présence / Eco
 
 - Eco alors que quelqu'un est là : le thermostat doit utiliser **Nombre famille home**, pas `zone.home`.

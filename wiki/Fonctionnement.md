@@ -10,10 +10,11 @@ La consigne reste visible et réglable. Elle part vers les radiateurs.
 | Calendrier inactif | Mode configuré (Hors-gel par défaut pour une nouvelle installation) |
 | Calendrier indisponible | Dernier mode gardé (Eco si aucun) |
 | Nombre famille home = 0 | Eco |
-| Extérieur ≥ 15 °C | Confort -1 |
-| Extérieur ≥ 18 °C | Confort -2 |
+| Mode choisi à la main | Gardé jusqu'au prochain changement du calendrier |
 
-Priorités : fenêtre salon (après 45 s) > calendrier off > maison vide > météo > confort.
+Priorités : thermostat Éteint > fenêtre (après 45 s) > mode choisi à la main > calendrier inactif > maison vide > confort.
+
+La météo est seulement **affichée** (capteur Température extérieure) : elle ne change pas encore les ordres.
 
 Un mode choisi à la main en Auto (ex. Hors-gel pour des vacances) est **maintenu** jusqu'au prochain changement du calendrier, même après un redémarrage.
 
