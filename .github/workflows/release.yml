@@ -31,3 +31,10 @@ jobs:
             Eteindre le thermostat virtuel envoie l'ordre off au relais fil pilote.
 
             **Full Changelog**: https://github.com/XAV59213/chauffage/compare/1.1.2...1.1.3
+
+  zip:
+    name: Zip HACS
+    needs: release
+    uses: ./.github/workflows/release-zip.yaml
+    with:
+      tag: ${{ inputs.tag }}
