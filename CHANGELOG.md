@@ -1,6 +1,6 @@
 # Changelog
 
-## Non publié
+## 3.1.1 — 2026-10-28
 
 - **hassfest sans erreur** :
   - `manifest.json` : retrait de la clé `homeassistant` (non autorisée ; la version minimale 2025.1.0 reste dans `hacs.json`) et clés triées dans l'ordre attendu ;
