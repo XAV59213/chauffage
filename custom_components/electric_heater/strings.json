@@ -1,10 +1,8 @@
 {
   "title": "French Pilot-Wire Electric Heating",
   "config": {
-    "entry_type": "Radiator",
     "initiate_flow": {
-      "user": "Add a radiator",
-      "reconfigure": "Configure"
+      "user": "Add a radiator"
     },
     "step": {
       "user": {
@@ -13,18 +11,18 @@
       },
       "central": {
         "title": "Configure the thermostat",
-        "description": "Auto follows the heating calendar: active = chosen mode (Comfort), inactive = chosen mode (Frost protection by default). Open windows switch every radiator to the chosen window mode (Frost protection by default).",
+        "description": "Auto follows the heating calendar: active = chosen mode (Comfort by default), inactive = chosen mode (Frost protection by default for new installations). After 45 s, an open window switches the radiators to the window mode (Frost protection by default).",
         "data": {
           "name": "Virtual thermostat name",
           "temp_method": "Temperature source",
           "temperature_sensor": "Temperature sensor",
           "heating_calendar": "Heating calendar (Auto mode)",
-          "presence_sensor": "Presence sensor (optional)",
-          "comfort_temp": "Comfort temperature",
-          "comfort_m1_temp": "Comfort -1",
-          "comfort_m2_temp": "Comfort -2",
-          "eco_temp": "Eco temperature",
-          "frost_temp": "Frost-protection temperature",
+          "presence_sensor": "Presence / occupancy sensor (optional)",
+          "comfort_temp": "Comfort temperature (C)",
+          "comfort_m1_temp": "Comfort -1 C",
+          "comfort_m2_temp": "Comfort -2 C",
+          "eco_temp": "Eco temperature (C)",
+          "frost_temp": "Frost-protection temperature (C)",
           "min_temp": "Minimum temperature",
           "max_temp": "Maximum temperature",
           "temp_step": "Step",
@@ -50,7 +48,6 @@
     "error": {
       "invalid_sensor": "Invalid or missing sensor",
       "sensor_required": "Please choose a temperature sensor",
-      "already_configured": "This device is already configured",
       "unknown": "Unknown error"
     },
     "abort": {
@@ -67,17 +64,18 @@
       },
       "central": {
         "title": "Configure the thermostat",
+        "description": "Sensor, calendar, presence, whole-house windows and window mode, weather and setpoints.",
         "data": {
           "name": "Virtual thermostat name",
           "temp_method": "Temperature source",
           "temperature_sensor": "Temperature sensor",
           "heating_calendar": "Heating calendar (Auto mode)",
           "presence_sensor": "Presence sensor",
-          "comfort_temp": "Comfort temperature",
-          "comfort_m1_temp": "Comfort -1",
-          "comfort_m2_temp": "Comfort -2",
-          "eco_temp": "Eco temperature",
-          "frost_temp": "Frost-protection temperature",
+          "comfort_temp": "Comfort temperature (C)",
+          "comfort_m1_temp": "Comfort -1 C",
+          "comfort_m2_temp": "Comfort -2 C",
+          "eco_temp": "Eco temperature (C)",
+          "frost_temp": "Frost-protection temperature (C)",
           "min_temp": "Minimum temperature",
           "max_temp": "Maximum temperature",
           "temp_step": "Step",
@@ -91,11 +89,29 @@
       },
       "room": {
         "title": "Configure the radiator",
+        "description": "Pilot-wire relay, room sensor and windows.",
         "data": {
           "name": "Room / radiator name",
           "fil_pilote_select": "Pilot-wire relay",
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "central": {
+        "name": "Virtual thermostat",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "comfort": "Comfort",
+              "eco": "Eco",
+              "frost_protection": "Frost protection",
+              "off": "Off"
+            }
+          }
         }
       }
     }

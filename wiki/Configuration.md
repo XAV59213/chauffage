@@ -13,7 +13,7 @@ Paramètres → Appareils et services → Ajouter → **Chauffage Electrique Fil
 | Nom | Ex. Thermostat virtuel |
 | Source de température | Sonde choisie **ou** moyenne des pièces |
 | Sonde | `sensor` température du salon |
-| Météo locale | Entité `weather.*` (optionnel) |
+| Météo locale | Entité `weather.*` (optionnel, affichage de la température extérieure) |
 | Calendrier | `calendar.*` ou `schedule.*` pour l'Auto |
 | Mode si calendrier actif | Souvent Confort |
 | Mode si calendrier inactif | Hors-gel par défaut |

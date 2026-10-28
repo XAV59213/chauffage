@@ -17,7 +17,7 @@ Integration Home Assistant locale pour piloter des radiateurs électriques fran�
 
 | Mode | Rôle |
 |---|---|
-| **Auto** | Calendrier, présence, météo, consigne réglable |
+| **Auto** | Calendrier, présence, fenêtres, consigne réglable |
 | **Chauffage** | Ordre et consigne **forcés** vers tous les radiateurs |
 | **Éteint** | Tous les radiateurs à l'arrêt |
 

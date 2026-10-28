@@ -1,10 +1,8 @@
 {
   "title": "French Pilot-Wire Electric Heating",
   "config": {
-    "entry_type": "Radiator",
     "initiate_flow": {
-      "user": "Add a radiator",
-      "reconfigure": "Configure"
+      "user": "Add a radiator"
     },
     "step": {
       "user": {
@@ -13,7 +11,7 @@
       },
       "central": {
         "title": "Configure the thermostat",
-        "description": "Auto follows the heating calendar: active = chosen mode (Comfort), inactive = chosen mode (Frost protection by default). Open windows switch every radiator to the chosen window mode (Frost protection by default).",
+        "description": "Auto follows the heating calendar: active = chosen mode (Comfort by default), inactive = chosen mode (Frost protection by default for new installations). After 45 s, an open window switches the radiators to the window mode (Frost protection by default).",
         "data": {
           "name": "Virtual thermostat name",
           "temp_method": "Temperature source",
@@ -66,7 +64,7 @@
       },
       "central": {
         "title": "Configure the thermostat",
-        "description": "Sensor, calendar, presence, salon windows, weather and setpoints.",
+        "description": "Sensor, calendar, presence, whole-house windows and window mode, weather and setpoints.",
         "data": {
           "name": "Virtual thermostat name",
           "temp_method": "Temperature source",
@@ -109,8 +107,6 @@
           "preset_mode": {
             "state": {
               "comfort": "Comfort",
-              "comfort_-1": "Comfort -1 C",
-              "comfort_-2": "Comfort -2 C",
               "eco": "Eco",
               "frost_protection": "Frost protection",
               "off": "Off"
