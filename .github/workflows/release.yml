@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag de la release
+        description: Tag de la release (ex. 3.0.3), identique à la version de manifest.json et const.py
+        required: true
         type: string
-        default: "1.1.3"
 
 permissions:
   contents: write
@@ -16,6 +16,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Vérifier la version
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          MANIFEST_VERSION=$(jq -r '.version' custom_components/electric_heater/manifest.json)
+          CONST_VERSION=$(sed -n 's/^VERSION = "\(.*\)"$/\1/p' custom_components/electric_heater/const.py)
+          if [ "$TAG" != "$MANIFEST_VERSION" ] || [ "$TAG" != "$CONST_VERSION" ]; then
+            echo "::error::Le tag ($TAG) doit être égal à manifest.json ($MANIFEST_VERSION) et const.py ($CONST_VERSION)"
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::La release $TAG existe déjà"
+            exit 1
+          fi
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -23,14 +41,6 @@ jobs:
           name: ${{ inputs.tag }}
           target_commitish: main
           generate_release_notes: true
-          body: |
-            ## What's Changed
-            * fix: capteurs Inconnu et extinction du radiateur by @XAV59213 in https://github.com/XAV59213/chauffage/pull/6
-
-            Les capteurs Temperature Centrale et Chauffage Actif suivent maintenant le thermostat.
-            Eteindre le thermostat virtuel envoie l'ordre off au relais fil pilote.
-
-            **Full Changelog**: https://github.com/XAV59213/chauffage/compare/1.1.2...1.1.3
 
   zip:
     name: Zip HACS
