@@ -117,11 +117,11 @@ CONF_WEATHER = "weather"
 CONF_WINDOW_MODE = "window_mode"
 
 # Modes proposés quand une fenêtre est ouverte
-WINDOW_MODES = [PRESET_FROST_PROTECTION, PRESET_ECO, PRESET_OFF]
+WINDOW_MODES = [PRESET_FROST_PROTECTION, PRESET_OFF]  # Eco retiré : fenêtre ouverte → Hors-gel (ancien réglage Eco migré)
 DEFAULT_WINDOW_MODE = PRESET_FROST_PROTECTION
 # Ordre envoyé quand la pièce dépasse la consigne
 CONF_ABOVE_TARGET_MODE = "above_target_mode"
-# Eco = absence / fenêtre ouverte uniquement ; au-dessus de la consigne : Arrêt.
+# Eco = absence uniquement (fenêtre ouverte → Hors-gel) ; au-dessus de la consigne : Arrêt.
 ABOVE_TARGET_MODES = [PRESET_OFF, PRESET_FROST_PROTECTION]
 DEFAULT_ABOVE_TARGET_MODE = PRESET_OFF
 # Réglages avancés (défauts = valeurs historiques)
@@ -168,7 +168,7 @@ EVENT_WINDOWS_CHANGED = f"{DOMAIN}_windows_changed"
 EVENT_CENTRAL_COMMAND = f"{DOMAIN}_central_command"
 SIGNAL_SETPOINTS_UPDATED = f"{DOMAIN}_setpoints_updated_{{}}"
 
-VERSION = "3.1.39"
+VERSION = "3.1.40"
 CONF_ENERGY_SENSOR = "energy_sensor"  # compteur kWh du radiateur (vide = auto)
 CONF_POWER = "power"  # puissance du radiateur (W) pour la conso estimée
 
