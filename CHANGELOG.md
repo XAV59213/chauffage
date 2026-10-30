@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.18 — 2026-10-30
+
+- **Plus de fausses alertes au redémarrage** : les notifications sonde / pile attendent 3 minutes après le démarrage de Home Assistant (le temps que Zigbee / MQTT chargent les entités), puis une sonde ou une pile doit rester KO 2 minutes avant d'alerter.
+- **Notification « OK »** : quand une sonde de température revient (ou qu'une pile de détecteur de fenêtre n'est plus faible) après une alerte, une notification « ✅ … OK » est envoyée et l'alerte est retirée.
+
 ## 3.1.17 — 2026-10-30
 
 - **Correctif carte « Piles des détecteurs de fenêtre »** : des morceaux de configuration brute (`'window_sensors': …`, `{'fil_pilote_select': …}`) apparaissaient avec « Pile ? ». La lecture des détecteurs de fenêtre ne garde plus que de vrais entity_id (binary_sensor, sensor, input_boolean, cover), extrait la liste d'une configuration enregistrée sous forme de dict ou de texte, et supprime les doublons. Même nettoyage à l'enregistrement du formulaire et dans la carte.
