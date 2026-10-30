@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.26 — 2026-10-30
+
+- **docs : Licence README** — section Licence (MIT) avec remerciements à @gvigroux (projet d'origine) et boutons Buy Me a Coffee (xav59213, gvigroux). Aucun changement de code.
+
 ## 3.1.25 — 2026-10-30
 
 - **Documentation** : section Licence (MIT) et remerciements à @gvigroux (projet d'origine) dans le README ; wiki du dépôt mis à jour (carte, notifications, options, régulation, dépannage). Aucun changement de code.
