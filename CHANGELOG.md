@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.35 — 2026-10-30
+
+- **Conso du jour depuis les compteurs réels** : nouveau capteur par radiateur `Consommation compteur aujourd'hui` (kWh, remis à zéro à minuit) calculé depuis le compteur lié (ex. `sensor.radiateur_papa_energy`), et total maison `Consommation compteurs aujourd'hui` (détail `par_radiateur`). Gère la remise à zéro d'un compteur et le redémarrage de HA.
+- **Carte** : la conso du jour par radiateur et le total utilisent le compteur réel (🔌) quand il existe, sinon l'estimation (≈ temps × puissance).
+
 ## 3.1.34 — 2026-10-30
 
 - **Notifications vers plusieurs téléphones** : le champ « Services notify en plus » accepte plusieurs services (ex. `notify.mobile_app_maman` + `notify.mobile_app_papa`). Chaque alerte part vers tous. L'ancienne valeur unique est reprise automatiquement.

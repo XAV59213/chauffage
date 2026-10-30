@@ -331,3 +331,158 @@ class CentralMeteredEnergySensor(SensorEntity):
     @property
     def extra_state_attributes(self):
         return {"par_radiateur": self._detail, "compteurs": self._links}
+
+
+def _kwh(state) -> float | None:
+    if state is None or state.state in ("unknown", "unavailable"):
+        return None
+    try:
+        value = float(state.state)
+    except (TypeError, ValueError):
+        return None
+    return value / 1000 if (state.attributes.get("unit_of_measurement") or "") == "Wh" else value
+
+
+class RoomMeterDailySensor(RestoreSensor):
+    """Consommation du jour lue sur le compteur kWh réel du radiateur."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Consommation compteur aujourd'hui"
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:meter-electric"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass = hass
+        self.entry = entry
+        self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_compteur_jour"
+        self._meter: str | None = None
+        self._base: float | None = None
+        self._acc = 0.0
+        self._value: float | None = None
+        self._unsub = None
+        self._attr_last_reset = dt_util.start_of_local_day()
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
+            "via_device": (DOMAIN, "electric_heater_central"),
+        }
+
+    @property
+    def available(self) -> bool:
+        return self._meter is not None
+
+    @property
+    def native_value(self):
+        return None if self._value is None else round(self._value, 3)
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "compteur": self._meter,
+            "index_minuit": self._base,
+            "cumul_avant_remise": round(self._acc, 3),
+            "jour": dt_util.now().date().isoformat(),
+        }
+
+    async def async_added_to_hass(self) -> None:
+        last = await self.async_get_last_state()
+        if last and last.attributes.get("jour") == dt_util.now().date().isoformat():
+            try:
+                self._base = float(last.attributes.get("index_minuit"))
+                self._acc = float(last.attributes.get("cumul_avant_remise") or 0)
+            except (TypeError, ValueError):
+                self._base = None
+        self.async_on_remove(
+            async_track_time_change(self.hass, self._midnight, hour=0, minute=0, second=0)
+        )
+        self.async_on_remove(async_track_time_interval(self.hass, self._relink, timedelta(minutes=5)))
+        self.async_on_remove(lambda: self._unsub and self._unsub())
+        self._relink()
+
+    @callback
+    def _relink(self, _now=None) -> None:
+        current = self.hass.config_entries.async_get_entry(self.entry.entry_id) or self.entry
+        meter = room_energy_sensor(self.hass, current)
+        if meter != self._meter:
+            if self._unsub:
+                self._unsub()
+                self._unsub = None
+            if self._meter is not None:
+                self._base, self._acc = None, 0.0
+            self._meter = meter
+            if meter:
+                self._unsub = async_track_state_change_event(self.hass, [meter], self._on_meter)
+        self._on_meter()
+
+    @callback
+    def _on_meter(self, _event=None) -> None:
+        cur = _kwh(self.hass.states.get(self._meter)) if self._meter else None
+        if cur is not None:
+            if self._base is None:
+                self._base = cur
+            elif cur < self._base - 0.001:
+                # Compteur remis à zéro : on garde ce qui a déjà été compté aujourd'hui.
+                self._acc += (self._value or 0) - self._acc
+                self._base = cur
+            self._value = self._acc + max(cur - self._base, 0.0)
+        self.async_write_ha_state()
+
+    @callback
+    def _midnight(self, _now=None) -> None:
+        cur = _kwh(self.hass.states.get(self._meter)) if self._meter else None
+        self._base = cur
+        self._acc = 0.0
+        self._value = 0.0 if cur is not None else None
+        self._attr_last_reset = dt_util.start_of_local_day()
+        self.async_write_ha_state()
+
+
+class CentralMeterDailySensor(SensorEntity):
+    """Somme des consommations du jour lues sur les compteurs réels."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Consommation compteurs aujourd'hui"
+    _attr_unique_id = "electric_heater_central_compteurs_jour"
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:meter-electric"
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+        self._detail: dict[str, float] = {}
+        self._attr_last_reset = dt_util.start_of_local_day()
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(async_track_time_interval(self.hass, self._update, _TICK))
+        self._update()
+
+    @callback
+    def _update(self, _now=None) -> None:
+        reg = er.async_get(self.hass)
+        detail: dict[str, float] = {}
+        for entry in iter_room_entries(self.hass):
+            eid = reg.async_get_entity_id("sensor", DOMAIN, f"electric_heater_room_{entry.entry_id}_compteur_jour")
+            st = self.hass.states.get(eid) if eid else None
+            try:
+                detail[entry.data.get("name") or entry.title] = round(float(st.state), 3)
+            except (AttributeError, TypeError, ValueError):
+                continue
+        self._detail = detail
+        self._attr_native_value = round(sum(detail.values()), 3) if detail else None
+        self._attr_last_reset = dt_util.start_of_local_day()
+        self.async_write_ha_state()
+
+    @property
+    def extra_state_attributes(self):
+        return {"par_radiateur": self._detail}
