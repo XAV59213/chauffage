@@ -68,6 +68,10 @@ function _discover(hass) {
       bins.find((id) => id.includes("alerte_pile")) ||
       bins.find((id) => "sondes" in attrs(id) && attrs(id).device_class === "problem") ||
       "",
+    etat_fenetres:
+      sensors.find((id) => "windows" in attrs(id) && "sources" in attrs(id) && id.includes("central")) ||
+      sensors.find((id) => "windows" in attrs(id) && "sources" in attrs(id)) ||
+      "",
     presents:
       sensors.find((id) => id.endsWith("_presents")) ||
       sensors.find((id) => "source" in attrs(id) && "count" in attrs(id)) ||
@@ -84,6 +88,36 @@ function _presentNames(hass, pres) {
   if (list.length) return list;
   const attr = (pres && pres.attributes.personnes) || [];
   return attr.map((n) => ({ id: pres.entity_id, name: n }));
+}
+
+/* Piles des détecteurs de fenêtre : capteur batterie du même appareil (registre HA). */
+const PILE_FAIBLE = 20;
+function _windowBatteries(hass, winIds) {
+  const reg = hass.entities || {};
+  const out = [];
+  for (const wid of winIds) {
+    const dev = reg[wid] && reg[wid].device_id;
+    let pct = null;
+    let low = null;
+    if (dev) {
+      for (const id of Object.keys(reg)) {
+        if (reg[id].device_id !== dev || !hass.states[id]) continue;
+        const st = hass.states[id];
+        if (st.attributes.device_class !== "battery") continue;
+        if (id.startsWith("sensor.")) {
+          const n = Number(st.state);
+          if (Number.isFinite(n)) pct = n;
+        } else if (id.startsWith("binary_sensor.")) {
+          low = st.state === "on";
+        }
+      }
+    }
+    const attrPct = hass.states[wid] && Number(hass.states[wid].attributes.battery);
+    if (pct === null && Number.isFinite(attrPct)) pct = attrPct;
+    if (pct === null && low === null) continue;
+    out.push({ id: wid, name: _name(hass, wid), pct, low: low === true || (pct !== null && pct <= PILE_FAIBLE) });
+  }
+  return out.sort((a, b) => (b.low - a.low) || a.name.localeCompare(b.name, "fr"));
 }
 
 function _name(hass, id) {
@@ -140,8 +174,17 @@ class ElectricHeaterCard extends HTMLElement {
       sondes_ko: c.sondes_ko || auto.sondes_ko,
       alerte_pile: c.alerte_pile || auto.alerte_pile,
       presents: c.presents || auto.presents,
+      etat_fenetres: c.etat_fenetres || auto.etat_fenetres,
     };
-    const ids = [this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
+    const wst = hass.states[this._ents.etat_fenetres];
+    this._ents.detecteurs = Array.isArray(c.detecteurs_fenetre) && c.detecteurs_fenetre.length
+      ? c.detecteurs_fenetre
+      : (wst && wst.attributes.windows) || [];
+    const bats = this._ents.detecteurs.flatMap((w) => {
+      const dev = (hass.entities || {})[w] && hass.entities[w].device_id;
+      return dev ? Object.keys(hass.entities).filter((id) => hass.entities[id].device_id === dev) : [w];
+    });
+    const ids = [...bats, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
       this._ents.presents, ...this._ents.radiateurs];
     const sig = ids.map((id) => {
       const s = hass.states[id];
@@ -227,6 +270,20 @@ class ElectricHeaterCard extends HTMLElement {
         <br><span class="muted">Radiateurs concernés en Hors-gel par sécurité.</span></div>`;
     }
 
+    const piles = _windowBatteries(hass, e.detecteurs || []);
+    const faibles = piles.filter((p) => p.low);
+    if (piles.length) {
+      chips.push(`<div class="chip ${faibles.length ? "bad" : ""}" data-id="${_esc((faibles[0] || piles[0]).id)}">
+        <ha-icon icon="${faibles.length ? "mdi:battery-alert" : "mdi:battery-high"}"></ha-icon>
+        ${faibles.length ? `${faibles.length} pile${faibles.length > 1 ? "s" : ""} fenêtre faible${faibles.length > 1 ? "s" : ""}` : "Piles fenêtres OK"}</div>`);
+    }
+    const pileRows = piles.map((p) => `<div class="row" data-id="${_esc(p.id)}">
+        <ha-icon icon="${p.low ? "mdi:battery-alert" : p.pct !== null && p.pct < 50 ? "mdi:battery-50" : "mdi:battery-high"}"></ha-icon>
+        <div class="n">${_esc(p.name)}</div>
+        ${p.low ? `<span class="badge ko">Pile faible</span>` : `<span class="badge">OK</span>`}
+        <div class="t">${p.pct !== null ? `${Math.round(p.pct)} %` : ""}</div>
+      </div>`).join("");
+
     const rows = e.radiateurs.map((id) => {
       const s = st(id);
       if (!s) return "";
@@ -251,6 +308,7 @@ class ElectricHeaterCard extends HTMLElement {
         <div class="chips">${chips.join("")}</div>
         ${alerts}
         <div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>
+        ${pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des détecteurs de fenêtre</div>${pileRows}</div>` : ""}
       </ha-card>`;
     this.shadowRoot.querySelectorAll("[data-id]").forEach((el) =>
       el.addEventListener("click", () => this._more(el.getAttribute("data-id")))
