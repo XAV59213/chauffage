@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.38
+
+- docs: badge Downloads cumulés
+
+## 3.1.38
+
+- docs: badge Downloads cumulés
+
 ## 3.1.37 — 2026-10-30
 
 - **Release de soumission HACS** : versions alignées (manifest, `VERSION`, tag), validations HACS + Hassfest passées avant la release. Aucun changement fonctionnel.
