@@ -6,7 +6,11 @@ Integration Home Assistant locale pour piloter des radiateurs électriques fran�
 
 - [Configuration](Configuration.md)
 - [Fonctionnement](Fonctionnement.md)
+- [Carte Lovelace](Carte.md)
+- [Notifications](Notifications.md)
 - [Dépannage](Depannage.md)
+
+Version documentée : **3.1.24** (manifest, `VERSION` et tag de release alignés ; HACS installe le zip `electric_heater.zip` de la release).
 
 ## En deux phrases
 

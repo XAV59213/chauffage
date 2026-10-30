@@ -27,9 +27,9 @@ Calendrier, présence et écart de température ne changent plus l'ordre.
 
 | Où | Effet |
 |---|---|
-| Fenêtre d'une pièce | **Ce** radiateur passe dans le mode fenêtre après 45 s |
-| Baie / portes / fenêtre du salon (thermostat) | **Tous** les radiateurs passent dans le mode fenêtre après 45 s |
-| Refermée avant 45 s | Rien ne change |
+| Fenêtre d'une pièce | **Ce** radiateur passe dans le mode fenêtre après le délai (45 s par défaut) |
+| Baie / portes / fenêtre du salon (thermostat) | **Tous** les radiateurs passent dans le mode fenêtre après le délai |
+| Refermée avant le délai | Rien ne change (l'état affiché passe quand même à « Ouverte » dès la détection) |
 | Refermée après | Reprise immédiate du mode normal |
 
 Mode fenêtre : **Hors-gel** par défaut (réglable : Hors-gel, Eco ou Arrêt). Il ne fait que baisser l'ordre : un radiateur à l'Arrêt reste à l'Arrêt.
@@ -40,7 +40,21 @@ Capteur affiché : **État fenêtre** (Ouverte / Fermée).
 
 Un seul capteur source : celui choisi sur le thermostat (**Nombre famille home**).
 
-Capteur **Présents** : `Personne` / `1 personne` / `2 personnes`.
+Capteur **Présents** : `Personne` / `1 personne` / `2 personnes`, avec les prénoms (attributs `personnes`, `noms`) des personnes suivies à la maison.
+
+## Régulation par sonde
+
+| Situation | Ordre fil pilote |
+|---|---|
+| Pièce ≥ consigne | Ordre réglable (Eco par défaut, ou Hors-gel / Arrêt) |
+| Pièce ≤ consigne − hystérésis | Ordre de base (jamais plus chaud) |
+| Entre les deux | Dernier ordre conservé |
+| Mode Eco / absence | Reste Eco, jamais remonté en Confort |
+| Sonde indisponible | **Hors-gel** par sécurité + alerte « remplacer la pile de la sonde » |
+
+## Capteurs résumé
+
+`Fenêtres ouvertes`, `Sondes KO`, `Alerte pile sonde`, `Présents` sur le thermostat central.
 
 ## Consignes
 
