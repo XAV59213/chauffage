@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.24 — 2026-10-30
+
+- **Documentation** : README mis à jour avec la carte native « Chauffage Fil Pilote » et des captures (carte, configuration du thermostat). Capture de la carte aussi dans `examples/lovelace/README.md`. Aucun changement de code.
+
 ## 3.1.23 — 2026-10-30
 
 - **Carte : détecteur du salon** : sont aussi ajoutés les `binary_sensor` fenêtre / porte / ouverture dont le nom contient la pièce d'un radiateur (zone Home Assistant, ou salon, séjour, cuisine, entrée, bureau…), même s'ils ne sont pas rangés dans la bonne zone.
