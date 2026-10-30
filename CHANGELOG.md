@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.19 — 2026-10-30
+
+- **Carte : plus de doublons « Pile ? »** (ex. `binary_sensor.baie_vitree`, `fenetre_papa`) : les piles sont dédupliquées par appareil, capteur batterie et nom de base ; une entité inexistante (ancien entity_id) est ignorée ; une ligne « Pile ? » n'est plus affichée si le même détecteur a déjà son pourcentage.
+
 ## 3.1.18 — 2026-10-30
 
 - **Plus de fausses alertes au redémarrage** : les notifications sonde / pile attendent 3 minutes après le démarrage de Home Assistant (le temps que Zigbee / MQTT chargent les entités), puis une sonde ou une pile doit rester KO 2 minutes avant d'alerter.
