@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.2 — 2026-10-30
+
+- **Régulation au-dessus de la consigne** : quand la pièce dépasse la consigne, l'ordre fil pilote passe en Eco (non chauffant) au lieu de Confort −1, qui restait un ordre de chauffe via le thermostat interne du radiateur.
+- En mode Chauffage (heat), la régulation par sonde s'applique aussi ; seule une fenêtre ouverte force l'ordre exact.
+- Un changement de température de pièce renvoie toujours l'ordre fil pilote, y compris en mode heat.
+
 ## 3.1.1 — 2026-10-28
 
 - **hassfest sans erreur** :
