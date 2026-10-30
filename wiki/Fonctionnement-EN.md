@@ -47,7 +47,7 @@ Window mode: **Frost protection** by default (Frost, Eco or Off). It only ever l
 
 ## Summary sensors
 
-`Fenêtres ouvertes` (open windows), `Sondes KO` (KO sensors), `Alerte pile sonde` (battery alert), `Présents` (people home).
+`Fenêtres ouvertes` (open windows), `Sondes KO` (KO sensors), `Alerte pile sonde` (battery alert), `Présents` (people home), `Calendrier chauffage activé` (Auto + calendar active).
 
 ## Setpoints
 

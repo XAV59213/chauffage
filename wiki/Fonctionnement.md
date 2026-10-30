@@ -56,7 +56,7 @@ Capteur **Présents** : `Personne` / `1 personne` / `2 personnes`, avec les pré
 
 ## Capteurs résumé
 
-`Fenêtres ouvertes`, `Sondes KO`, `Alerte pile sonde`, `Présents` sur le thermostat central.
+`Fenêtres ouvertes`, `Sondes KO`, `Alerte pile sonde`, `Présents`, `Calendrier chauffage activé` (Auto + calendrier actif) sur le thermostat central.
 
 ## Consignes
 

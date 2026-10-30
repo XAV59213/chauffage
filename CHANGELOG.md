@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.30 — 2026-10-30
+
+- **Notification « système opérationnel »** après la grâce de démarrage (3 min), avec le résumé des problèmes en cours (sondes KO, fenêtres ouvertes), puis les alertes habituelles.
+- **Fenêtre ouverte + personne à la maison** : notification si une fenêtre reste ouverte alors que Présents = 0 (après 2 min), « OK » quand c'est réglé.
+- **Nouveau capteur** `binary_sensor` « Calendrier chauffage activé » : allumé quand le thermostat est en Auto ET que le calendrier est actif.
+
 ## 3.1.29 — 2026-10-30
 
 - **Fix fenêtre ignorée** : un détecteur porte/fenêtre rangé dans la même pièce HA qu'un radiateur (ex. « Détecteur fenêtre papa » dans Chambre parentale) est maintenant pris en compte par la régulation, même s'il n'est pas (ou mal) renseigné dans Configurer. Le radiateur passe en mode fenêtre (Hors-gel) après le délai, comme ce que la carte affichait déjà.
