@@ -34,6 +34,32 @@ function _num(v, d = 1) {
 }
 
 /* Entités de l'intégration : registre (platform) puis repli sur les attributs. */
+function _statsFor(hass, id) {
+  const reg = hass.entities || {};
+  const dev = reg[id] && reg[id].device_id;
+  const ids = dev
+    ? Object.keys(reg).filter((x) => reg[x].device_id === dev && x.startsWith("sensor."))
+    : Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && x.includes("maison"));
+  const val = (x) => {
+    const s = x && hass.states[x];
+    const n = s ? Number(s.state) : NaN;
+    return Number.isFinite(n) ? n : null;
+  };
+  const h = ids.filter((x) => x.includes("temps_de_chauffe") && x.includes("aujourd")).map(val)[0];
+  const kwh = ids.filter((x) => x.includes("consommation") && x.includes("aujourd")).map(val)[0];
+  return { h: h ?? null, kwh: kwh ?? null };
+}
+
+function _fmtStats(st) {
+  const parts = [];
+  if (st.h !== null) {
+    const m = Math.round(st.h * 60);
+    parts.push(`⏱ ${m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`}`);
+  }
+  if (st.kwh) parts.push(`⚡ ${st.kwh.toFixed(2)} kWh`);
+  return parts.join(" · ");
+}
+
 function _discover(hass) {
   const states = hass.states || {};
   const reg = hass.entities || {};
@@ -339,7 +365,8 @@ class ElectricHeaterCard extends HTMLElement {
       const dev = (hass.entities || {})[w] && hass.entities[w].device_id;
       return dev ? Object.keys(hass.entities).filter((id) => hass.entities[id].device_id === dev) : [w];
     });
-    const ids = [...bats, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
+    const statIds = Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && (x.includes("temps_de_chauffe") || x.includes("consommation")));
+    const ids = [...bats, ...statIds, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
       this._ents.presents, ...this._ents.radiateurs];
     const sig = ids.map((id) => {
       const s = hass.states[id];
@@ -426,6 +453,9 @@ class ElectricHeaterCard extends HTMLElement {
         <br><span class="muted">Radiateurs concernés en Hors-gel par sécurité.</span></div>`;
     }
 
+    const tot = _fmtStats(_statsFor(hass, e.central));
+    if (tot) chips.push(`<div class="chip">${tot} aujourd'hui</div>`);
+
     const piles = _windowBatteries(hass, e.detecteurs || []);
     const pilesSondes = _batteries(hass, e.sondes || []);
     const faibles = [...piles, ...pilesSondes].filter((p) => p.low);
@@ -468,7 +498,7 @@ class ElectricHeaterCard extends HTMLElement {
       const win = a.window_open || a.fenetre_detectee ? ` <ha-icon icon="mdi:window-open-variant" style="--mdc-icon-size:16px"></ha-icon>` : "";
       return `<div class="row" data-id="${_esc(id)}">
         <ha-icon icon="${heat ? "mdi:radiator" : "mdi:radiator-disabled"}"></ha-icon>
-        <div class="n">${_esc(a.friendly_name || id)}${win}</div>
+        <div class="n">${_esc(a.friendly_name || id)}${win}${(() => { const t = _fmtStats(_statsFor(hass, id)); return t ? `<div class="muted" style="font-size:12px">${t} aujourd'hui</div>` : ""; })()}</div>
         ${badge}
         <div class="t">${_num(a.current_temperature)}° <span class="muted">/ ${_num(a.temperature)}°</span></div>
       </div>`;

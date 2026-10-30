@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.31 — 2026-10-30
+
+- **Statistiques de chauffe** (statistiques long terme HA) par radiateur : `Temps de chauffe aujourd'hui` / `total` (h) et `Consommation aujourd'hui` / `totale` (kWh estimés = temps de chauffe × puissance).
+- **Global maison** sur le thermostat central : temps de chauffe et consommation (jour / total), détail `par_radiateur`.
+- **Nouvelle option radiateur** « Puissance du radiateur (W) » (0 = consommation non suivie). Les capteurs kWh sont utilisables dans le tableau Énergie.
+- **Carte** : temps de chauffe et kWh du jour sous chaque radiateur + pastille globale.
+
 ## 3.1.30 — 2026-10-30
 
 - **Notification « système opérationnel »** après la grâce de démarrage (3 min), avec le résumé des problèmes en cours (sondes KO, fenêtres ouvertes), puis les alertes habituelles.

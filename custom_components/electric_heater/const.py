@@ -167,7 +167,8 @@ EVENT_WINDOWS_CHANGED = f"{DOMAIN}_windows_changed"
 EVENT_CENTRAL_COMMAND = f"{DOMAIN}_central_command"
 SIGNAL_SETPOINTS_UPDATED = f"{DOMAIN}_setpoints_updated_{{}}"
 
-VERSION = "3.1.30"
+VERSION = "3.1.31"
+CONF_POWER = "power"  # puissance du radiateur (W) pour la conso estimée
 
 # Carte Lovelace native
 CARD_URL_BASE = "/electric_heater"

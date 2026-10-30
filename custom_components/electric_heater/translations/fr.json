@@ -48,7 +48,8 @@
           "name": "Nom de la piece / du radiateur",
           "fil_pilote_select": "Relais fil pilote (select ou climate)",
           "temperature_sensor": "Sonde de temperature de la piece",
-          "window_sensors": "Capteurs fenetre de la piece (optionnel)"
+          "window_sensors": "Capteurs fenetre de la piece (optionnel)",
+          "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)"
         }
       }
     },
@@ -108,7 +109,8 @@
           "name": "Nom de la piece / du radiateur",
           "fil_pilote_select": "Relais fil pilote",
           "temperature_sensor": "Sonde de temperature de la piece",
-          "window_sensors": "Capteurs fenetre de la piece"
+          "window_sensors": "Capteurs fenetre de la piece",
+          "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)"
         }
       }
     }
