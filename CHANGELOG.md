@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.4 — 2026-10-30
+
+- **Sonde de température KO = Hors-gel de sécurité** : si la sonde d'une pièce est indisponible, inconnue ou renvoie une valeur invalide (pile vide, perte radio…), le radiateur passe en Hors-gel au lieu de recevoir l'ordre de base (Confort).
+- **Alerte pile** : nouveaux attributs `sonde_ko`, `alerte` (`pile_sonde`) et `message` (« remplacer la pile de la sonde ») sur le thermostat de la pièce, avec un avertissement dans les logs. Traductions FR / EN.
+- Dès que la sonde revient, la régulation normale reprend automatiquement.
+
 ## 3.1.3 — 2026-10-30
 
 - **Absence / Eco ne force plus Confort** : sous la consigne, l'ordre fil pilote ne remonte jamais au-dessus de l'ordre de base (un radiateur en Eco reste en Eco).
