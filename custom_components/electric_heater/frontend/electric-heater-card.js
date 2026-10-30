@@ -46,7 +46,8 @@ function _statsFor(hass, id) {
     return Number.isFinite(n) ? n : null;
   };
   const h = ids.filter((x) => x.includes("temps_de_chauffe") && x.includes("aujourd")).map(val)[0];
-  const kwh = ids.filter((x) => x.includes("consommation") && x.includes("aujourd")).map(val)[0];
+  const kwh = ids.filter((x) => x.includes("consommation") && x.includes("aujourd") && !x.includes("compteur")).map(val)[0];
+  const meterDay = ids.filter((x) => x.includes("compteur") && x.includes("aujourd")).map(val)[0];
   // Compteur réel (sensor.*_energy) lié au radiateur ou somme centrale.
   let meter = null;
   const linked = hass.states[id] && hass.states[id].attributes.energy_sensor;
@@ -56,7 +57,7 @@ function _statsFor(hass, id) {
     const n = Number(ms.state);
     if (Number.isFinite(n)) meter = ms.attributes.unit_of_measurement === "Wh" ? n / 1000 : n;
   }
-  return { h: h ?? null, kwh: kwh ?? null, meter };
+  return { h: h ?? null, kwh: kwh ?? null, meter, meterDay: meterDay ?? null };
 }
 
 function _fmtStats(st) {
@@ -65,7 +66,8 @@ function _fmtStats(st) {
     const m = Math.round(st.h * 60);
     parts.push(`⏱ ${m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`}`);
   }
-  if (st.kwh) parts.push(`⚡ ${st.kwh.toFixed(2)} kWh`);
+  if (st.meterDay !== null && st.meterDay !== undefined) parts.push(`🔌 ${st.meterDay.toFixed(2)} kWh`);
+  else if (st.kwh) parts.push(`⚡ ${st.kwh.toFixed(2)} kWh`);
   return parts.join(" · ");
 }
 
@@ -625,16 +627,18 @@ class ElectricHeaterCard extends HTMLElement {
           let totH = 0, totK = 0, anyK = false;
           const lines = e.radiateurs.map((id) => {
             const x = _statsFor(hass, id);
-            if (x.h === null && x.kwh === null) return "";
+            if (x.h === null && x.kwh === null && x.meterDay === null) return "";
             totH += x.h || 0;
-            if (x.kwh !== null) { totK += x.kwh; anyK = anyK || x.kwh > 0; }
+            const reel = x.meterDay !== null;
+            const k = reel ? x.meterDay : x.kwh;
+            if (k !== null) { totK += k; anyK = anyK || k > 0 || reel; }
             const nom = _name(hass, id).replace(/^Radiateur\s*/i, "").replace(/\s*Chauffage.*$/i, "");
             return `<div class="row" data-id="${_esc(id)}"><ha-icon icon="mdi:lightning-bolt"></ha-icon>
               <div class="n">${_esc(nom)}</div><span class="badge">${fmtH(x.h)}</span>
-              <div class="t">${x.kwh !== null && x.kwh > 0 ? `${x.kwh.toFixed(2)} kWh` : "–"}</div></div>`;
+              <div class="t">${reel ? `🔌 ${k.toFixed(2)} kWh` : k !== null && k > 0 ? `≈ ${k.toFixed(2)} kWh` : "–"}</div></div>`;
           }).join("");
           if (!lines) return "";
-          return `<div class="rows"><div class="muted" style="margin-top:6px">Consommation du jour par radiateur</div>${lines}
+          return `<div class="rows"><div class="muted" style="margin-top:6px">Consommation du jour par radiateur <span style="font-size:11px">(🔌 compteur réel · ≈ estimation)</span></div>${lines}
             <div class="row"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
               <span class="badge">${fmtH(totH)}</span><div class="t"><b>${anyK ? `${totK.toFixed(2)} kWh` : "–"}</b></div></div></div>`;
         })()}
