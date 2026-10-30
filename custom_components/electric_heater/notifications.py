@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
@@ -34,6 +36,10 @@ from .fil_pilote import (
 _LOGGER = logging.getLogger(__name__)
 
 PILE_FAIBLE = 20
+# Délai de grâce après le démarrage de HA (entités Zigbee / MQTT pas encore chargées)
+STARTUP_GRACE = 180
+# Une sonde / pile doit rester KO ce temps avant d'alerter (évite les coupures brèves)
+KO_CONFIRM = 120
 _TITLE = "Chauffage fil pilote"
 
 
@@ -51,6 +57,8 @@ class HeaterNotifier:
         self._active: set[str] = set()
         self._pending: dict[str, Any] = {}
         self._unsubs: list = []
+        self._ready = False
+        self._ko_since: dict[str, float] = {}
 
     # -- options --------------------------------------------------------
     def _opt(self, key: str, default: Any = None) -> Any:
@@ -98,9 +106,13 @@ class HeaterNotifier:
         if key in self._active:
             return
         self._active.add(key)
+        persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_{key}_ok")
+        self._send(f"{DOMAIN}_{key}", message)
+
+    def _send(self, notification_id: str, message: str) -> None:
         _LOGGER.info("Notification : %s", message)
         persistent_notification.async_create(
-            self.hass, message, title=_TITLE, notification_id=f"{DOMAIN}_{key}"
+            self.hass, message, title=_TITLE, notification_id=notification_id
         )
         service = str(self._opt(CONF_NOTIFY_SERVICE, "") or "").strip()
         if service:
@@ -114,10 +126,19 @@ class HeaterNotifier:
             else:
                 _LOGGER.warning("Service notify.%s introuvable", service)
 
-    def _clear(self, key: str) -> None:
+    def _clear(self, key: str, ok_message: str | None = None) -> None:
+        self._ko_since.pop(key, None)
         if key in self._active:
             self._active.discard(key)
             persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_{key}")
+            if ok_message:
+                self._send(f"{DOMAIN}_{key}_ok", ok_message)
+
+    def _confirmed_ko(self, key: str) -> bool:
+        """Vrai si le problème dure depuis KO_CONFIRM secondes (et après la grâce de démarrage)."""
+        now = time.monotonic()
+        since = self._ko_since.setdefault(key, now)
+        return self._ready and now - since >= KO_CONFIRM
 
     # -- évaluation -------------------------------------------------------
     @callback
@@ -125,13 +146,19 @@ class HeaterNotifier:
         for sensor, piece in self._room_sensors().items():
             key = f"sonde_{sensor}"
             if room_current_temp(self.hass, sensor) is None:
+                if not self._confirmed_ko(key):
+                    continue
                 self._notify(
                     key,
                     f"🔋 Sonde de température KO – {piece} ({sensor}) : remplacer la pile de la sonde. "
                     "Le radiateur est en Hors-gel par sécurité.",
                 )
             else:
-                self._clear(key)
+                self._clear(
+                    key,
+                    f"✅ Sonde de température OK – {piece} ({sensor}) : de nouveau disponible, "
+                    "régulation normale reprise.",
+                )
         for bat, wid in self._window_batteries().items():
             key = f"pile_{bat}"
             st = self.hass.states.get(bat)
@@ -148,9 +175,11 @@ class HeaterNotifier:
                     except ValueError:
                         low = False
             if low:
+                if not self._confirmed_ko(key):
+                    continue
                 self._notify(key, f"🔋 Pile faible du détecteur de fenêtre « {_name(self.hass, wid)} »{detail} : à remplacer.")
-            else:
-                self._clear(key)
+            elif st and st.state not in ("unknown", "unavailable"):
+                self._clear(key, f"✅ Pile du détecteur de fenêtre « {_name(self.hass, wid)} »{detail} : OK.")
 
     @callback
     def _check_windows(self, _event=None) -> None:
@@ -196,10 +225,28 @@ class HeaterNotifier:
             )
         # Pièces / fenêtres ajoutées après le démarrage.
         self._unsubs.append(
-            async_track_time_interval(self.hass, self._periodic, timedelta(minutes=5))
+            async_track_time_interval(self.hass, self._periodic, timedelta(seconds=30))
         )
-        self._check_sensors()
+        # Grâce de démarrage : pas d'alerte sonde / pile tant que tout n'est pas chargé.
+        if self.hass.is_running:
+            self._start_grace()
+        else:
+            self._unsubs.append(
+                self.hass.bus.async_listen_once(
+                    EVENT_HOMEASSISTANT_STARTED, lambda _e: self._start_grace()
+                )
+            )
         self._check_windows()
+
+    @callback
+    def _start_grace(self) -> None:
+        self._unsubs.append(async_call_later(self.hass, STARTUP_GRACE, self._end_grace))
+
+    @callback
+    def _end_grace(self, _now=None) -> None:
+        self._ready = True
+        self._ko_since = {k: time.monotonic() - KO_CONFIRM for k in self._ko_since}
+        self._check_sensors()
 
     @callback
     def _periodic(self, _now=None) -> None:
@@ -209,7 +256,10 @@ class HeaterNotifier:
     @callback
     def async_stop(self) -> None:
         for unsub in self._unsubs:
-            unsub()
+            try:
+                unsub()
+            except Exception:  # noqa: BLE001 - écouteur déjà déclenché
+                pass
         self._unsubs.clear()
         for cancel in self._pending.values():
             cancel()
