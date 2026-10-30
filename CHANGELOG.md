@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.13 — 2026-10-30
+
+- **Correctif consignes « 11.600000000000001 » / « Value … is too large »** : toutes les consignes sont arrondies à 0,1 °C (lecture, réglage depuis le thermostat, enregistrement de la configuration).
+- Formulaire de configuration : valeurs par défaut arrondies et ramenées dans les bornes du champ ; la température Hors-gel accepte maintenant jusqu'à 15 °C (au lieu de 10 °C).
+
 ## 3.1.12 — 2026-10-30
 
 - **Correctif configuration du thermostat** : la validation échouait avec « value must be one of [binary_sensor…] ». Le sélecteur des fenêtres accepte maintenant toujours les détecteurs déjà configurés (même renommés ou hors filtre). Le champ « Personnes suivies » reste un sélecteur de `person` distinct.
