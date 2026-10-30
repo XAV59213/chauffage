@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.6 — 2026-10-30
+
+- **Capteurs résumé** sur le thermostat central :
+  - `Fenêtres ouvertes` : nombre de fenêtres ouvertes, avec la liste (noms, entités, pièces) en attributs.
+  - `Sondes KO` : nombre de sondes de pièce indisponibles, avec les pièces et sondes concernées.
+  - `Alerte pile sonde` (binary_sensor, problème) : activé dès qu'une sonde est KO — « Remplacer la pile de la sonde ».
+- Le capteur `Présents` existant reste inchangé et est repris dans la vue exemple.
+- **Vue Lovelace** prête à coller : `examples/lovelace-statut-chauffage.yaml` (fenêtres ouvertes, alertes pile, présence, radiateurs).
+- Traductions FR / EN des nouveaux capteurs.
+
 ## 3.1.5 — 2026-10-30
 
 - **Ordre au-dessus de la consigne réglable** : nouvelle option du thermostat central pour choisir l'ordre fil pilote envoyé quand la pièce dépasse la consigne : Eco (par défaut, comportement inchangé), Hors-gel ou Arrêt.
