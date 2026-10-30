@@ -113,6 +113,23 @@
             }
           }
         }
+      },
+      "room": {
+        "state_attributes": {
+          "sonde_ko": {
+            "name": "Sensor failure",
+            "state": {
+              "true": "Yes",
+              "false": "No"
+            }
+          },
+          "alerte": {
+            "name": "Alert",
+            "state": {
+              "pile_sonde": "Replace the sensor battery"
+            }
+          }
+        }
       }
     }
   }

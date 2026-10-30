@@ -52,6 +52,7 @@ from .const import (
     PRESETS,
     RELAY_CHECK_DELAY,
     RESYNC_INTERVAL_MIN,
+    SENSOR_KO_MESSAGE,
     SIGNAL_SETPOINTS_UPDATED,
     VERSION,
     WINDOW_MODES,
@@ -667,6 +668,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         self._central_window_open = False
         self._window_mode = DEFAULT_WINDOW_MODE
         self._temp_sensor = entry.data[CONF_TEMPERATURE_SENSOR]
+        self._sensor_ko = False
         self._fil_pilote_select = room_fil_pilote_id(entry.data)
         self._window_sensors = windows_from_entry(entry)
         self._unsub_windows = None
@@ -759,6 +761,9 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             "fil_pilote_mode": mode,
             "fil_pilote_ordre": self._expected_preset,
             "ordre_envoye": PRESET_LABELS.get(self._expected_preset, self._expected_preset),
+            "sonde_ko": self._sensor_ko,
+            "alerte": "pile_sonde" if self._sensor_ko else None,
+            "message": SENSOR_KO_MESSAGE if self._sensor_ko else None,
             "consigne": self._target_temp,
             "consigne_mode": PRESET_LABELS.get(mode, mode),
             "consignes": _consignes(self._temps) if self._temps else {},
@@ -877,6 +882,17 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
                 )
             except (ValueError, TypeError):
                 self._current_temp = None
+        ko = bool(self._temp_sensor) and self._current_temp is None
+        if ko and not self._sensor_ko:
+            _LOGGER.warning(
+                "Sonde %s indisponible pour %s : radiateur en Hors-gel par sécurité. %s",
+                self._temp_sensor,
+                self.entry.data.get("name"),
+                SENSOR_KO_MESSAGE,
+            )
+        elif not ko and self._sensor_ko:
+            _LOGGER.info("Sonde %s de nouveau disponible : régulation normale", self._temp_sensor)
+        self._sensor_ko = ko
         if apply:
             self.async_write_ha_state()
             self._schedule_apply()

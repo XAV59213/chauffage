@@ -15,6 +15,7 @@ from .const import (
     DOMAIN,
     FIL_PILOTE_ALIASES,
     FIL_PILOTE_DATA_KEYS,
+    PRESET_FROST_PROTECTION,
     PRESET_OFF,
 )
 from .hysteresis import regulate_preset
@@ -287,5 +288,9 @@ def room_order(
     """Ordre à envoyer au radiateur (régulation par la sonde sauf en mode exact)."""
     if exact:
         return base_preset
-    current = room_current_temp(hass, entry.data.get(CONF_TEMPERATURE_SENSOR))
+    sensor = entry.data.get(CONF_TEMPERATURE_SENSOR)
+    current = room_current_temp(hass, sensor)
+    if sensor and current is None and base_preset not in (PRESET_OFF, PRESET_FROST_PROTECTION):
+        # Sonde KO (pile, perte radio...) : Hors-gel par sécurité, jamais Confort.
+        return PRESET_FROST_PROTECTION
     return regulate_preset(base_preset, current, target, last)
