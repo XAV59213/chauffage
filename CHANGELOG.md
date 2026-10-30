@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.10 — 2026-10-30
+
+- **Correctif fenêtre affichée « Fermée » alors qu'elle est ouverte** : l'attribut `fenetre` des thermostats ne passait à « Ouverte » qu'après le délai de coupure (45 s par défaut). Il suit maintenant la détection immédiate (nouvel attribut `fenetre_detectee`) ; la coupure du chauffage garde son délai. La carte affiche l'icône fenêtre dès la détection.
+- Détecteurs de fenêtre : états `ouvert` / `ouverte` / `fermé` / `fermée` et attribut `contact` (Zigbee2MQTT) reconnus. Le capteur « État fenêtre » affiche « Indisponible » si tous les détecteurs sont indisponibles, au lieu de « Fermée ».
+- **Notifications Home Assistant** (activées par défaut, désactivables dans les options du thermostat central) :
+  - sonde de température de pièce KO : « remplacer la pile de la sonde » ;
+  - pile d'un détecteur de fenêtre faible (20 % ou moins) ;
+  - fenêtre ouverte, une seule notification une fois l'ouverture confirmée après le délai configuré.
+  Une notification par problème, retirée automatiquement au retour à la normale. Option : service `notify` supplémentaire (ex. application mobile).
+
 ## 3.1.9 — 2026-10-30
 
 - **Piles des détecteurs de fenêtre** sur la carte « Chauffage Fil Pilote » : pour chaque détecteur de fenêtre configuré, le capteur batterie du même appareil est trouvé automatiquement (pourcentage ou alerte batterie). Affichage du % et d'un badge « Pile faible » à 20 % ou moins, plus une pastille résumé « N piles fenêtre faibles » / « Piles fenêtres OK ». Option de repli `detecteurs_fenetre`.
