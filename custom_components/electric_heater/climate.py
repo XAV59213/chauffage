@@ -33,7 +33,10 @@ from .const import (
     CONF_TEMP_METHOD,
     CONF_TEMP_METHOD_AVERAGE,
     CONF_TEMPERATURE_SENSOR,
+    CONF_HYSTERESIS,
+    CONF_RESYNC_INTERVAL,
     CONF_WINDOW_MODE,
+    CONF_WINDOW_OFF_DELAY,
     DEFAULT_CALENDAR_OFF_MODE,
     DEFAULT_WINDOW_MODE,
     DOMAIN,
@@ -63,6 +66,7 @@ from .fil_pilote import (
     central_window_open,
     entry_windows_open,
     expected_option,
+    central_option,
     get_central_state,
     iter_room_entries,
     relay_available,
@@ -71,7 +75,7 @@ from .fil_pilote import (
     room_order,
     windows_from_entry,
 )
-from .hysteresis import order_heats, should_heat
+from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
 
 _LOGGER = logging.getLogger(__name__)
@@ -121,6 +125,22 @@ def _consignes(temps: dict) -> dict[str, float]:
     }
 
 
+
+class _TunablesMixin:
+    """Réglages avancés lus sur le thermostat central (défauts = const.py)."""
+
+    hass: HomeAssistant
+
+    def _comfort_hyst(self) -> float:
+        return float(central_option(self.hass, CONF_HYSTERESIS, HYSTERESIS[PRESET_COMFORT]))
+
+    def _window_off_delay(self) -> float:
+        return float(central_option(self.hass, CONF_WINDOW_OFF_DELAY, WINDOW_OFF_DELAY))
+
+    def _resync_interval(self) -> float:
+        return max(1.0, float(central_option(self.hass, CONF_RESYNC_INTERVAL, RESYNC_INTERVAL_MIN)))
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     if entry.data.get("type") == "central":
         async_add_entities([CentralThermostat(hass, entry)])
@@ -128,7 +148,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         async_add_entities([RoomThermostat(hass, entry)])
 
 
-class CentralThermostat(ClimateEntity, RestoreEntity):
+class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     """Thermostat virtuel : consigne visible en Auto et suivie par les radiateurs."""
 
     _attr_has_entity_name = True
@@ -308,7 +328,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             "window_open": self._window_open,
             "window_mode": self._window_mode,
             "fenetre": "Ouverte" if self._window_open else "Fermee",
-            "hysteresis": HYSTERESIS.get(self._preset_mode, 0.3),
+            "hysteresis": hysteresis_for(self._preset_mode, self._comfort_hyst()),
             "rooms": [e.title for e in iter_room_entries(self.hass)],
         }
 
@@ -427,7 +447,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             return
         if not self._window_delay:
             self._window_delay = async_call_later(
-                self.hass, WINDOW_OFF_DELAY, self._on_window_delay
+                self.hass, self._window_off_delay(), self._on_window_delay
             )
         self.async_write_ha_state()
 
@@ -566,7 +586,9 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
             self._heating = False
             self._hvac_action = HVACAction.OFF
             return
-        self._heating = should_heat(self._current_temp, self._target_temp, preset, self._heating)
+        self._heating = should_heat(
+            self._current_temp, self._target_temp, preset, self._heating, self._comfort_hyst()
+        )
         self._hvac_action = HVACAction.HEATING if self._heating else HVACAction.IDLE
 
     async def async_set_temperature(self, **kwargs):
@@ -638,7 +660,7 @@ class CentralThermostat(ClimateEntity, RestoreEntity):
         self.hass.bus.async_fire(EVENT_CENTRAL_CHANGED)
 
 
-class RoomThermostat(ClimateEntity, RestoreEntity):
+class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     """Radiateur : suit le thermostat virtuel, ou garde un réglage manuel."""
 
     _attr_has_entity_name = True
@@ -769,7 +791,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             "consignes": _consignes(self._temps) if self._temps else {},
             "temperature_sensor": self._temp_sensor,
             "fil_pilote": self._fil_pilote_select,
-            "hysteresis": HYSTERESIS.get(self._preset_mode, 0.3),
+            "hysteresis": hysteresis_for(self._preset_mode, self._comfort_hyst()),
         }
 
     async def async_added_to_hass(self):
@@ -822,7 +844,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
         )
         self.async_on_remove(
             async_track_time_interval(
-                self.hass, self._periodic_resync, timedelta(minutes=RESYNC_INTERVAL_MIN)
+                self.hass, self._periodic_resync, timedelta(minutes=self._resync_interval())
             )
         )
         self.async_on_remove(lambda: self.hass.bus.async_fire(EVENT_ROOMS_CHANGED))
@@ -863,7 +885,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             self._target_temp = attrs.get("consigne")
             if self._target_temp is None or self._central_window_open:
                 self._target_temp = self._temps.get(key) or self._temps.get("comfort")
-            self._hysteresis = HYSTERESIS.get(self._preset_mode, 0.3)
+            self._hysteresis = hysteresis_for(self._preset_mode, self._comfort_hyst())
         if apply:
             self.async_write_ha_state()
             self._schedule_apply()
@@ -916,7 +938,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             return
         if not self._window_delay:
             self._window_delay = async_call_later(
-                self.hass, WINDOW_OFF_DELAY, self._on_window_delay
+                self.hass, self._window_off_delay(), self._on_window_delay
             )
         if apply:
             self.async_write_ha_state()

@@ -14,15 +14,24 @@ from .const import (
 _HOLD = {PRESET_OFF, PRESET_FROST_PROTECTION}
 
 
+def hysteresis_for(preset: str | None, comfort_hyst: float | None = None) -> float:
+    """Hystérésis du preset ; la valeur réglable s'applique aux presets Confort."""
+    preset = preset or PRESET_COMFORT
+    if comfort_hyst is not None and preset in (PRESET_COMFORT, PRESET_COMFORT_M1, PRESET_COMFORT_M2):
+        return float(comfort_hyst)
+    return HYSTERESIS.get(preset, 0.3)
+
+
 def should_heat(
     current: float | None,
     target: float | None,
     preset: str | None,
     heating: bool,
+    comfort_hyst: float | None = None,
 ) -> bool:
     if current is None or target is None:
         return False
-    hyst = HYSTERESIS.get(preset or PRESET_COMFORT, 0.3)
+    hyst = hysteresis_for(preset, comfort_hyst)
     if current <= target - hyst:
         return True
     if current >= target:
@@ -43,10 +52,12 @@ def regulate_preset(
     current: float | None,
     target: float | None,
     last: str | None = None,
+    above: str = PRESET_ECO,
+    comfort_hyst: float | None = None,
 ) -> str:
     """Adapte l'ordre fil pilote à l'écart consigne / pièce.
 
-    - au-dessus de la consigne : Eco (non chauffant) ;
+    - au-dessus de la consigne : ordre non chauffant réglable (Eco par défaut) ;
     - sous consigne - hystérésis : l'ordre de base, jamais plus chaud que lui ;
     - entre les deux : on garde le dernier ordre envoyé (hystérésis avec mémoire).
     """
@@ -57,11 +68,13 @@ def regulate_preset(
     if base not in HEATING_ORDERS:
         # Eco (absence, nuit...) : jamais remonter en Confort.
         return base
-    hyst = HYSTERESIS.get(base, 0.3)
+    if above not in (PRESET_ECO, PRESET_FROST_PROTECTION, PRESET_OFF):
+        above = PRESET_ECO
+    hyst = hysteresis_for(base, comfort_hyst)
     if current >= target:
-        return PRESET_ECO
+        return above
     if current <= target - hyst:
         return base
-    if last == PRESET_ECO:
-        return PRESET_ECO
+    if last == above:
+        return above
     return base

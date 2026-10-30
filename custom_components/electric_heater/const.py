@@ -119,6 +119,14 @@ CONF_WINDOW_MODE = "window_mode"
 # Modes proposés quand une fenêtre est ouverte
 WINDOW_MODES = [PRESET_FROST_PROTECTION, PRESET_ECO, PRESET_OFF]
 DEFAULT_WINDOW_MODE = PRESET_FROST_PROTECTION
+# Ordre envoyé quand la pièce dépasse la consigne
+CONF_ABOVE_TARGET_MODE = "above_target_mode"
+ABOVE_TARGET_MODES = [PRESET_ECO, PRESET_FROST_PROTECTION, PRESET_OFF]
+DEFAULT_ABOVE_TARGET_MODE = PRESET_ECO
+# Réglages avancés (défauts = valeurs historiques)
+CONF_HYSTERESIS = "hysteresis"
+CONF_WINDOW_OFF_DELAY = "window_off_delay"
+CONF_RESYNC_INTERVAL = "resync_interval"
 DEFAULT_CALENDAR_OFF_MODE = PRESET_FROST_PROTECTION
 
 # Consignes : leur modification ne recharge pas l'intégration

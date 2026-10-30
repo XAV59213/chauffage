@@ -9,6 +9,9 @@ from homeassistant.core import HomeAssistant, State
 
 from .const import (
     CENTRAL,
+    CONF_ABOVE_TARGET_MODE,
+    CONF_HYSTERESIS,
+    DEFAULT_ABOVE_TARGET_MODE,
     CONF_TEMPERATURE_SENSOR,
     CONF_WINDOW_INVERT,
     CONF_WINDOW_SENSORS,
@@ -41,6 +44,15 @@ def iter_room_entries(hass: HomeAssistant) -> list[ConfigEntry]:
             continue
         rooms.append(entry)
     return rooms
+
+
+def central_option(hass: HomeAssistant, key: str, default: Any = None) -> Any:
+    """Réglage du thermostat central (options puis données), sinon la valeur par défaut."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.data.get("type") == CENTRAL:
+            value = (entry.options or {}).get(key, entry.data.get(key))
+            return default if value is None else value
+    return default
 
 
 def get_central_state(hass: HomeAssistant) -> State | None:
@@ -293,4 +305,11 @@ def room_order(
     if sensor and current is None and base_preset not in (PRESET_OFF, PRESET_FROST_PROTECTION):
         # Sonde KO (pile, perte radio...) : Hors-gel par sécurité, jamais Confort.
         return PRESET_FROST_PROTECTION
-    return regulate_preset(base_preset, current, target, last)
+    return regulate_preset(
+        base_preset,
+        current,
+        target,
+        last,
+        above=central_option(hass, CONF_ABOVE_TARGET_MODE, DEFAULT_ABOVE_TARGET_MODE),
+        comfort_hyst=central_option(hass, CONF_HYSTERESIS),
+    )
