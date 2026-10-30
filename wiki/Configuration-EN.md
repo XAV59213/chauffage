@@ -30,7 +30,7 @@ Settings → Devices & services → Add → **Chauffage Électrique Fil Pilote F
 | Open-window delay | 45 s by default |
 | Periodic pilot wire resend | 10 min by default (applied after restart) |
 | Notifications | On by default (see [Notifications](Notifications-EN.md)) |
-| Extra notify service | List of `notify.*` (mobile app first) |
+| Extra notify services | One or more `notify.*` (e.g. mum's and dad's phones) |
 
 Entity: `climate.electric_heater_central`.
 

@@ -2,7 +2,7 @@
 
 🇫🇷 [Français](Notifications.md) · 🇬🇧 English
 
-On by default (**Notifications** option of the central thermostat). Home Assistant notification + optional `notify` service (e.g. mobile app).
+On by default (**Notifications** option of the central thermostat). Home Assistant notification + one or more `notify` services (e.g. mum's and dad's mobile apps).
 
 | Event | Message |
 |---|---|

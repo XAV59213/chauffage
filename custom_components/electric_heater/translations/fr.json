@@ -37,7 +37,7 @@
           "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
           "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)",
           "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
-          "notify_service": "Service notify en plus (optionnel : choisir l application mobile ou un service notify)",
+          "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
           "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"
         }
       },
@@ -99,7 +99,7 @@
           "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
           "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)",
           "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
-          "notify_service": "Service notify en plus (optionnel : choisir l application mobile ou un service notify)",
+          "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
           "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"
         }
       },
