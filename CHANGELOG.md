@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.12 — 2026-10-30
+
+- **Correctif configuration du thermostat** : la validation échouait avec « value must be one of [binary_sensor…] ». Le sélecteur des fenêtres accepte maintenant toujours les détecteurs déjà configurés (même renommés ou hors filtre). Le champ « Personnes suivies » reste un sélecteur de `person` distinct.
+- À la création du thermostat central, les personnes suivies, le service notify, l'ordre au-dessus de la consigne, l'hystérésis, les délais et l'option notifications sont bien enregistrés.
+
 ## 3.1.11 — 2026-10-30
 
 - **Choix des personnes** : nouveau sélecteur multiple « Personnes suivies » dans la configuration du thermostat central (Configurer). On y coche les vraies personnes (Papa, Maman, Xavier…) ; le capteur `Présents` et la carte n'affichent qu'elles.
