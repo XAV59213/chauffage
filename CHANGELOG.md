@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.5 — 2026-10-30
+
+- **Ordre au-dessus de la consigne réglable** : nouvelle option du thermostat central pour choisir l'ordre fil pilote envoyé quand la pièce dépasse la consigne : Eco (par défaut, comportement inchangé), Hors-gel ou Arrêt.
+- **Hystérésis et délais réglables** dans les options du thermostat central : hystérésis Confort (0,3 °C par défaut), délai avant coupure fenêtre ouverte (45 s), renvoi périodique de l'ordre fil pilote (10 min, pris en compte après redémarrage). Les valeurs par défaut reprennent les anciennes valeurs fixes.
+- Traductions FR / EN des nouvelles options.
+
 ## 3.1.4 — 2026-10-30
 
 - **Sonde de température KO = Hors-gel de sécurité** : si la sonde d'une pièce est indisponible, inconnue ou renvoie une valeur invalide (pile vide, perte radio…), le radiateur passe en Hors-gel au lieu de recevoir l'ordre de base (Confort).
