@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.37 — 2026-10-30
+
+- **Release de soumission HACS** : versions alignées (manifest, `VERSION`, tag), validations HACS + Hassfest passées avant la release. Aucun changement fonctionnel.
+
 ## 3.1.36 — 2026-10-30
 
 - **docs : images visibles dans HACS** — les images du README (FR/EN), des exemples et du wiki utilisent des URL absolues (`raw.githubusercontent.com`) : les chemins relatifs ne s'affichaient pas dans le détail HACS. Logo ajouté en tête du README. Aucun changement de code.
