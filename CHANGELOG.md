@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.33 — 2026-10-30
+
+- **Carte** : pastille « Calendrier chauffage actif / inactif » à côté de « Sondes OK » (capteur `Calendrier chauffage activé`, option `calendrier` pour forcer l'entité).
+
 ## 3.1.32 — 2026-10-30
 
 - **Carte : graphique unique** des courbes de température de toutes les pièces / radiateurs (historique HA, 24 h par défaut, une couleur par radiateur, légende). Options `graphique: false` pour le masquer, `heures: 48` pour changer la durée. Rafraîchi toutes les 10 min.

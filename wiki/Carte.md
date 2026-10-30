@@ -15,7 +15,7 @@ Tableau de bord → **Modifier** → **Ajouter une carte** → **Chauffage Fil P
 ## Ce qu'elle affiche (découverte automatique)
 
 - Thermostat central : température, consigne, mode, chauffe / inactif.
-- Pastilles : fenêtres ouvertes, sondes KO, présents (avec prénoms), piles.
+- Pastilles : fenêtres ouvertes, sondes KO, calendrier chauffage actif / inactif, présents (avec prénoms), piles.
 - Chaque radiateur : ordre fil pilote, température / consigne, fenêtre, sonde KO.
 - **Détecteurs de fenêtre** : Ouvert / Fermé + pile (%). Détecteurs configurés sur le thermostat et chaque radiateur, plus ceux de la même pièce HA.
 - **Piles des sondes de température** de chaque radiateur.
