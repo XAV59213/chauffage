@@ -141,6 +141,14 @@ class _TunablesMixin:
         return max(1.0, float(central_option(self.hass, CONF_RESYNC_INTERVAL, RESYNC_INTERVAL_MIN)))
 
 
+def _r1(value):
+    """Arrondi à 0,1 °C (évite 11.600000000000001)."""
+    try:
+        return round(float(value), 1)
+    except (TypeError, ValueError):
+        return value
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     if entry.data.get("type") == "central":
         async_add_entities([CentralThermostat(hass, entry)])
@@ -207,11 +215,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     def _load_temps(self) -> None:
         data = self.entry.data
         self._temps = {
-            "comfort": data["comfort_temp"],
-            "comfort_m1": data["comfort_m1_temp"],
-            "comfort_m2": data["comfort_m2_temp"],
-            "eco": data["eco_temp"],
-            "frost_protection": data["frost_temp"],
+            "comfort": _r1(data["comfort_temp"]),
+            "comfort_m1": _r1(data["comfort_m1_temp"]),
+            "comfort_m2": _r1(data["comfort_m2_temp"]),
+            "eco": _r1(data["eco_temp"]),
+            "frost_protection": _r1(data["frost_temp"]),
         }
 
     def _windows_live_open(self) -> bool:
@@ -240,11 +248,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self.entry,
             data={
                 **self.entry.data,
-                "comfort_temp": self._temps["comfort"],
-                "comfort_m1_temp": self._temps["comfort_m1"],
-                "comfort_m2_temp": self._temps["comfort_m2"],
-                "eco_temp": self._temps["eco"],
-                "frost_temp": self._temps["frost_protection"],
+                "comfort_temp": _r1(self._temps["comfort"]),
+                "comfort_m1_temp": _r1(self._temps["comfort_m1"]),
+                "comfort_m2_temp": _r1(self._temps["comfort_m2"]),
+                "eco_temp": _r1(self._temps["eco"]),
+                "frost_temp": _r1(self._temps["frost_protection"]),
             },
         )
 
@@ -599,7 +607,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             key = PRESET_TO_TEMP_KEY.get(self._preset_mode, "comfort")
             if self._preset_mode == PRESET_OFF:
                 key = "comfort"
-            self._temps[key] = temp
+            self._temps[key] = _r1(temp)
             self._persist_temps()
             if self._preset_mode in COMFORT_PRESETS:
                 self._last_manual_preset = self._preset_mode
