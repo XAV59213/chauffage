@@ -12,7 +12,8 @@ Tableau de bord → **Modifier** → **Ajouter une carte** → cherche **Chauffa
 La carte trouve **toute seule** :
 - le thermostat central (`climate.electric_heater_central`) ;
 - **tous les radiateurs** déjà ajoutés à l'intégration (ordre fil pilote, température / consigne, fenêtre, sonde KO) ;
-- les capteurs résumé : fenêtres ouvertes, sondes KO / alerte pile, présents.
+- les capteurs résumé : fenêtres ouvertes, sondes KO / alerte pile, présents (avec les prénoms) ;
+- l'état des **piles des détecteurs de fenêtre** (capteur batterie du même appareil) : `%` et « Pile faible » à 20 % ou moins.
 
 Un clic sur une ligne ouvre la fiche de l'entité.
 
@@ -36,6 +37,8 @@ fenetres: sensor.chauffage_central_fenetres_ouvertes
 sondes_ko: sensor.chauffage_central_sondes_ko
 alerte_pile: binary_sensor.chauffage_central_alerte_pile_sonde
 presents: sensor.chauffage_central_presents
+detecteurs_fenetre:
+  - binary_sensor.fenetre_papa_3
 ```
 
 Sans ces clés, la découverte automatique est utilisée.
