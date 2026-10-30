@@ -7,6 +7,7 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
+from .temps import round_temp
 from .const import (
     ABOVE_TARGET_MODES,
     CONF_ABOVE_TARGET_MODE,
@@ -94,7 +95,9 @@ def _int_number(min_v, max_v, unit):
 _WINDOW_CLASSES = {"window", "opening", "door", "garage_door"}
 
 
-def _number(min_v, max_v, step=0.1):
+def _number(min_v, max_v, step="any"):
+    # step "any" : le frontend ne recalcule pas la valeur par pas de 0,1
+    # (sinon affichage du type 20,199999999999998). Arrondi à 0,1 °C côté intégration.
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
             min=min_v, max=max_v, step=step, mode="box", unit_of_measurement="C"
@@ -104,11 +107,10 @@ def _number(min_v, max_v, step=0.1):
 
 def _temp_default(d: dict, key: str, default: float, lo: float, hi: float) -> float:
     """Valeur par défaut d'une consigne : arrondie à 0,1 °C et ramenée dans les bornes du champ."""
-    try:
-        value = round(float(d.get(key, default)), 1)
-    except (TypeError, ValueError):
+    value = round_temp(d.get(key, default))
+    if value is None:
         value = default
-    return min(max(value, lo), hi)
+    return round_temp(min(max(value, lo), hi))
 
 
 def _with_default(key, selector_obj, defaults, required=False):
@@ -324,9 +326,9 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             for _key in ("comfort_temp", "comfort_m1_temp", "comfort_m2_temp", "eco_temp",
-                         "frost_temp", "min_temp", "max_temp"):
+                         "frost_temp", "min_temp", "max_temp", "hysteresis"):
                 if isinstance(user_input.get(_key), (int, float)):
-                    user_input[_key] = round(float(user_input[_key]), 1)
+                    user_input[_key] = round_temp(user_input[_key])
             method = user_input[CONF_TEMP_METHOD]
             sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
             if method == CONF_TEMP_METHOD_REFERENCE and not sensor:
@@ -426,9 +428,9 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             for _key in ("comfort_temp", "comfort_m1_temp", "comfort_m2_temp", "eco_temp",
-                         "frost_temp", "min_temp", "max_temp"):
+                         "frost_temp", "min_temp", "max_temp", "hysteresis"):
                 if isinstance(user_input.get(_key), (int, float)):
-                    user_input[_key] = round(float(user_input[_key]), 1)
+                    user_input[_key] = round_temp(user_input[_key])
             method = user_input[CONF_TEMP_METHOD]
             sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
             if method == CONF_TEMP_METHOD_REFERENCE and not sensor:
