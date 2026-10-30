@@ -26,7 +26,14 @@ from .hysteresis import regulate_preset
 _LOGGER = logging.getLogger(__name__)
 
 _OFF_HINTS = ("off", "stop", "arret", "arrêt")
-_OPEN_STATES = {"on", "open", "opened", "opening", "true", "1"}
+_OPEN_STATES = {
+    "on", "open", "opened", "opening", "true", "1",
+    "ouvert", "ouverte", "ouverts", "ouvertes", "ouvrir",
+}
+_CLOSED_STATES = {
+    "off", "closed", "closing", "false", "0",
+    "ferme", "fermé", "fermee", "fermée", "fermes", "fermés", "fermees", "fermées",
+}
 
 
 def room_fil_pilote_id(data: dict) -> str | None:
@@ -105,7 +112,16 @@ def all_configured_windows(hass: HomeAssistant) -> list[str]:
 def is_window_open_state(state: State | None) -> bool:
     if state is None or state.state in ("unknown", "unavailable", None):
         return False
-    return str(state.state).strip().lower() in _OPEN_STATES
+    value = str(state.state).strip().lower()
+    if value in _OPEN_STATES:
+        return True
+    if value in _CLOSED_STATES:
+        return False
+    # Capteurs type Zigbee2MQTT exposés en sensor : attribut contact (False = ouvert).
+    contact = state.attributes.get("contact")
+    if isinstance(contact, bool):
+        return not contact
+    return False
 
 
 def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:

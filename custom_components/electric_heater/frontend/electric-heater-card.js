@@ -296,7 +296,7 @@ class ElectricHeaterCard extends HTMLElement {
       const badge = a.sonde_ko
         ? `<span class="badge ko">Sonde KO</span>`
         : `<span class="badge ${heat ? "heat" : ""}">${_esc(ORDRES[ordre] || ordre || "–")}</span>`;
-      const win = a.window_open ? ` <ha-icon icon="mdi:window-open-variant" style="--mdc-icon-size:16px"></ha-icon>` : "";
+      const win = a.window_open || a.fenetre_detectee ? ` <ha-icon icon="mdi:window-open-variant" style="--mdc-icon-size:16px"></ha-icon>` : "";
       return `<div class="row" data-id="${_esc(id)}">
         <ha-icon icon="${heat ? "mdi:radiator" : "mdi:radiator-disabled"}"></ha-icon>
         <div class="n">${_esc(a.friendly_name || id)}${win}</div>
