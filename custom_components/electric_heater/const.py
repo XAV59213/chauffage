@@ -127,6 +127,9 @@ DEFAULT_ABOVE_TARGET_MODE = PRESET_ECO
 CONF_HYSTERESIS = "hysteresis"
 CONF_WINDOW_OFF_DELAY = "window_off_delay"
 CONF_RESYNC_INTERVAL = "resync_interval"
+# Notifications (pile / sonde KO, fenêtre ouverte)
+CONF_NOTIFICATIONS = "notifications"
+CONF_NOTIFY_SERVICE = "notify_service"
 DEFAULT_CALENDAR_OFF_MODE = PRESET_FROST_PROTECTION
 
 # Consignes : leur modification ne recharge pas l'intégration

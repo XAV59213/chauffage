@@ -12,6 +12,8 @@ from .const import (
     CONF_ABOVE_TARGET_MODE,
     CONF_HYSTERESIS,
     CONF_RESYNC_INTERVAL,
+    CONF_NOTIFICATIONS,
+    CONF_NOTIFY_SERVICE,
     CONF_WINDOW_OFF_DELAY,
     DEFAULT_ABOVE_TARGET_MODE,
     HYSTERESIS,
@@ -218,6 +220,13 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
                 CONF_RESYNC_INTERVAL,
                 default=d.get(CONF_RESYNC_INTERVAL, RESYNC_INTERVAL_MIN),
             ): _int_number(1, 120, "min"),
+            vol.Required(
+                CONF_NOTIFICATIONS, default=d.get(CONF_NOTIFICATIONS, True)
+            ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_NOTIFY_SERVICE,
+                description={"suggested_value": d.get(CONF_NOTIFY_SERVICE) or ""},
+            ): selector.TextSelector(),
         }
     )
     schema.update(
@@ -309,6 +318,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_PRESENCE_AWAY_MODE, PRESET_ECO
                         ),
                         CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
+                    CONF_NOTIFY_SERVICE: user_input.get(CONF_NOTIFY_SERVICE),
                         CONF_WINDOW_SENSORS: _normalize_windows(
                             user_input.get(CONF_WINDOW_SENSORS)
                         ),
@@ -383,6 +393,7 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
                     CONF_WEATHER: user_input.get(CONF_WEATHER),
                     CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
                     CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
+                    CONF_NOTIFY_SERVICE: user_input.get(CONF_NOTIFY_SERVICE),
                     CONF_WINDOW_SENSORS: _normalize_windows(
                         user_input.get(CONF_WINDOW_SENSORS)
                     ),
