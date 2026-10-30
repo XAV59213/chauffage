@@ -34,6 +34,45 @@ function _num(v, d = 1) {
 }
 
 /* Entités de l'intégration : registre (platform) puis repli sur les attributs. */
+function _statsFor(hass, id) {
+  const reg = hass.entities || {};
+  const dev = reg[id] && reg[id].device_id;
+  const ids = dev
+    ? Object.keys(reg).filter((x) => reg[x].device_id === dev && x.startsWith("sensor."))
+    : Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && x.includes("maison"));
+  const val = (x) => {
+    const s = x && hass.states[x];
+    const n = s ? Number(s.state) : NaN;
+    return Number.isFinite(n) ? n : null;
+  };
+  const h = ids.filter((x) => x.includes("temps_de_chauffe") && x.includes("aujourd")).map(val)[0];
+  const kwh = ids.filter((x) => x.includes("consommation") && x.includes("aujourd")).map(val)[0];
+  // Compteur réel (sensor.*_energy) lié au radiateur ou somme centrale.
+  let meter = null;
+  const linked = hass.states[id] && hass.states[id].attributes.energy_sensor;
+  const meterId = linked || ids.find((x) => x.includes("conso_compteurs") || x.includes("consommation_radiateurs"));
+  if (meterId && hass.states[meterId]) {
+    const ms = hass.states[meterId];
+    const n = Number(ms.state);
+    if (Number.isFinite(n)) meter = ms.attributes.unit_of_measurement === "Wh" ? n / 1000 : n;
+  }
+  return { h: h ?? null, kwh: kwh ?? null, meter };
+}
+
+function _fmtStats(st) {
+  const parts = [];
+  if (st.h !== null) {
+    const m = Math.round(st.h * 60);
+    parts.push(`⏱ ${m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`}`);
+  }
+  if (st.kwh) parts.push(`⚡ ${st.kwh.toFixed(2)} kWh`);
+  return parts.join(" · ");
+}
+
+function _fmtMeter(st) {
+  return st.meter !== null && st.meter !== undefined ? `🔌 ${st.meter.toFixed(1)} kWh compteur` : "";
+}
+
 function _discover(hass) {
   const states = hass.states || {};
   const reg = hass.entities || {};
@@ -339,7 +378,8 @@ class ElectricHeaterCard extends HTMLElement {
       const dev = (hass.entities || {})[w] && hass.entities[w].device_id;
       return dev ? Object.keys(hass.entities).filter((id) => hass.entities[id].device_id === dev) : [w];
     });
-    const ids = [...bats, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
+    const statIds = Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && (x.includes("temps_de_chauffe") || x.includes("consommation") || x.includes("conso") || x.endsWith("_energy")));
+    const ids = [...bats, ...statIds, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
       this._ents.presents, ...this._ents.radiateurs];
     const sig = ids.map((id) => {
       const s = hass.states[id];
@@ -426,6 +466,11 @@ class ElectricHeaterCard extends HTMLElement {
         <br><span class="muted">Radiateurs concernés en Hors-gel par sécurité.</span></div>`;
     }
 
+    const totS = _statsFor(hass, e.central);
+    const tot = _fmtStats(totS);
+    if (tot) chips.push(`<div class="chip">${tot} aujourd'hui</div>`);
+    if (_fmtMeter(totS)) chips.push(`<div class="chip">${_fmtMeter(totS).replace("compteur", "total compteurs")}</div>`);
+
     const piles = _windowBatteries(hass, e.detecteurs || []);
     const pilesSondes = _batteries(hass, e.sondes || []);
     const faibles = [...piles, ...pilesSondes].filter((p) => p.low);
@@ -468,7 +513,7 @@ class ElectricHeaterCard extends HTMLElement {
       const win = a.window_open || a.fenetre_detectee ? ` <ha-icon icon="mdi:window-open-variant" style="--mdc-icon-size:16px"></ha-icon>` : "";
       return `<div class="row" data-id="${_esc(id)}">
         <ha-icon icon="${heat ? "mdi:radiator" : "mdi:radiator-disabled"}"></ha-icon>
-        <div class="n">${_esc(a.friendly_name || id)}${win}</div>
+        <div class="n">${_esc(a.friendly_name || id)}${win}${(() => { const x = _statsFor(hass, id); const t = [_fmtStats(x) && `${_fmtStats(x)} aujourd'hui`, _fmtMeter(x)].filter(Boolean).join(" · "); return t ? `<div class="muted" style="font-size:12px">${t}</div>` : ""; })()}</div>
         ${badge}
         <div class="t">${_num(a.current_temperature)}° <span class="muted">/ ${_num(a.temperature)}°</span></div>
       </div>`;

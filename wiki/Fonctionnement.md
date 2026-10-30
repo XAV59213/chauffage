@@ -58,6 +58,10 @@ Capteur **Présents** : `Personne` / `1 personne` / `2 personnes`, avec les pré
 
 `Fenêtres ouvertes`, `Sondes KO`, `Alerte pile sonde`, `Présents`, `Calendrier chauffage activé` (Auto + calendrier actif) sur le thermostat central.
 
+## Statistiques de chauffe
+
+Par radiateur : `Temps de chauffe aujourd'hui` / `total` (h), `Consommation aujourd'hui` / `totale` (kWh = temps × puissance renseignée dans **Configurer** du radiateur). Sur le thermostat central : les mêmes valeurs pour toute la maison. Historique long terme dans **Historique / Statistiques**, kWh utilisables dans le tableau **Énergie**. Compteurs réels : un `sensor.*_energy` (kWh) sur l'appareil du relais ou dans la même pièce HA (ex. `sensor.radiateur_papa_energy`) est lié automatiquement au radiateur ; `Consommation radiateurs (compteurs)` en fait la somme, affichée sur la carte. Le temps compte quand le fil pilote demande de chauffer (Confort / -1 / -2).
+
 ## Consignes
 
 Attributs du thermostat et des radiateurs :

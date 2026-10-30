@@ -44,6 +44,8 @@ Ajouter **à nouveau** l'intégration pour chaque pièce.
 | Relais fil pilote | `select.*pilot_wire_mode` ou `climate` |
 | Sonde de la pièce | Obligatoire |
 | Fenêtre(s) de la pièce | **Ce** radiateur seulement passe en mode fenêtre |
+| Compteur d'énergie | Optionnel ; vide = détection auto d'un `sensor.*_energy` |
+| Puissance (W) | Pour la consommation estimée (0 = non suivie) |
 
 ## 3. Modifier plus tard
 

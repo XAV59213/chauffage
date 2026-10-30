@@ -29,6 +29,7 @@ from .fil_pilote import (
     windows_from_entry,
 )
 from .occupancy import occupancy_count, present_names
+from .stats import CentralMeteredEnergySensor, CentralStatSensor, RoomHeatingTimeSensor
 from .weather import outdoor_temperature, weather_condition
 
 
@@ -41,9 +42,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         entities.append(OutdoorWeatherSensor(hass, entry))
         entities.append(OpenWindowsSensor(hass))
         entities.append(SensorKoSensor(hass))
+        for kind in ("time", "energy"):
+            for daily in (True, False):
+                entities.append(CentralStatSensor(hass, daily=daily, kind=kind))
+        entities.append(CentralMeteredEnergySensor(hass))
     else:
         entities.append(RoomTemperatureSensor(hass, entry))
         entities.append(WindowStateSensor(hass, entry, central=False))
+        for kind in ("time", "energy"):
+            for daily in (True, False):
+                entities.append(RoomHeatingTimeSensor(hass, entry, daily=daily, kind=kind))
     async_add_entities(entities)
 
 

@@ -49,6 +49,10 @@ Window mode: **Frost protection** by default (Frost, Eco or Off). It only ever l
 
 `Fenêtres ouvertes` (open windows), `Sondes KO` (KO sensors), `Alerte pile sonde` (battery alert), `Présents` (people home), `Calendrier chauffage activé` (Auto + calendar active).
 
+## Heating statistics
+
+Per radiator: `Temps de chauffe` today / total (h) and `Consommation` today / total (kWh = time × power set in the radiator's **Configure**). The central thermostat sums all radiators. Long-term statistics are kept by HA; kWh sensors can be used in the **Energy** dashboard. Real meters: a `sensor.*_energy` (kWh) on the relay's device or in the same HA area (e.g. `sensor.radiateur_papa_energy`) is linked automatically; `Consommation radiateurs (compteurs)` sums them and the card shows it. Time counts while the pilot wire order heats (Comfort / -1 / -2).
+
 ## Setpoints
 
 Attributes: `consigne` (current), `consigne_mode` (mode name), `consignes` (all setpoints).

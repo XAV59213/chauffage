@@ -25,6 +25,8 @@ from .const import (
     CONF_CALENDAR_OFF_MODE,
     CONF_CALENDAR_ON_MODE,
     CONF_FIL_PILOTE_SELECT,
+    CONF_POWER,
+    CONF_ENERGY_SENSOR,
     CONF_HEATING_CALENDAR,
     CONF_PRESENCE_AWAY_MODE,
     CONF_PRESENCE_SENSOR,
@@ -321,6 +323,14 @@ def _room_schema(defaults: dict | None = None, hass: HomeAssistant | None = None
     schema.update(_with_default(CONF_FIL_PILOTE_SELECT, _FIL_PILOTE, d, required=True))
     schema.update(_with_default(CONF_TEMPERATURE_SENSOR, _TEMP_SENSOR, d, required=True))
     schema.update(_windows_field(d, hass))
+    energy_sel = selector.EntitySelector(
+        selector.EntitySelectorConfig(domain="sensor", device_class="energy")
+    )
+    if d.get(CONF_ENERGY_SENSOR):
+        schema[vol.Optional(CONF_ENERGY_SENSOR, description={"suggested_value": d[CONF_ENERGY_SENSOR]})] = energy_sel
+    else:
+        schema[vol.Optional(CONF_ENERGY_SENSOR)] = energy_sel
+    schema[vol.Optional(CONF_POWER, default=int(d.get(CONF_POWER) or 0))] = _int_number(0, 5000, "W")
     return vol.Schema(schema)
 
 
@@ -419,6 +429,8 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_WINDOW_SENSORS: _normalize_windows(
                         user_input.get(CONF_WINDOW_SENSORS)
                     ),
+                    CONF_POWER: int(user_input.get(CONF_POWER) or 0),
+                    CONF_ENERGY_SENSOR: user_input.get(CONF_ENERGY_SENSOR) or "",
                 },
             )
 
@@ -485,6 +497,7 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
             new_data = {
                 **self.config_entry.data,
                 **user_input,
+                CONF_ENERGY_SENSOR: user_input.get(CONF_ENERGY_SENSOR) or "",
                 CONF_WINDOW_SENSORS: _normalize_windows(
                     user_input.get(CONF_WINDOW_SENSORS)
                 ),
