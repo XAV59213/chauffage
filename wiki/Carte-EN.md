@@ -20,8 +20,10 @@ Dashboard → **Edit** → **Add card** → **Chauffage Fil Pilote**.
 - **Window detectors**: Open / Closed + battery (%). Detectors configured on the thermostat and each radiator, plus those in the same HA area.
 - **Batteries of room temperature sensors**.
 
+- **Chart**: temperature curves of all radiators (24 h by default).
+
 ## Options (fallback)
 
-`titre`, `central`, `radiateurs`, `fenetres`, `sondes_ko`, `alerte_pile`, `presents`, `detecteurs_fenetre`, `sondes`, `exclure_personnes`.
+`titre`, `central`, `radiateurs`, `fenetres`, `sondes_ko`, `alerte_pile`, `presents`, `detecteurs_fenetre`, `sondes`, `exclure_personnes`, `graphique` (false to hide), `heures` (chart duration, default 24).
 
 If the card does not appear: Settings → Dashboards → Resources → `/electric_heater/electric-heater-card.js` (JavaScript module).

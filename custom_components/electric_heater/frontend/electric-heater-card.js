@@ -251,6 +251,8 @@ function _name(hass, id) {
   return (st && st.attributes.friendly_name) || id;
 }
 
+const GRAPH_COLORS = ["#ff7043", "#42a5f5", "#66bb6a", "#ab47bc", "#ffca28", "#26c6da", "#ec407a", "#8d6e63"];
+
 const STYLES = `
   ha-card { padding: 16px; }
   .head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
@@ -386,9 +388,89 @@ class ElectricHeaterCard extends HTMLElement {
       return s ? `${id}|${s.last_updated}` : id;
     }).join(";") + "#" + Object.keys(hass.states)
       .filter((id) => id.startsWith("person.") && hass.states[id].state === "home").join(",");
+    this._loadHistory();
     if (sig === this._sig) return;
     this._sig = sig;
     this._render();
+  }
+
+  async _loadHistory() {
+    const hass = this._hass;
+    const c = this._config || {};
+    if (!hass || c.graphique === false || !this._ents) return;
+    const now = Date.now();
+    if (this._histAt && now - this._histAt < 10 * 60 * 1000) return;
+    this._histAt = now;
+    const series = this._ents.radiateurs
+      .map((rid) => ({ rid, sensor: hass.states[rid] && hass.states[rid].attributes.temperature_sensor }))
+      .filter((x) => x.sensor);
+    if (!series.length) return;
+    const heures = Number(c.heures) || 24;
+    const start = new Date(now - heures * 3600 * 1000).toISOString();
+    const ids = series.map((x) => x.sensor).join(",");
+    try {
+      const res = await hass.callApi(
+        "GET",
+        `history/period/${start}?filter_entity_id=${ids}&end_time=${new Date(now).toISOString()}&minimal_response&no_attributes`
+      );
+      const byId = {};
+      (res || []).forEach((arr) => {
+        if (!arr || !arr.length) return;
+        const eid = arr[0].entity_id;
+        byId[eid] = arr
+          .map((p) => [Date.parse(p.last_changed || p.lu * 1000), Number(p.state !== undefined ? p.state : p.s)])
+          .filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+      });
+      this._hist = {
+        start: now - heures * 3600 * 1000,
+        end: now,
+        series: series.map((x, i) => ({
+          name: _name(hass, x.rid).replace(/^Radiateur\s*/i, "").replace(/\s*Chauffage.*$/i, ""),
+          color: GRAPH_COLORS[i % GRAPH_COLORS.length],
+          pts: byId[x.sensor] || [],
+        })),
+      };
+      this._sig = null;
+      this._render();
+    } catch (err) {
+      this._histAt = 0;
+    }
+  }
+
+  _graph() {
+    const h = this._hist;
+    if (!h || !h.series.some((s) => s.pts.length)) return "";
+    const W = 320, H = 140, L = 28, B = 16;
+    const all = h.series.flatMap((s) => s.pts.map((p) => p[1]));
+    let min = Math.floor(Math.min(...all)), max = Math.ceil(Math.max(...all));
+    if (max - min < 2) { min -= 1; max += 1; }
+    const x = (t) => L + ((t - h.start) / (h.end - h.start)) * (W - L - 4);
+    const y = (v) => 4 + (1 - (v - min) / (max - min)) * (H - B - 4);
+    const lines = h.series.filter((s) => s.pts.length).map((s) => {
+      const pts = [...s.pts, [h.end, s.pts[s.pts.length - 1][1]]];
+      let d = "";
+      pts.forEach((p, i) => {
+        const px = x(Math.max(p[0], h.start)).toFixed(1), py = y(p[1]).toFixed(1);
+        d += i ? ` H${px} V${py}` : `M${px} ${py}`;
+      });
+      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="1.6"/>`;
+    }).join("");
+    const grid = [min, (min + max) / 2, max].map((v) =>
+      `<line x1="${L}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--divider-color,#555)" stroke-width="0.5"/>
+       <text x="${L - 4}" y="${y(v) + 3}" font-size="9" text-anchor="end" fill="var(--secondary-text-color)">${Math.round(v * 10) / 10}°</text>`
+    ).join("");
+    const hrs = Math.round((h.end - h.start) / 3600000);
+    const ticks = [0, 0.5, 1].map((f) => {
+      const t = h.start + f * (h.end - h.start);
+      const lab = f === 1 ? "maintenant" : new Date(t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      return `<text x="${x(t)}" y="${H - 3}" font-size="9" text-anchor="${f === 0 ? "start" : f === 1 ? "end" : "middle"}" fill="var(--secondary-text-color)">${lab}</text>`;
+    }).join("");
+    const legend = h.series.map((s) =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span style="width:10px;height:3px;background:${s.color};display:inline-block"></span>${_esc(s.name)}</span>`
+    ).join("");
+    return `<div class="rows"><div class="muted" style="margin-top:6px">Températures des pièces (${hrs} h)</div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${grid}${lines}${ticks}</svg>
+      <div class="muted" style="font-size:11px;line-height:1.8">${legend}</div></div>`;
   }
 
   _more(id) {
@@ -525,6 +607,7 @@ class ElectricHeaterCard extends HTMLElement {
         <div class="chips">${chips.join("")}</div>
         ${alerts}
         <div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>
+        ${this._graph()}
         ${pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Détecteurs de fenêtre (état et pile)</div>${pileRows}</div>` : ""}
         ${sondeRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des sondes de température</div>${sondeRows}</div>` : ""}
       </ha-card>`;

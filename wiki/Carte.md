@@ -20,8 +20,10 @@ Tableau de bord → **Modifier** → **Ajouter une carte** → **Chauffage Fil P
 - **Détecteurs de fenêtre** : Ouvert / Fermé + pile (%). Détecteurs configurés sur le thermostat et chaque radiateur, plus ceux de la même pièce HA.
 - **Piles des sondes de température** de chaque radiateur.
 
+- **Graphique** : courbes de température de tous les radiateurs (24 h par défaut).
+
 ## Options (repli)
 
-`titre`, `central`, `radiateurs`, `fenetres`, `sondes_ko`, `alerte_pile`, `presents`, `detecteurs_fenetre`, `sondes`, `exclure_personnes`.
+`titre`, `central`, `radiateurs`, `fenetres`, `sondes_ko`, `alerte_pile`, `presents`, `detecteurs_fenetre`, `sondes`, `exclure_personnes`, `graphique` (false pour masquer), `heures` (durée du graphique, 24 par défaut).
 
 Si la carte n'apparaît pas : Paramètres → Tableaux de bord → Ressources → `/electric_heater/electric-heater-card.js` (Module JavaScript).
