@@ -6,6 +6,10 @@ Carte native livrée avec l'intégration (à partir de la 3.1.7) : rien à insta
 type: custom:electric-heater-card
 ```
 
+<p align="center">
+  <img src="../../docs/images/carte-chauffage.jpg" alt="Carte Chauffage Fil Pilote" width="320">
+</p>
+
 Après mise à jour (HACS) : **redémarre Home Assistant** puis vide le cache du navigateur (ou recharge l'app).
 Tableau de bord → **Modifier** → **Ajouter une carte** → cherche **Chauffage Fil Pilote**.
 
