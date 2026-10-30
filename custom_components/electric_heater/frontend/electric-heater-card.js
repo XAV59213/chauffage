@@ -83,16 +83,21 @@ function _discover(hass) {
 const NON_PERSONNES = ["tablette", "tablet", "ipad", "iphone", "android", "telephone", "téléphone",
   "phone", "mqtt", "mqtta", "maison", "home", "tv", "television", "pc", "ordinateur", "macbook", "laptop",
   "chromecast", "alexa", "echo", "box", "freebox", "serveur", "server", "voiture", "car", "koleos"];
+// Indices forts : reconnus même collés au nom (ipadpapa, tablettep, iphonexav...).
+const APPAREILS = ["tablette", "tablet", "ipad", "iphone", "android", "mqtt", "telephone", "téléphone",
+  "smartphone", "galaxy", "pixel", "macbook", "laptop", "chromecast", "freebox"];
 function _isDevice(text, skip) {
-  const words = String(text).toLowerCase().split(/[^0-9a-zà-ÿ]+/).filter(Boolean);
-  return words.some((w) => skip.includes(w)) || skip.includes(String(text).toLowerCase());
+  const t = String(text).toLowerCase();
+  const words = t.split(/[^0-9a-zà-ÿ]+/).filter(Boolean);
+  return words.some((w) => skip.includes(w)) || skip.includes(t) || APPAREILS.some((a) => t.includes(a));
 }
 function _presentNames(hass, pres, exclure = []) {
   const skip = [...NON_PERSONNES, ...exclure.map((x) => String(x).toLowerCase())];
   // Priorité au capteur Présents (personnes choisies dans la config de l'intégration).
   if (pres && Array.isArray(pres.attributes.personnes)) {
+    const chosen = Array.isArray(pres.attributes.personnes_suivies);
     return pres.attributes.personnes
-      .filter((n) => !skip.includes(String(n).toLowerCase()))
+      .filter((n) => (chosen ? !skip.includes(String(n).toLowerCase()) : !_isDevice(n, skip)))
       .map((n) => {
         const id = Object.keys(hass.states).find((k) => k.startsWith("person.") && _name(hass, k) === n);
         return { id: id || pres.entity_id, name: n };
@@ -110,32 +115,49 @@ function _presentNames(hass, pres, exclure = []) {
 
 /* Piles des détecteurs de fenêtre : capteur batterie du même appareil (registre HA). */
 const PILE_FAIBLE = 20;
-function _windowBatteries(hass, winIds) {
+function _batteryFor(hass, eid) {
   const reg = hass.entities || {};
-  const out = [];
-  for (const wid of winIds) {
-    const dev = reg[wid] && reg[wid].device_id;
-    let pct = null;
-    let low = null;
-    if (dev) {
-      for (const id of Object.keys(reg)) {
-        if (reg[id].device_id !== dev || !hass.states[id]) continue;
-        const st = hass.states[id];
-        if (st.attributes.device_class !== "battery") continue;
-        if (id.startsWith("sensor.")) {
-          const n = Number(st.state);
-          if (Number.isFinite(n)) pct = n;
-        } else if (id.startsWith("binary_sensor.")) {
-          low = st.state === "on";
-        }
-      }
+  const dev = reg[eid] && reg[eid].device_id;
+  let pct = null;
+  let low = null;
+  let src = null;
+  const take = (id) => {
+    const st = hass.states[id];
+    if (!st) return;
+    if (id.startsWith("binary_sensor.")) {
+      if (low === null) { low = st.state === "on"; src = src || id; }
+    } else {
+      const n = Number(st.state);
+      if (Number.isFinite(n) && pct === null) { pct = n; src = id; }
     }
-    const attrPct = hass.states[wid] && Number(hass.states[wid].attributes.battery);
-    if (pct === null && Number.isFinite(attrPct)) pct = attrPct;
-    if (pct === null && low === null) continue;
-    out.push({ id: wid, name: _name(hass, wid), pct, low: low === true || (pct !== null && pct <= PILE_FAIBLE) });
+  };
+  if (dev) {
+    for (const id of Object.keys(reg)) {
+      if (reg[id].device_id !== dev || id === eid) continue;
+      const st = hass.states[id];
+      if (st && (st.attributes.device_class === "battery" || /_(battery|batterie)(_low)?$/.test(id))) take(id);
+    }
   }
-  return out.sort((a, b) => (b.low - a.low) || a.name.localeCompare(b.name, "fr"));
+  if (pct === null && low === null) {
+    // Repli par nom : sensor.<base>_battery (Zigbee2MQTT / ZHA sans registre d'appareil).
+    const base = eid.split(".")[1].replace(/_(contact|ouverture|opening|window|door|porte|fenetre|temperature|temp|humidity|humidite)$/, "");
+    for (const id of [`sensor.${base}_battery`, `sensor.${base}_batterie`, `binary_sensor.${base}_battery_low`]) take(id);
+  }
+  const st = hass.states[eid];
+  const attrPct = st && Number(st.attributes.battery);
+  if (pct === null && Number.isFinite(attrPct)) { pct = attrPct; src = eid; }
+  return { id: src || eid, name: _name(hass, eid), pct, low: low === true || (pct !== null && pct <= PILE_FAIBLE),
+    unknown: pct === null && low === null };
+}
+
+function _batteries(hass, ids) {
+  return [...new Set(ids.filter(Boolean))]
+    .map((id) => _batteryFor(hass, id))
+    .sort((a, b) => (b.low - a.low) || (a.unknown - b.unknown) || a.name.localeCompare(b.name, "fr"));
+}
+
+function _windowBatteries(hass, winIds) {
+  return _batteries(hass, winIds);
 }
 
 function _name(hass, id) {
@@ -194,11 +216,20 @@ class ElectricHeaterCard extends HTMLElement {
       presents: c.presents || auto.presents,
       etat_fenetres: c.etat_fenetres || auto.etat_fenetres,
     };
-    const wst = hass.states[this._ents.etat_fenetres];
+    const allWin = new Set();
+    for (const id of Object.keys(hass.states)) {
+      const a = hass.states[id].attributes;
+      if (id.startsWith("sensor.") && Array.isArray(a.windows) && a.sources) a.windows.forEach((w) => allWin.add(w));
+    }
     this._ents.detecteurs = Array.isArray(c.detecteurs_fenetre) && c.detecteurs_fenetre.length
       ? c.detecteurs_fenetre
-      : (wst && wst.attributes.windows) || [];
-    const bats = this._ents.detecteurs.flatMap((w) => {
+      : [...allWin];
+    this._ents.sondes = Array.isArray(c.sondes) && c.sondes.length
+      ? c.sondes
+      : this._ents.radiateurs
+          .map((id) => hass.states[id] && hass.states[id].attributes.temperature_sensor)
+          .filter(Boolean);
+    const bats = [...this._ents.detecteurs, ...this._ents.sondes].flatMap((w) => {
       const dev = (hass.entities || {})[w] && hass.entities[w].device_id;
       return dev ? Object.keys(hass.entities).filter((id) => hass.entities[id].device_id === dev) : [w];
     });
@@ -289,18 +320,21 @@ class ElectricHeaterCard extends HTMLElement {
     }
 
     const piles = _windowBatteries(hass, e.detecteurs || []);
-    const faibles = piles.filter((p) => p.low);
-    if (piles.length) {
+    const pilesSondes = _batteries(hass, e.sondes || []);
+    const faibles = [...piles, ...pilesSondes].filter((p) => p.low);
+    if (piles.length || pilesSondes.length) {
       chips.push(`<div class="chip ${faibles.length ? "bad" : ""}" data-id="${_esc((faibles[0] || piles[0]).id)}">
         <ha-icon icon="${faibles.length ? "mdi:battery-alert" : "mdi:battery-high"}"></ha-icon>
-        ${faibles.length ? `${faibles.length} pile${faibles.length > 1 ? "s" : ""} fenêtre faible${faibles.length > 1 ? "s" : ""}` : "Piles fenêtres OK"}</div>`);
+        ${faibles.length ? `${faibles.length} pile${faibles.length > 1 ? "s" : ""} faible${faibles.length > 1 ? "s" : ""}` : "Piles OK"}</div>`);
     }
-    const pileRows = piles.map((p) => `<div class="row" data-id="${_esc(p.id)}">
+    const pileRow = (p) => `<div class="row" data-id="${_esc(p.id)}">
         <ha-icon icon="${p.low ? "mdi:battery-alert" : p.pct !== null && p.pct < 50 ? "mdi:battery-50" : "mdi:battery-high"}"></ha-icon>
         <div class="n">${_esc(p.name)}</div>
-        ${p.low ? `<span class="badge ko">Pile faible</span>` : `<span class="badge">OK</span>`}
+        ${p.low ? `<span class="badge ko">Pile faible</span>` : p.unknown ? `<span class="badge">Pile ?</span>` : `<span class="badge">OK</span>`}
         <div class="t">${p.pct !== null ? `${Math.round(p.pct)} %` : ""}</div>
-      </div>`).join("");
+      </div>`;
+    const pileRows = piles.map(pileRow).join("");
+    const sondeRows = pilesSondes.map(pileRow).join("");
 
     const rows = e.radiateurs.map((id) => {
       const s = st(id);
@@ -327,6 +361,7 @@ class ElectricHeaterCard extends HTMLElement {
         ${alerts}
         <div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>
         ${pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des détecteurs de fenêtre</div>${pileRows}</div>` : ""}
+        ${sondeRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des sondes de température</div>${sondeRows}</div>` : ""}
       </ha-card>`;
     this.shadowRoot.querySelectorAll("[data-id]").forEach((el) =>
       el.addEventListener("click", () => this._more(el.getAttribute("data-id")))
