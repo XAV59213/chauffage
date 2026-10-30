@@ -2,7 +2,7 @@
 
 ## 3.1.25 — 2026-10-30
 
-- **Documentation** : section Licence (MIT) et remerciements à @gvigroux (projet d'origine) et @Steph73HB dans le README ; wiki du dépôt mis à jour (carte, notifications, options, régulation, dépannage). Aucun changement de code.
+- **Documentation** : section Licence (MIT) et remerciements à @gvigroux (projet d'origine) dans le README ; wiki du dépôt mis à jour (carte, notifications, options, régulation, dépannage). Aucun changement de code.
 
 ## 3.1.24 — 2026-10-30
 

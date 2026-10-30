@@ -141,7 +141,7 @@ Voir [wiki/Depannage.md](wiki/Depannage.md).
 
 ## Licence
 
-MIT · Merci à [@gvigroux](https://github.com/gvigroux) (projet d’origine) et [@Steph73HB](https://github.com/Steph73HB).
+MIT · Merci à [@gvigroux](https://github.com/gvigroux) (projet d’origine).
 
 <a href="https://www.buymeacoffee.com/xav59213"><img src="https://img.buymeacoffee.com/button-api/?text=xav59213&emoji=&slug=xav59213&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
 <a href="https://www.buymeacoffee.com/gvigroux"><img src="https://img.buymeacoffee.com/button-api/?text=gvigroux&emoji=&slug=gvigroux&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
