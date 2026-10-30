@@ -83,7 +83,7 @@ class HeaterNotifier:
         result: dict[str, bool] = {}
         for entry in self.hass.config_entries.async_entries(DOMAIN):
             inv = bool(entry.data.get("window_invert") or (entry.options or {}).get("window_invert"))
-            for eid in windows_from_entry(entry):
+            for eid in windows_from_entry(entry, self.hass):
                 result.setdefault(eid, inv)
         return result
 

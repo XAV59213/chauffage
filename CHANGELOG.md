@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.29 — 2026-10-30
+
+- **Fix fenêtre ignorée** : un détecteur porte/fenêtre rangé dans la même pièce HA qu'un radiateur (ex. « Détecteur fenêtre papa » dans Chambre parentale) est maintenant pris en compte par la régulation, même s'il n'est pas (ou mal) renseigné dans Configurer. Le radiateur passe en mode fenêtre (Hors-gel) après le délai, comme ce que la carte affichait déjà.
+- **Carte** : le badge « Fenêtres fermées » compte aussi l'état réel des détecteurs listés (plus de badge « fermées » avec un détecteur « Ouvert »).
+
 ## 3.1.28 — 2026-10-30
 
 - **HACS** : workflow CI HACS + Hassfest, `manifest.json` (nom accentué) aligné sur `hacs.json`, version = `VERSION` = tag.

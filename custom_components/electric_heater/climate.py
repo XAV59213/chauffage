@@ -420,7 +420,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._unsub_calendar = async_track_state_change_event(
                 self.hass, [self._calendar], self._handle_calendar_change
             )
-        windows = windows_from_entry(self.entry)
+        windows = windows_from_entry(self.entry, self.hass)
         if windows:
             self._unsub_windows = async_track_state_change_event(
                 self.hass, windows, self._handle_windows
@@ -791,7 +791,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "window_open": self._window_open,
             "fenetre": "Ouverte" if (self._window_open or self._any_window_open_live()) else "Fermee",
             "fenetre_detectee": self._any_window_open_live(),
-            "window_sensors": windows_from_entry(self.entry),
+            "window_sensors": windows_from_entry(self.entry, self.hass),
             "follow_central": self._follow_central,
             "manual_preset": None if self._follow_central else self._preset_mode,
             "fil_pilote_mode": mode,
@@ -842,6 +842,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                     self.hass, [self._temp_sensor], self._update_room_temp
                 )
             )
+        self._window_sensors = windows_from_entry(self.entry, self.hass)
         if self._window_sensors:
             self._unsub_windows = async_track_state_change_event(
                 self.hass, self._window_sensors, self._check_windows
@@ -937,7 +938,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     def _check_windows(self, event=None, apply: bool = True):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
-        self._window_sensors = windows_from_entry(self.entry)
+        self._window_sensors = windows_from_entry(self.entry, self.hass)
         live = entry_windows_open(self.hass, self.entry)
         if not live:
             self._cancel_window_delay()

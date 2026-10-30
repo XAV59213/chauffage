@@ -388,9 +388,10 @@ class ElectricHeaterCard extends HTMLElement {
 
     const chips = [];
     const fen = st(e.fenetres);
-    if (fen) {
-      const n = Number(fen.state) || 0;
-      chips.push(`<div class="chip ${n ? "warn" : ""}" data-id="${_esc(e.fenetres)}">
+    const ouvertsLive = (e.detecteurs || []).filter((d) => _windowState(hass, d) === "ouvert").length;
+    if (fen || (e.detecteurs || []).length) {
+      const n = Math.max(fen ? Number(fen.state) || 0 : 0, ouvertsLive);
+      chips.push(`<div class="chip ${n ? "warn" : ""}" data-id="${_esc(e.fenetres || (e.detecteurs || [])[0] || "")}">
         <ha-icon icon="${n ? "mdi:window-open-variant" : "mdi:window-closed-variant"}"></ha-icon>
         ${n ? `${n} fenêtre${n > 1 ? "s" : ""} ouverte${n > 1 ? "s" : ""}` : "Fenêtres fermées"}</div>`);
     }
