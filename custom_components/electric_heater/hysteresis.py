@@ -41,7 +41,8 @@ def regulate_preset(
         return base
     hyst = HYSTERESIS.get(base, 0.3)
     if current >= target:
-        return PRESET_ECO if base == PRESET_ECO else PRESET_COMFORT_M1
+        # Au-dessus de la consigne : ordre non chauffant
+        return PRESET_ECO
     if current <= target - hyst:
         return PRESET_COMFORT
     return base

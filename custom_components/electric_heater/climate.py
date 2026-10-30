@@ -881,8 +881,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
                 self._current_temp = None
         if apply:
             self.async_write_ha_state()
-            if self._hvac_mode != HVACMode.HEAT:
-                self._schedule_apply()
+            self._schedule_apply()
 
     @callback
     def _check_windows(self, event=None, apply: bool = True):
@@ -960,7 +959,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             # Ordre calculé au moment de l'envoi : toujours l'état le plus récent.
             base = self._order_base()
             target = self._order_target(base)
-            exact = self._hvac_mode == HVACMode.HEAT or self._any_window_open()
+            exact = self._any_window_open()
             preset = room_order(self.hass, self.entry, base, target, exact=exact)
             self._expected_preset = preset
             state = self.hass.states.get(self._fil_pilote_select) if self._fil_pilote_select else None
