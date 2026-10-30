@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.21 — 2026-10-30
+
+- **Carte : tous les détecteurs de fenêtre** (thermostat central et chaque radiateur) sont affichés. La déduplication de la 3.1.19 masquait à tort des détecteurs sans pile trouvée dont le nom ressemblait partiellement à un autre (fenetre_papa, fenetre_cuisine…). Elle ne fusionne plus que le même appareil, le même capteur de batterie ou exactement le même nom (hors « Détecteur » et suffixes techniques).
+
 ## 3.1.20 — 2026-10-30
 
 - **Carte : état de chaque détecteur de fenêtre** : la section devient « Détecteurs de fenêtre (état et pile) » et affiche pour chaque détecteur un badge **Ouvert** / **Fermé** / Indisponible, à côté du pourcentage de pile (et « Pile faible » le cas échéant). Un clic ouvre la fiche du détecteur.

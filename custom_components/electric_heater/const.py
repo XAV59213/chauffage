@@ -167,7 +167,7 @@ EVENT_WINDOWS_CHANGED = f"{DOMAIN}_windows_changed"
 EVENT_CENTRAL_COMMAND = f"{DOMAIN}_central_command"
 SIGNAL_SETPOINTS_UPDATED = f"{DOMAIN}_setpoints_updated_{{}}"
 
-VERSION = "3.1.20"
+VERSION = "3.1.21"
 
 # Carte Lovelace native
 CARD_URL_BASE = "/electric_heater"
