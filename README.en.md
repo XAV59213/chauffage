@@ -9,6 +9,7 @@
 **NodOn SIN-4-FP-21 • Legrand • Delta Dore • Zigbee sensors • Zigbee2MQTT / ZHA • no cloud**
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![Downloads](https://img.shields.io/github/downloads/XAV59213/chauffage/total.svg?label=Downloads)](https://github.com/XAV59213/chauffage/releases)
 [![Version](https://img.shields.io/github/v/release/XAV59213/chauffage?style=for-the-badge&label=Version)](https://github.com/XAV59213/chauffage/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-%3E%3D2025.1-00A1DF.svg?style=for-the-badge)](https://www.home-assistant.io)
