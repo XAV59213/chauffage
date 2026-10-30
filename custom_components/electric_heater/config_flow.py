@@ -175,6 +175,26 @@ def _windows_field(defaults, hass: HomeAssistant | None = None):
     return {vol.Optional(CONF_WINDOW_SENSORS): selector_obj}
 
 
+def _notify_selector(hass: HomeAssistant | None, current: str | None = None):
+    """Liste déroulante des services notify.* (application mobile en premier)."""
+    names: list[str] = []
+    if hass is not None:
+        names = sorted(hass.services.async_services().get("notify", {}))
+    options = []
+    for name in sorted(names, key=lambda n: (not n.startswith("mobile_app_"), n)):
+        label = name
+        if name.startswith("mobile_app_"):
+            label = f"📱 {name.removeprefix('mobile_app_').replace('_', ' ')}  —  notify.{name}"
+        else:
+            label = f"notify.{name}"
+        options.append({"value": f"notify.{name}", "label": label})
+    if current and current not in {o["value"] for o in options}:
+        options.append({"value": current, "label": current})
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(options=options, mode="dropdown", custom_value=True)
+    )
+
+
 def _persons_field(d: dict, hass: HomeAssistant | None) -> dict:
     """Sélecteur des personnes, sans les appareils (Tablette, iPad, mqtt...) ni la maison."""
     exclude: list[str] = []
@@ -261,8 +281,8 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
             ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_NOTIFY_SERVICE,
-                description={"suggested_value": d.get(CONF_NOTIFY_SERVICE) or ""},
-            ): selector.TextSelector(),
+                description={"suggested_value": d.get(CONF_NOTIFY_SERVICE) or None},
+            ): _notify_selector(hass, d.get(CONF_NOTIFY_SERVICE)),
         }
     )
     schema.update(

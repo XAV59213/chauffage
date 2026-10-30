@@ -37,7 +37,7 @@
           "window_off_delay": "Delay before window-open cut (s)",
           "resync_interval": "Periodic pilot wire order resend (min, applied after restart)",
           "notifications": "Notifications (battery / sensor failure, window open)",
-          "notify_service": "Extra notify service (optional, e.g. notify.mobile_app_phone)",
+          "notify_service": "Extra notify service (optional: pick the mobile app or a notify service)",
           "persons": "People tracked for “Present” (empty = automatic, devices excluded)"
         }
       },
@@ -97,7 +97,7 @@
           "window_off_delay": "Delay before window-open cut (s)",
           "resync_interval": "Periodic pilot wire order resend (min, applied after restart)",
           "notifications": "Notifications (battery / sensor failure, window open)",
-          "notify_service": "Extra notify service (optional, e.g. notify.mobile_app_phone)",
+          "notify_service": "Extra notify service (optional: pick the mobile app or a notify service)",
           "persons": "People tracked for “Present” (empty = automatic, devices excluded)"
         }
       },
