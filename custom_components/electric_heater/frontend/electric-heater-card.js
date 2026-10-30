@@ -219,7 +219,11 @@ class ElectricHeaterCard extends HTMLElement {
     const allWin = new Set();
     for (const id of Object.keys(hass.states)) {
       const a = hass.states[id].attributes;
-      if (id.startsWith("sensor.") && Array.isArray(a.windows) && a.sources) a.windows.forEach((w) => allWin.add(w));
+      if (id.startsWith("sensor.") && Array.isArray(a.windows) && a.sources) {
+        a.windows
+          .filter((w) => typeof w === "string" && /^(binary_sensor|sensor|input_boolean|cover)\.[a-z0-9_]+$/.test(w.trim()))
+          .forEach((w) => allWin.add(w.trim()));
+      }
     }
     this._ents.detecteurs = Array.isArray(c.detecteurs_fenetre) && c.detecteurs_fenetre.length
       ? c.detecteurs_fenetre

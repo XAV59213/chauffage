@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -77,22 +78,46 @@ def get_central_state(hass: HomeAssistant) -> State | None:
     return None
 
 
+_ENTITY_ID_RE = re.compile(r"^(binary_sensor|sensor|input_boolean|cover)\.[a-z0-9_]+$")
+_ID_IN_TEXT_RE = re.compile(r"\b(binary_sensor|sensor|input_boolean|cover)\.[a-z0-9_]+")
+
+
+def _collect_ids(raw, out: list[str]) -> None:
+    if not raw:
+        return
+    if isinstance(raw, dict):
+        # Config sérialisée par erreur : seule la clé window_sensors compte.
+        _collect_ids(raw.get(CONF_WINDOW_SENSORS), out)
+        return
+    if isinstance(raw, (list, tuple, set)):
+        for item in raw:
+            _collect_ids(item, out)
+        return
+    text = str(raw).strip()
+    if "{" in text or ":" in text:
+        # Texte de config brute ('window_sensors': [...], {'fil_pilote_select': ...})
+        m = re.search(r"window_sensors['\"]?\s*:\s*(\[[^\]]*\]|['\"][^'\"]*['\"])", text)
+        if m:
+            out.extend(x.group(0) for x in _ID_IN_TEXT_RE.finditer(m.group(1)))
+        return
+    for part in text.split(","):
+        part = part.strip().strip("'\"[] ")
+        if _ENTITY_ID_RE.match(part):
+            out.append(part)
+
+
 def parse_window_sensors(data: dict | None) -> list[str]:
+    """Vrais entity_id de détecteurs de fenêtre, sans doublon (ignore les dicts / config brute)."""
     if not data:
         return []
     raw = data.get(CONF_WINDOW_SENSORS) if isinstance(data, dict) else data
-    if not raw:
-        return []
-    items: list[str] = []
-    if isinstance(raw, (list, tuple, set)):
-        for item in raw:
-            if isinstance(item, (list, tuple)):
-                items.extend(str(s).strip() for s in item if str(s).strip())
-            elif item:
-                items.append(str(item).strip())
-    else:
-        items.extend(s.strip() for s in str(raw).split(",") if s.strip())
-    return [s for s in items if "." in s]
+    found: list[str] = []
+    _collect_ids(raw, found)
+    result: list[str] = []
+    for eid in found:
+        if eid not in result:
+            result.append(eid)
+    return result
 
 
 def windows_from_entry(entry: ConfigEntry) -> list[str]:
