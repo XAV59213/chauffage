@@ -31,7 +31,11 @@
           "min_temp": "Temperature minimale",
           "max_temp": "Temperature maximale",
           "temp_step": "Pas de reglages",
-          "window_mode": "Mode si une fenetre est ouverte (Hors-gel conseille)"
+          "window_mode": "Mode si une fenetre est ouverte (Hors-gel conseille)",
+          "above_target_mode": "Ordre quand la piece depasse la consigne (Eco par defaut)",
+          "hysteresis": "Hysteresis Confort (C)",
+          "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
+          "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)"
         }
       },
       "room": {
@@ -84,7 +88,11 @@
           "min_temp": "Temperature minimale",
           "max_temp": "Temperature maximale",
           "temp_step": "Pas de reglages",
-          "window_mode": "Mode si une fenetre est ouverte (Hors-gel conseille)"
+          "window_mode": "Mode si une fenetre est ouverte (Hors-gel conseille)",
+          "above_target_mode": "Ordre quand la piece depasse la consigne (Eco par defaut)",
+          "hysteresis": "Hysteresis Confort (C)",
+          "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
+          "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)"
         }
       },
       "room": {

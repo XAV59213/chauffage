@@ -31,7 +31,11 @@
           "calendar_off_mode": "Mode when the calendar is inactive",
           "presence_away_mode": "Mode when nobody is home",
           "window_sensors": "Window / opening sensors (whole house)",
-          "window_mode": "Mode when a window is open (Frost protection recommended)"
+          "window_mode": "Mode when a window is open (Frost protection recommended)",
+          "above_target_mode": "Order when the room is above the setpoint (Eco by default)",
+          "hysteresis": "Comfort hysteresis (C)",
+          "window_off_delay": "Delay before window-open cut (s)",
+          "resync_interval": "Periodic pilot wire order resend (min, applied after restart)"
         }
       },
       "room": {
@@ -84,7 +88,11 @@
           "calendar_off_mode": "Mode when the calendar is inactive",
           "presence_away_mode": "Mode when nobody is home",
           "window_sensors": "Window / opening sensors (whole house)",
-          "window_mode": "Mode when a window is open (Frost protection recommended)"
+          "window_mode": "Mode when a window is open (Frost protection recommended)",
+          "above_target_mode": "Order when the room is above the setpoint (Eco by default)",
+          "hysteresis": "Comfort hysteresis (C)",
+          "window_off_delay": "Delay before window-open cut (s)",
+          "resync_interval": "Periodic pilot wire order resend (min, applied after restart)"
         }
       },
       "room": {

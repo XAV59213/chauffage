@@ -8,6 +8,15 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .const import (
+    ABOVE_TARGET_MODES,
+    CONF_ABOVE_TARGET_MODE,
+    CONF_HYSTERESIS,
+    CONF_RESYNC_INTERVAL,
+    CONF_WINDOW_OFF_DELAY,
+    DEFAULT_ABOVE_TARGET_MODE,
+    HYSTERESIS,
+    RESYNC_INTERVAL_MIN,
+    WINDOW_OFF_DELAY,
     CENTRAL,
     CONF_CALENDAR_OFF_MODE,
     CONF_CALENDAR_ON_MODE,
@@ -63,6 +72,22 @@ _WINDOW_MODE = selector.SelectSelector(
         mode="dropdown",
     )
 )
+_ABOVE_TARGET_MODE = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=[{"value": p, "label": PRESET_LABELS[p]} for p in ABOVE_TARGET_MODES],
+        mode="dropdown",
+    )
+)
+
+
+def _int_number(min_v, max_v, unit):
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=min_v, max=max_v, step=1, mode="box", unit_of_measurement=unit
+        )
+    )
+
+
 _WINDOW_CLASSES = {"window", "opening", "door", "garage_door"}
 
 
@@ -177,6 +202,22 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
                 CONF_WINDOW_MODE,
                 default=d.get(CONF_WINDOW_MODE, DEFAULT_WINDOW_MODE),
             ): _WINDOW_MODE,
+            vol.Required(
+                CONF_ABOVE_TARGET_MODE,
+                default=d.get(CONF_ABOVE_TARGET_MODE, DEFAULT_ABOVE_TARGET_MODE),
+            ): _ABOVE_TARGET_MODE,
+            vol.Required(
+                CONF_HYSTERESIS,
+                default=d.get(CONF_HYSTERESIS, HYSTERESIS[PRESET_COMFORT]),
+            ): _number(0.1, 2.0),
+            vol.Required(
+                CONF_WINDOW_OFF_DELAY,
+                default=d.get(CONF_WINDOW_OFF_DELAY, WINDOW_OFF_DELAY),
+            ): _int_number(0, 600, "s"),
+            vol.Required(
+                CONF_RESYNC_INTERVAL,
+                default=d.get(CONF_RESYNC_INTERVAL, RESYNC_INTERVAL_MIN),
+            ): _int_number(1, 120, "min"),
         }
     )
     schema.update(
