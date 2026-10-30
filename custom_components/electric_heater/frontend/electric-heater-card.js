@@ -264,6 +264,7 @@ const STYLES = `
           background: var(--secondary-background-color); cursor:pointer; font-size:.9em; }
   .chip.warn { background: rgba(255,152,0,.18); color: var(--warning-color, #ff9800); }
   .chip.bad { background: rgba(244,67,54,.15); color: var(--error-color, #f44336); }
+  .chip.ok { background: rgba(76,175,80,.18); color: var(--success-color, #4caf50); }
   .chip ha-icon { --mdc-icon-size: 18px; }
   .alert { margin:8px 0; padding:8px 10px; border-radius:8px; font-size:.9em;
            background: rgba(244,67,54,.12); color: var(--error-color, #f44336); }
@@ -380,7 +381,7 @@ class ElectricHeaterCard extends HTMLElement {
       const dev = (hass.entities || {})[w] && hass.entities[w].device_id;
       return dev ? Object.keys(hass.entities).filter((id) => hass.entities[id].device_id === dev) : [w];
     });
-    const statIds = Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && (x.includes("temps_de_chauffe") || x.includes("consommation") || x.includes("conso") || x.endsWith("_energy")));
+    const statIds = Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && (x.includes("temps_de_chauffe") || x.includes("consommation") || x.includes("conso") || x.endsWith("_energy")) || x.includes("calendrier_chauffage"));
     const ids = [...bats, ...statIds, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
       this._ents.presents, ...this._ents.radiateurs];
     const sig = ids.map((id) => {
@@ -525,6 +526,15 @@ class ElectricHeaterCard extends HTMLElement {
         <ha-icon icon="${nko ? "mdi:battery-alert-variant-outline" : "mdi:battery-check"}"></ha-icon>
         ${nko ? `${nko} sonde${nko > 1 ? "s" : ""} KO` : "Sondes OK"}</div>`);
     }
+    const calId = (this._config || {}).calendrier ||
+      Object.keys(hass.states).find((x) => x.startsWith("binary_sensor.") && x.includes("calendrier_chauffage_activ"));
+    const cal = calId && hass.states[calId];
+    if (cal) {
+      const on = cal.state === "on";
+      chips.push(`<div class="chip ${on ? "ok" : ""}" data-id="${_esc(calId)}">
+        <ha-icon icon="${on ? "mdi:calendar-check" : "mdi:calendar-remove"}"></ha-icon>
+        ${on ? "Calendrier chauffage actif" : "Calendrier chauffage inactif"}</div>`);
+    }
     const pres = st(e.presents);
     if (pres) {
       chips.push(`<div class="chip" data-id="${_esc(e.presents)}">
@@ -610,6 +620,24 @@ class ElectricHeaterCard extends HTMLElement {
         ${this._graph()}
         ${pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Détecteurs de fenêtre (état et pile)</div>${pileRows}</div>` : ""}
         ${sondeRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des sondes de température</div>${sondeRows}</div>` : ""}
+        ${(() => {
+          const fmtH = (h) => { const m = Math.round((h || 0) * 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`; };
+          let totH = 0, totK = 0, anyK = false;
+          const lines = e.radiateurs.map((id) => {
+            const x = _statsFor(hass, id);
+            if (x.h === null && x.kwh === null) return "";
+            totH += x.h || 0;
+            if (x.kwh !== null) { totK += x.kwh; anyK = anyK || x.kwh > 0; }
+            const nom = _name(hass, id).replace(/^Radiateur\s*/i, "").replace(/\s*Chauffage.*$/i, "");
+            return `<div class="row" data-id="${_esc(id)}"><ha-icon icon="mdi:lightning-bolt"></ha-icon>
+              <div class="n">${_esc(nom)}</div><span class="badge">${fmtH(x.h)}</span>
+              <div class="t">${x.kwh !== null && x.kwh > 0 ? `${x.kwh.toFixed(2)} kWh` : "–"}</div></div>`;
+          }).join("");
+          if (!lines) return "";
+          return `<div class="rows"><div class="muted" style="margin-top:6px">Consommation du jour par radiateur</div>${lines}
+            <div class="row"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
+              <span class="badge">${fmtH(totH)}</span><div class="t"><b>${anyK ? `${totK.toFixed(2)} kWh` : "–"}</b></div></div></div>`;
+        })()}
       </ha-card>`;
     this.shadowRoot.querySelectorAll("[data-id]").forEach((el) =>
       el.addEventListener("click", () => this._more(el.getAttribute("data-id")))
