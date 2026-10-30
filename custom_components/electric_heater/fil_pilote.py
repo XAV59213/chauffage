@@ -120,15 +120,67 @@ def parse_window_sensors(data: dict | None) -> list[str]:
     return result
 
 
-def windows_from_entry(entry: ConfigEntry) -> list[str]:
+_AREA_WINDOW_CLASSES = {"window", "door", "opening"}
+_AREA_EXCLUDE_HINTS = ("batter", "pile", "tamper", "alarm", "alarme", "garage", "vibration", "occupancy", "motion", "mouvement")
+
+
+def area_windows(hass: HomeAssistant | None, entry: ConfigEntry) -> list[str]:
+    """Détecteurs porte/fenêtre rangés dans la même pièce HA que le radiateur."""
+    if hass is None or entry.data.get("type") == CENTRAL:
+        return []
+    try:
+        from homeassistant.helpers import device_registry as dr, entity_registry as er
+        ent_reg = er.async_get(hass)
+        dev_reg = dr.async_get(hass)
+    except Exception:  # noqa: BLE001
+        return []
+
+    def _area(ent) -> str | None:
+        if ent.area_id:
+            return ent.area_id
+        if ent.device_id:
+            dev = dev_reg.async_get(ent.device_id)
+            return dev.area_id if dev else None
+        return None
+
+    areas = {
+        a for ent in er.async_entries_for_config_entry(ent_reg, entry.entry_id)
+        if ent.domain == "climate" and (a := _area(ent))
+    }
+    if not areas:
+        return []
+    found: list[str] = []
+    for ent in ent_reg.entities.values():
+        if ent.domain != "binary_sensor" or ent.disabled_by or ent.platform == DOMAIN:
+            continue
+        if _area(ent) not in areas:
+            continue
+        state = hass.states.get(ent.entity_id)
+        dclass = ent.device_class or ent.original_device_class or (
+            state.attributes.get("device_class") if state else None
+        )
+        if dclass not in _AREA_WINDOW_CLASSES:
+            continue
+        if any(h in ent.entity_id.lower() for h in _AREA_EXCLUDE_HINTS):
+            continue
+        found.append(ent.entity_id)
+    return found
+
+
+def windows_from_entry(entry: ConfigEntry, hass: HomeAssistant | None = None) -> list[str]:
+    """Fenêtres configurées + (radiateur) détecteurs de la même pièce HA."""
     merged = {**dict(entry.data), **dict(entry.options or {})}
-    return parse_window_sensors(merged)
+    result = parse_window_sensors(merged)
+    for eid in area_windows(hass, entry):
+        if eid not in result:
+            result.append(eid)
+    return result
 
 
 def all_configured_windows(hass: HomeAssistant) -> list[str]:
     seen: list[str] = []
     for entry in hass.config_entries.async_entries(DOMAIN):
-        for eid in windows_from_entry(entry):
+        for eid in windows_from_entry(entry, hass):
             if eid not in seen:
                 seen.append(eid)
     return seen
@@ -161,7 +213,7 @@ def open_windows(hass: HomeAssistant) -> list[dict]:
         invert = bool(
             entry.data.get(CONF_WINDOW_INVERT) or (entry.options or {}).get(CONF_WINDOW_INVERT)
         )
-        for eid in windows_from_entry(entry):
+        for eid in windows_from_entry(entry, hass):
             if eid in seen:
                 continue
             state = hass.states.get(eid)
@@ -185,7 +237,7 @@ def rooms_sensor_ko(hass: HomeAssistant) -> list[dict]:
 
 
 def entry_windows_open(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    sensors = windows_from_entry(entry)
+    sensors = windows_from_entry(entry, hass)
     if not sensors:
         return False
     opened = any_window_open(hass, sensors)

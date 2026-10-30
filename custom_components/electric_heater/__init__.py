@@ -29,7 +29,7 @@ def _snapshot(entry: ConfigEntry) -> tuple:
 
 def _track_windows(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Relaie les changements des capteurs fenêtre de cette entrée (abonnement ciblé)."""
-    windows = windows_from_entry(entry)
+    windows = windows_from_entry(entry, hass)
     if not windows:
         return
 

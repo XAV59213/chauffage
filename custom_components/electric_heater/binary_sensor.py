@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 BatteryAlert(hass),
             ]
         )
-    elif windows_from_entry(entry):
+    elif windows_from_entry(entry, hass):
         entities.append(RoomWindowSecurity(hass, entry))
     async_add_entities(entities)
 
@@ -241,7 +241,7 @@ class RoomWindowSecurity(BinarySensorEntity):
     async def async_added_to_hass(self):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
-        self._sensors = windows_from_entry(self.entry)
+        self._sensors = windows_from_entry(self.entry, self.hass)
         self.async_on_remove(self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update))
         self._update()
 
@@ -249,7 +249,7 @@ class RoomWindowSecurity(BinarySensorEntity):
     def _update(self, event=None):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
-        self._sensors = windows_from_entry(self.entry)
+        self._sensors = windows_from_entry(self.entry, self.hass)
         self._attr_is_on = entry_windows_open(self.hass, self.entry)
         self.async_write_ha_state()
 

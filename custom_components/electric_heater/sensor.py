@@ -274,7 +274,7 @@ class WindowStateSensor(SensorEntity):
         sensors = (
             all_configured_windows(self.hass)
             if self._central
-            else windows_from_entry(self.entry)
+            else windows_from_entry(self.entry, self.hass)
         )
         sources = {}
         for eid in sensors:
@@ -286,7 +286,7 @@ class WindowStateSensor(SensorEntity):
         sensors = (
             all_configured_windows(self.hass)
             if self._central
-            else windows_from_entry(self.entry)
+            else windows_from_entry(self.entry, self.hass)
         )
         if sensors:
             self.async_on_remove(
@@ -307,7 +307,7 @@ class WindowStateSensor(SensorEntity):
         sensors = (
             all_configured_windows(self.hass)
             if self._central
-            else windows_from_entry(self.entry)
+            else windows_from_entry(self.entry, self.hass)
         )
         if not sensors:
             self._attr_native_value = "Non configuree"
