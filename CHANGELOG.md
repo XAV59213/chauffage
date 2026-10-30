@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.17 — 2026-10-30
+
+- **Correctif carte « Piles des détecteurs de fenêtre »** : des morceaux de configuration brute (`'window_sensors': …`, `{'fil_pilote_select': …}`) apparaissaient avec « Pile ? ». La lecture des détecteurs de fenêtre ne garde plus que de vrais entity_id (binary_sensor, sensor, input_boolean, cover), extrait la liste d'une configuration enregistrée sous forme de dict ou de texte, et supprime les doublons. Même nettoyage à l'enregistrement du formulaire et dans la carte.
+
 ## 3.1.16 — 2026-10-30
 
 - **Carte : toutes les piles des détecteurs de fenêtre** (thermostat central et toutes les pièces). La batterie est trouvée via l'appareil, à défaut par le nom (`sensor.<détecteur>_battery`) ou l'attribut `battery` ; un détecteur sans batterie trouvée s'affiche « Pile ? » au lieu d'être masqué.
