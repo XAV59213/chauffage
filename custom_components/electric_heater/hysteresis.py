@@ -52,12 +52,12 @@ def regulate_preset(
     current: float | None,
     target: float | None,
     last: str | None = None,
-    above: str = PRESET_ECO,
+    above: str = PRESET_OFF,
     comfort_hyst: float | None = None,
 ) -> str:
     """Adapte l'ordre fil pilote à l'écart consigne / pièce.
 
-    - au-dessus de la consigne : ordre non chauffant réglable (Eco par défaut) ;
+    - au-dessus de la consigne : Arrêt (ou Hors-gel) ; Eco reste réservé à l'absence / fenêtre ouverte ;
     - sous consigne - hystérésis : l'ordre de base, jamais plus chaud que lui ;
     - entre les deux : on garde le dernier ordre envoyé (hystérésis avec mémoire).
     """
@@ -68,8 +68,9 @@ def regulate_preset(
     if base not in HEATING_ORDERS:
         # Eco (absence, nuit...) : jamais remonter en Confort.
         return base
-    if above not in (PRESET_ECO, PRESET_FROST_PROTECTION, PRESET_OFF):
-        above = PRESET_ECO
+    if above not in (PRESET_FROST_PROTECTION, PRESET_OFF):
+        # Ancien réglage « Eco » migré : au-dessus de la consigne = Arrêt.
+        above = PRESET_OFF
     hyst = hysteresis_for(base, comfort_hyst)
     if current >= target:
         return above

@@ -280,7 +280,7 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
             ): _WINDOW_MODE,
             vol.Required(
                 CONF_ABOVE_TARGET_MODE,
-                default=d.get(CONF_ABOVE_TARGET_MODE, DEFAULT_ABOVE_TARGET_MODE),
+                default=(d.get(CONF_ABOVE_TARGET_MODE) if d.get(CONF_ABOVE_TARGET_MODE) in ABOVE_TARGET_MODES else DEFAULT_ABOVE_TARGET_MODE),
             ): _ABOVE_TARGET_MODE,
             vol.Required(
                 CONF_HYSTERESIS,

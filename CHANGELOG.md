@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.39
+- Au-dessus de la consigne : Arrêt (par défaut) au lieu d'Eco. Eco est réservé à l'absence / fenêtre ouverte. L'ancien réglage « Eco » est migré automatiquement en Arrêt. / Above setpoint: Off instead of Eco; Eco only when away or window open.
+
 ## 3.1.38
 
 - docs: badge Downloads cumulés
