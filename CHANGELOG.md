@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.7 — 2026-10-30
+
+- **Carte Lovelace native « Chauffage Fil Pilote »** (`type: custom:electric-heater-card`), livrée et chargée automatiquement par l'intégration : Tableau de bord → Ajouter une carte → « Chauffage Fil Pilote ».
+- **Découverte automatique** : thermostat central, tous les radiateurs ajoutés (ordre fil pilote, température / consigne, fenêtre, sonde KO), fenêtres ouvertes, sondes KO / alerte pile et présents. Options manuelles uniquement en repli.
+- Documentation : `examples/lovelace/README.md`.
+
 ## 3.1.6 — 2026-10-30
 
 - **Capteurs résumé** sur le thermostat central :
