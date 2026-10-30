@@ -1,5 +1,7 @@
 # Notifications
 
+🇫🇷 Français · 🇬🇧 [English](Notifications-EN.md)
+
 Activées par défaut (option **Notifications** du thermostat central). Notification Home Assistant + service `notify` optionnel (ex. application mobile).
 
 | Événement | Message |

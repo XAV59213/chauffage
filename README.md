@@ -1,4 +1,6 @@
-# Chauffage Electrique Fil Pilote FR
+# Chauffage Électrique Fil Pilote FR
+
+🇫🇷 Français · 🇬🇧 [English version](README.en.md)
 
 Integration Home Assistant **100 % locale** pour les radiateurs electriques francais a **fil pilote**.
 
@@ -9,7 +11,7 @@ Integration Home Assistant **100 % locale** pour les radiateurs electriques fran
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-%3E%3D2025.1-00A1DF.svg?style=for-the-badge)](https://www.home-assistant.io)
 
-**Wiki** : [Accueil](wiki/Home.md) · [Configuration](wiki/Configuration.md) · [Fonctionnement](wiki/Fonctionnement.md) · [Depannage](wiki/Depannage.md)
+**Wiki** : [Accueil](wiki/Home.md) · [Configuration](wiki/Configuration.md) · [Fonctionnement](wiki/Fonctionnement.md) · [Carte](wiki/Carte.md) · [Notifications](wiki/Notifications.md) · [Depannage](wiki/Depannage.md) · 🇬🇧 [Wiki EN](wiki/Home-EN.md)
 
 ---
 

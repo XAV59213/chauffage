@@ -121,8 +121,6 @@
           "preset_mode": {
             "state": {
               "comfort": "Confort",
-              "comfort_-1": "Confort -1 C",
-              "comfort_-2": "Confort -2 C",
               "eco": "Eco",
               "frost_protection": "Hors-gel",
               "off": "Arret"
