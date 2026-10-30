@@ -22,6 +22,7 @@ from .fil_pilote import (
     iter_room_entries,
     rooms_sensor_ko,
     parse_window_sensors,
+    windows_from_entry,
 )
 
 ACTIVE_CALENDAR_STATES = {"on", "active", "true", "home"}
@@ -39,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 BatteryAlert(hass),
             ]
         )
-    elif parse_window_sensors(entry.data):
+    elif windows_from_entry(entry):
         entities.append(RoomWindowSecurity(hass, entry))
     async_add_entities(entities)
 
@@ -240,7 +241,7 @@ class RoomWindowSecurity(BinarySensorEntity):
     async def async_added_to_hass(self):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
-        self._sensors = parse_window_sensors(self.entry.data)
+        self._sensors = windows_from_entry(self.entry)
         self.async_on_remove(self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update))
         self._update()
 
@@ -248,7 +249,7 @@ class RoomWindowSecurity(BinarySensorEntity):
     def _update(self, event=None):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
-        self._sensors = parse_window_sensors(self.entry.data)
+        self._sensors = windows_from_entry(self.entry)
         self._attr_is_on = entry_windows_open(self.hass, self.entry)
         self.async_write_ha_state()
 

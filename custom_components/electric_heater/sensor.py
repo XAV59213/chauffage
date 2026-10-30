@@ -26,7 +26,7 @@ from .fil_pilote import (
     iter_room_entries,
     open_windows,
     rooms_sensor_ko,
-    parse_window_sensors,
+    windows_from_entry,
 )
 from .occupancy import occupancy_count, present_names
 from .weather import outdoor_temperature, weather_condition
@@ -274,7 +274,7 @@ class WindowStateSensor(SensorEntity):
         sensors = (
             all_configured_windows(self.hass)
             if self._central
-            else parse_window_sensors(self.entry.data)
+            else windows_from_entry(self.entry)
         )
         sources = {}
         for eid in sensors:
@@ -286,7 +286,7 @@ class WindowStateSensor(SensorEntity):
         sensors = (
             all_configured_windows(self.hass)
             if self._central
-            else parse_window_sensors(self.entry.data)
+            else windows_from_entry(self.entry)
         )
         if sensors:
             self.async_on_remove(
@@ -307,7 +307,7 @@ class WindowStateSensor(SensorEntity):
         sensors = (
             all_configured_windows(self.hass)
             if self._central
-            else parse_window_sensors(self.entry.data)
+            else windows_from_entry(self.entry)
         )
         if not sensors:
             self._attr_native_value = "Non configuree"

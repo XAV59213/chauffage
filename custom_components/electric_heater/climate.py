@@ -791,6 +791,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "window_open": self._window_open,
             "fenetre": "Ouverte" if (self._window_open or self._any_window_open_live()) else "Fermee",
             "fenetre_detectee": self._any_window_open_live(),
+            "window_sensors": windows_from_entry(self.entry),
             "follow_central": self._follow_central,
             "manual_preset": None if self._follow_central else self._preset_mode,
             "fil_pilote_mode": mode,
