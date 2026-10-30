@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.11 — 2026-10-30
+
+- **Choix des personnes** : nouveau sélecteur multiple « Personnes suivies » dans la configuration du thermostat central (Configurer). On y coche les vraies personnes (Papa, Maman, Xavier…) ; le capteur `Présents` et la carte n'affichent qu'elles.
+- **Appareils exclus** : les entités `person` qui sont des appareils ou la maison (Tablette, iPad, iPhone, téléphone, mqtt, MAISON, voiture…) ne sont plus proposées dans le sélecteur ni comptées comme présentes. Sans choix, la détection automatique les ignore aussi.
+
 ## 3.1.10 — 2026-10-30
 
 - **Correctif fenêtre affichée « Fermée » alors qu'elle est ouverte** : l'attribut `fenetre` des thermostats ne passait à « Ouverte » qu'après le délai de coupure (45 s par défaut). Il suit maintenant la détection immédiate (nouvel attribut `fenetre_detectee`) ; la coupure du chauffage garde son délai. La carte affiche l'icône fenêtre dès la détection.
