@@ -15,6 +15,7 @@ from .const import (
 )
 from .fil_pilote import windows_from_entry
 from .frontend import async_register_card
+from .temps import clean_setpoints
 from .notifications import HeaterNotifier
 
 PLATFORMS = ["climate", "sensor", "binary_sensor"]
@@ -40,6 +41,9 @@ def _track_windows(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    # Nettoie les consignes déjà enregistrées (ex. 20.199999999999998 -> 20.2).
+    if (cleaned := clean_setpoints(dict(entry.data))) is not None:
+        hass.config_entries.async_update_entry(entry, data=cleaned)
     hass.data.setdefault(DOMAIN, {}).setdefault("snapshots", {})[entry.entry_id] = _snapshot(entry)
     if not hass.data[DOMAIN].get("_card_registered"):
         await async_register_card(hass)

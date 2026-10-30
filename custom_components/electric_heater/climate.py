@@ -75,6 +75,7 @@ from .fil_pilote import (
     room_order,
     windows_from_entry,
 )
+from .temps import round_temp
 from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
 
@@ -143,10 +144,8 @@ class _TunablesMixin:
 
 def _r1(value):
     """Arrondi à 0,1 °C (évite 11.600000000000001)."""
-    try:
-        return round(float(value), 1)
-    except (TypeError, ValueError):
-        return value
+    rounded = round_temp(value)
+    return value if rounded is None else rounded
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
