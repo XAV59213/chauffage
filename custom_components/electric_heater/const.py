@@ -91,6 +91,8 @@ HYSTERESIS = {
     PRESET_FROST_PROTECTION: 1.0,
 }
 
+SENSOR_KO_MESSAGE = "Sonde de température indisponible : remplacer la pile de la sonde (radiateur en Hors-gel par sécurité)"
+
 WINDOW_OFF_DELAY = 45
 # Relais : délai avant de corriger un état différent de l'ordre attendu (s)
 RELAY_CHECK_DELAY = 15

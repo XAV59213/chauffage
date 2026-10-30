@@ -115,6 +115,23 @@
             }
           }
         }
+      },
+      "room": {
+        "state_attributes": {
+          "sonde_ko": {
+            "name": "Sonde KO",
+            "state": {
+              "true": "Oui",
+              "false": "Non"
+            }
+          },
+          "alerte": {
+            "name": "Alerte",
+            "state": {
+              "pile_sonde": "Remplacer la pile de la sonde"
+            }
+          }
+        }
       }
     }
   }
