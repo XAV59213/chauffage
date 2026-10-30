@@ -141,6 +141,19 @@
           }
         }
       }
+    },
+    "sensor": {
+      "fenetres_ouvertes": {
+        "name": "Fenetres ouvertes"
+      },
+      "sondes_ko": {
+        "name": "Sondes KO"
+      }
+    },
+    "binary_sensor": {
+      "alerte_pile": {
+        "name": "Alerte pile sonde"
+      }
     }
   }
 }
