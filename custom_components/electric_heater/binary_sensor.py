@@ -37,6 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 CentralPresence(hass, entry),
                 CentralAutoEcoMode(hass),
                 CentralCalendarActive(hass, entry),
+                CentralCalendarEnabled(hass),
                 BatteryAlert(hass),
             ]
         )
@@ -143,6 +144,43 @@ class CentralAutoEcoMode(BinarySensorEntity):
     def _update(self, event=None):
         central = get_central_state(self.hass)
         self._attr_is_on = bool(central and central.attributes.get("auto_eco_active"))
+        self.async_write_ha_state()
+
+
+class CentralCalendarEnabled(BinarySensorEntity):
+    """Calendrier chauffage activé : thermostat en Auto ET calendrier actif."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Calendrier chauffage activé"
+    _attr_unique_id = "electric_heater_central_calendrier_active"
+    _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_icon = "mdi:calendar-clock"
+    _attr_is_on = False
+
+    def __init__(self, hass: HomeAssistant):
+        self.hass = hass
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
+        self.async_on_remove(
+            async_track_state_change_event(self.hass, [CENTRAL_ENTITY_ID], self._update)
+        )
+        self._update()
+
+    @callback
+    def _update(self, event=None):
+        central = get_central_state(self.hass)
+        self._attr_is_on = bool(
+            central and central.state == "auto" and central.attributes.get("calendar_active")
+        )
+        self._attr_extra_state_attributes = {
+            "mode_thermostat": central.state if central else None,
+            "calendrier_actif": bool(central and central.attributes.get("calendar_active")),
+        }
         self.async_write_ha_state()
 
 

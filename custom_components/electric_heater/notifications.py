@@ -25,7 +25,10 @@ from .const import (
     DOMAIN,
     WINDOW_OFF_DELAY,
 )
+from .occupancy import present_names
 from .fil_pilote import (
+    get_central_state,
+    open_windows,
     all_configured_windows,
     is_window_open_state,
     iter_room_entries,
@@ -246,12 +249,57 @@ class HeaterNotifier:
     def _end_grace(self, _now=None) -> None:
         self._ready = True
         self._ko_since = {k: time.monotonic() - KO_CONFIRM for k in self._ko_since}
+        self._send_startup()
         self._check_sensors()
+        self._check_absent()
+
+    def _send_startup(self) -> None:
+        """Après la grâce : « système opérationnel » + résumé des problèmes en cours."""
+        problems: list[str] = []
+        ko = [p for s, p in self._room_sensors().items() if room_current_temp(self.hass, s) is None]
+        if ko:
+            problems.append("sonde(s) KO : " + ", ".join(ko))
+        wins = [w["name"] for w in open_windows(self.hass)]
+        if wins:
+            problems.append("fenêtre(s) ouverte(s) : " + ", ".join(wins))
+        if problems:
+            msg = "✅ Chauffage fil pilote opérationnel. ⚠️ Problème(s) : " + " ; ".join(problems) + "."
+        else:
+            msg = "✅ Chauffage fil pilote opérationnel : tout est OK."
+        self._send(f"{DOMAIN}_demarrage", msg)
+
+    # -- fenêtre ouverte + maison vide --------------------------------------
+    def _occupants(self) -> int | None:
+        central = get_central_state(self.hass)
+        occ = central.attributes.get("occupants") if central else None
+        if isinstance(occ, (int, float)):
+            return int(occ)
+        data = {**dict(self.entry.data), **dict(self.entry.options or {})}
+        try:
+            return len(present_names(self.hass, data))
+        except Exception:  # noqa: BLE001
+            return None
+
+    @callback
+    def _check_absent(self, _event=None) -> None:
+        key = "fenetre_absents"
+        if not self._ready:
+            return
+        wins = open_windows(self.hass)
+        occ = self._occupants()
+        if wins and occ == 0:
+            if not self._confirmed_ko(key):
+                return
+            names = ", ".join(w["name"] for w in wins)
+            self._notify(key, f"🚪 Personne à la maison et fenêtre(s) ouverte(s) : {names}. Pensez à fermer.")
+        else:
+            self._clear(key, "✅ Fenêtres fermées ou quelqu'un est rentré." if wins == [] else None)
 
     @callback
     def _periodic(self, _now=None) -> None:
         self._check_sensors()
         self._check_windows()
+        self._check_absent()
 
     @callback
     def async_stop(self) -> None:
