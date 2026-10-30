@@ -1,6 +1,6 @@
 {
   "domain": "electric_heater",
-  "name": "Chauffage Electrique Fil Pilote FR",
+  "name": "Chauffage Électrique Fil Pilote FR",
   "codeowners": ["@XAV59213"],
   "config_flow": true,
   "dependencies": ["http", "frontend"],
