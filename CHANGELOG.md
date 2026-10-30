@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.16 — 2026-10-30
+
+- **Carte : toutes les piles des détecteurs de fenêtre** (thermostat central et toutes les pièces). La batterie est trouvée via l'appareil, à défaut par le nom (`sensor.<détecteur>_battery`) ou l'attribut `battery` ; un détecteur sans batterie trouvée s'affiche « Pile ? » au lieu d'être masqué.
+- **Carte : nouvelle section « Piles des sondes de température »** (sonde de chaque radiateur), avec % et « Pile faible » à 20 % ou moins. La pastille résumé compte toutes les piles faibles.
+- **Présents** : les entités person d'appareils au nom collé (ipadpapa, tablettep…) sont reconnues et masquées, dans le capteur comme dans la carte. Les personnes cochées dans « Personnes suivies » restent prioritaires.
+
 ## 3.1.15 — 2026-10-30
 
 - **Service notify en liste déroulante** : le champ « Service notify en plus » propose les services `notify.*` existants, applications mobiles (`mobile_app_…`) en premier. Saisie libre toujours possible.
