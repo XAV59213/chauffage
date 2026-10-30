@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.25 — 2026-10-30
+
+- **Documentation** : section Licence (MIT) et remerciements à @gvigroux (projet d'origine) et @Steph73HB dans le README ; wiki du dépôt mis à jour (carte, notifications, options, régulation, dépannage). Aucun changement de code.
+
 ## 3.1.24 — 2026-10-30
 
 - **Documentation** : README mis à jour avec la carte native « Chauffage Fil Pilote » et des captures (carte, configuration du thermostat). Capture de la carte aussi dans `examples/lovelace/README.md`. Aucun changement de code.
