@@ -282,9 +282,10 @@ def room_order(
     base_preset: str,
     target: float | None,
     exact: bool = False,
+    last: str | None = None,
 ) -> str:
     """Ordre à envoyer au radiateur (régulation par la sonde sauf en mode exact)."""
     if exact:
         return base_preset
     current = room_current_temp(hass, entry.data.get(CONF_TEMPERATURE_SENSOR))
-    return regulate_preset(base_preset, current, target)
+    return regulate_preset(base_preset, current, target, last)

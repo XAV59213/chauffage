@@ -70,7 +70,7 @@ from .fil_pilote import (
     room_order,
     windows_from_entry,
 )
-from .hysteresis import should_heat
+from .hysteresis import order_heats, should_heat
 from .occupancy import occupancy_count
 
 _LOGGER = logging.getLogger(__name__)
@@ -738,14 +738,11 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
 
     @property
     def hvac_action(self) -> HVACAction:
-        base = self._order_base()
-        if base == PRESET_OFF:
+        # Déduit de l'ordre réellement envoyé au radiateur.
+        order = self._expected_preset or self._order_base()
+        if order == PRESET_OFF:
             return HVACAction.OFF
-        target = self._order_target(base)
-        if self._current_temp is None or target is None:
-            return HVACAction.IDLE
-        self._heating = should_heat(self._current_temp, target, base, self._heating)
-        return HVACAction.HEATING if self._heating else HVACAction.IDLE
+        return HVACAction.HEATING if order_heats(order) else HVACAction.IDLE
 
     @property
     def preset_mode(self) -> str | None:
@@ -761,6 +758,7 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             "manual_preset": None if self._follow_central else self._preset_mode,
             "fil_pilote_mode": mode,
             "fil_pilote_ordre": self._expected_preset,
+            "ordre_envoye": PRESET_LABELS.get(self._expected_preset, self._expected_preset),
             "consigne": self._target_temp,
             "consigne_mode": PRESET_LABELS.get(mode, mode),
             "consignes": _consignes(self._temps) if self._temps else {},
@@ -960,8 +958,13 @@ class RoomThermostat(ClimateEntity, RestoreEntity):
             base = self._order_base()
             target = self._order_target(base)
             exact = self._any_window_open()
-            preset = room_order(self.hass, self.entry, base, target, exact=exact)
+            preset = room_order(
+                self.hass, self.entry, base, target, exact=exact, last=self._expected_preset
+            )
+            changed = preset != self._expected_preset
             self._expected_preset = preset
+            if changed:
+                self.async_write_ha_state()
             state = self.hass.states.get(self._fil_pilote_select) if self._fil_pilote_select else None
             if self._fil_pilote_select and not relay_available(state):
                 if not self._relay_unavailable_logged:
