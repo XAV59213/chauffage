@@ -112,6 +112,37 @@ def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
     return any(is_window_open_state(hass.states.get(eid)) for eid in sensors or [])
 
 
+def open_windows(hass: HomeAssistant) -> list[dict]:
+    """Fenêtres ouvertes (toutes entrées), en tenant compte de l'inversion par entrée."""
+    result: list[dict] = []
+    seen: set[str] = set()
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        invert = bool(
+            entry.data.get(CONF_WINDOW_INVERT) or (entry.options or {}).get(CONF_WINDOW_INVERT)
+        )
+        for eid in windows_from_entry(entry):
+            if eid in seen:
+                continue
+            state = hass.states.get(eid)
+            if state is None or state.state in ("unknown", "unavailable"):
+                continue
+            if is_window_open_state(state) != invert:
+                seen.add(eid)
+                name = state.attributes.get("friendly_name") or eid
+                result.append({"entity_id": eid, "name": name, "piece": entry.data.get("name")})
+    return result
+
+
+def rooms_sensor_ko(hass: HomeAssistant) -> list[dict]:
+    """Pièces dont la sonde de température configurée est indisponible ou invalide."""
+    result: list[dict] = []
+    for entry in iter_room_entries(hass):
+        sensor = entry.data.get(CONF_TEMPERATURE_SENSOR)
+        if sensor and room_current_temp(hass, sensor) is None:
+            result.append({"piece": entry.data.get("name"), "sonde": sensor})
+    return result
+
+
 def entry_windows_open(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     sensors = windows_from_entry(entry)
     if not sensors:

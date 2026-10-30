@@ -139,6 +139,19 @@
           }
         }
       }
+    },
+    "sensor": {
+      "fenetres_ouvertes": {
+        "name": "Open windows"
+      },
+      "sondes_ko": {
+        "name": "Failed sensors"
+      }
+    },
+    "binary_sensor": {
+      "alerte_pile": {
+        "name": "Sensor battery alert"
+      }
     }
   }
 }

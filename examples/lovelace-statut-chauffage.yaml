@@ -1,0 +1,88 @@
+# Vue Lovelace « Statut chauffage » — Chauffage Électrique Fil Pilote FR (v3.1.6+)
+#
+# Coller dans : Tableau de bord → ⋮ → Modifier → ⋮ → Éditeur de configuration brute,
+# sous la clé `views:` (ou créer une nouvelle vue et coller le contenu en mode YAML).
+#
+# Les entity_id ci-dessous supposent un thermostat central nommé « Chauffage Central ».
+# Si votre thermostat a un autre nom, remplacez le préfixe `chauffage_central_`
+# (vérifier dans Paramètres → Entités, filtre « electric_heater »).
+#   sensor.chauffage_central_fenetres_ouvertes     → nombre de fenêtres ouvertes (+ attribut liste)
+#   sensor.chauffage_central_sondes_ko             → nombre de sondes KO (+ attribut liste des pièces)
+#   binary_sensor.chauffage_central_alerte_pile_sonde → on = au moins une pile à remplacer
+#   sensor.chauffage_central_presents              → « Personne » / « 1 personne » / « N personnes »
+# Radiateurs : climate.<piece>_chauffage_<piece> (ex. climate.salon_chauffage_salon).
+
+title: Statut chauffage
+path: statut-chauffage
+icon: mdi:radiator
+cards:
+  - type: thermostat
+    entity: climate.electric_heater_central
+
+  - type: entities
+    title: Résumé
+    state_color: true
+    entities:
+      - entity: sensor.chauffage_central_fenetres_ouvertes
+        name: Fenêtres ouvertes
+      - entity: sensor.chauffage_central_sondes_ko
+        name: Sondes KO
+      - entity: binary_sensor.chauffage_central_alerte_pile_sonde
+        name: Alerte pile sonde
+      - entity: sensor.chauffage_central_presents
+        name: Présents
+
+  # Fenêtres ouvertes : liste détaillée, visible seulement si au moins une est ouverte
+  - type: conditional
+    conditions:
+      - condition: numeric_state
+        entity: sensor.chauffage_central_fenetres_ouvertes
+        above: 0
+    card:
+      type: markdown
+      title: Fenêtres ouvertes
+      content: |-
+        {% set f = state_attr('sensor.chauffage_central_fenetres_ouvertes', 'fenetres') or [] %}
+        {% for n in f %}- 🪟 **{{ n }}**
+        {% endfor %}
+        Chauffage des pièces concernées en mode fenêtre (Hors-gel par défaut).
+
+  # Alerte pile / sonde KO : visible seulement en cas de problème
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: binary_sensor.chauffage_central_alerte_pile_sonde
+        state: "on"
+    card:
+      type: markdown
+      title: ⚠️ Remplacer la pile de la sonde
+      content: |-
+        {% set p = state_attr('binary_sensor.chauffage_central_alerte_pile_sonde', 'pieces') or [] %}
+        {% set s = state_attr('binary_sensor.chauffage_central_alerte_pile_sonde', 'sondes') or [] %}
+        {% for i in range(p | count) %}- **{{ p[i] }}** — `{{ s[i] }}`
+        {% endfor %}
+        Ces radiateurs sont en Hors-gel par sécurité jusqu'au retour de la sonde.
+
+  # Personnes présentes
+  - type: entities
+    title: Présence
+    entities:
+      - entity: sensor.chauffage_central_presents
+        name: Présents
+      - type: attribute
+        entity: sensor.chauffage_central_presents
+        attribute: count
+        name: Nombre
+      # Optionnel : vos personnes Home Assistant (remplacer par les vôtres)
+      # - person.papa
+      # - person.maman
+
+  # Radiateurs (exemples du README — à adapter à vos pièces)
+  - type: entities
+    title: Radiateurs
+    state_color: true
+    entities:
+      - climate.salon_chauffage_salon
+      - climate.cuisine_chauffage_cuisine
+      - climate.chambre_chauffage_chambre
+      # - climate.papa_chauffage_papa

@@ -3,19 +3,24 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass, Bina
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.event import async_track_state_change_event
+from datetime import timedelta
+
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
 from .const import (
     CENTRAL,
     CENTRAL_ENTITY_ID,
     CONF_HEATING_CALENDAR,
     CONF_PRESENCE_SENSOR,
+    CONF_TEMPERATURE_SENSOR,
     DOMAIN,
     EVENT_WINDOWS_CHANGED,
 )
 from .fil_pilote import (
     entry_windows_open,
     get_central_state,
+    iter_room_entries,
+    rooms_sensor_ko,
     parse_window_sensors,
 )
 
@@ -31,6 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 CentralPresence(hass, entry),
                 CentralAutoEcoMode(hass),
                 CentralCalendarActive(hass, entry),
+                BatteryAlert(hass),
             ]
         )
     elif parse_window_sensors(entry.data):
@@ -244,4 +250,51 @@ class RoomWindowSecurity(BinarySensorEntity):
         self.entry = current or self.entry
         self._sensors = parse_window_sensors(self.entry.data)
         self._attr_is_on = entry_windows_open(self.hass, self.entry)
+        self.async_write_ha_state()
+
+
+class BatteryAlert(BinarySensorEntity):
+    """Alerte : au moins une sonde de pièce KO (pile à remplacer)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "alerte_pile"
+    _attr_unique_id = "electric_heater_central_alerte_pile"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_is_on = False
+
+    def __init__(self, hass: HomeAssistant):
+        self.hass = hass
+        self._ko: list[dict] = []
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "pieces": [r["piece"] for r in self._ko],
+            "sondes": [r["sonde"] for r in self._ko],
+            "message": "Remplacer la pile de la sonde" if self._ko else None,
+        }
+
+    async def async_added_to_hass(self):
+        sensors = [
+            e.data[CONF_TEMPERATURE_SENSOR]
+            for e in iter_room_entries(self.hass)
+            if e.data.get(CONF_TEMPERATURE_SENSOR)
+        ]
+        if sensors:
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, sensors, self._update)
+            )
+        self.async_on_remove(
+            async_track_time_interval(self.hass, self._update, timedelta(minutes=1))
+        )
+        self._update()
+
+    @callback
+    def _update(self, event=None):
+        self._ko = rooms_sensor_ko(self.hass)
+        self._attr_is_on = bool(self._ko)
         self.async_write_ha_state()

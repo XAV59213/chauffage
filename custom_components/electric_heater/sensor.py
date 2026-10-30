@@ -4,7 +4,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.event import async_track_state_change_event
+from datetime import timedelta
+
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
 from .const import (
     CENTRAL,
@@ -20,6 +22,9 @@ from .fil_pilote import (
     entry_windows_open,
     get_central_state,
     house_window_open,
+    iter_room_entries,
+    open_windows,
+    rooms_sensor_ko,
     parse_window_sensors,
 )
 from .occupancy import occupancy_count
@@ -33,6 +38,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         entities.append(WindowStateSensor(hass, entry, central=True))
         entities.append(WhoIsHomeSensor(hass, entry))
         entities.append(OutdoorWeatherSensor(hass, entry))
+        entities.append(OpenWindowsSensor(hass))
+        entities.append(SensorKoSensor(hass))
     else:
         entities.append(RoomTemperatureSensor(hass, entry))
         entities.append(WindowStateSensor(hass, entry, central=False))
@@ -296,4 +303,107 @@ class WindowStateSensor(SensorEntity):
         else:
             self._attr_native_value = "Fermee"
             self._attr_icon = "mdi:window-closed-variant"
+        self.async_write_ha_state()
+
+
+def _room_temp_sensors(hass: HomeAssistant) -> list[str]:
+    return [
+        e.data[CONF_TEMPERATURE_SENSOR]
+        for e in iter_room_entries(hass)
+        if e.data.get(CONF_TEMPERATURE_SENSOR)
+    ]
+
+
+class OpenWindowsSensor(SensorEntity):
+    """Nombre de fenêtres ouvertes, avec la liste en attributs."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "fenetres_ouvertes"
+    _attr_unique_id = "electric_heater_central_fenetres_ouvertes"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, hass: HomeAssistant):
+        self.hass = hass
+        self._open: list[dict] = []
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    @property
+    def icon(self):
+        return "mdi:window-open-variant" if self._open else "mdi:window-closed-variant"
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "fenetres": [w["name"] for w in self._open],
+            "entites": [w["entity_id"] for w in self._open],
+            "pieces": sorted({w["piece"] for w in self._open if w["piece"]}),
+            "liste": ", ".join(w["name"] for w in self._open) or "Aucune",
+        }
+
+    async def async_added_to_hass(self):
+        sensors = all_configured_windows(self.hass)
+        if sensors:
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, sensors, self._update)
+            )
+        self.async_on_remove(self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._update))
+        self.async_on_remove(
+            async_track_time_interval(self.hass, self._update, timedelta(minutes=1))
+        )
+        self._update()
+
+    @callback
+    def _update(self, event=None):
+        self._open = open_windows(self.hass)
+        self._attr_native_value = len(self._open)
+        self.async_write_ha_state()
+
+
+class SensorKoSensor(SensorEntity):
+    """Nombre de sondes de pièce KO (pile à remplacer), avec les pièces en attributs."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "sondes_ko"
+    _attr_unique_id = "electric_heater_central_sondes_ko"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, hass: HomeAssistant):
+        self.hass = hass
+        self._ko: list[dict] = []
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    @property
+    def icon(self):
+        return "mdi:battery-alert-variant-outline" if self._ko else "mdi:battery-check"
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "pieces": [r["piece"] for r in self._ko],
+            "sondes": [r["sonde"] for r in self._ko],
+            "liste": ", ".join(str(r["piece"]) for r in self._ko) or "Aucune",
+            "message": "Remplacer la pile de la sonde" if self._ko else None,
+        }
+
+    async def async_added_to_hass(self):
+        sensors = _room_temp_sensors(self.hass)
+        if sensors:
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, sensors, self._update)
+            )
+        self.async_on_remove(
+            async_track_time_interval(self.hass, self._update, timedelta(minutes=1))
+        )
+        self._update()
+
+    @callback
+    def _update(self, event=None):
+        self._ko = rooms_sensor_ko(self.hass)
+        self._attr_native_value = len(self._ko)
         self.async_write_ha_state()
