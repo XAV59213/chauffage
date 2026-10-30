@@ -13,6 +13,7 @@ from .const import (
     CONF_HYSTERESIS,
     CONF_RESYNC_INTERVAL,
     CONF_NOTIFICATIONS,
+    CONF_PERSONS,
     CONF_NOTIFY_SERVICE,
     CONF_WINDOW_OFF_DELAY,
     DEFAULT_ABOVE_TARGET_MODE,
@@ -154,6 +155,20 @@ def _windows_field(defaults, hass: HomeAssistant | None = None):
     return {vol.Optional(CONF_WINDOW_SENSORS): selector_obj}
 
 
+def _persons_field(d: dict, hass: HomeAssistant | None) -> dict:
+    """Sélecteur des personnes, sans les appareils (Tablette, iPad, mqtt...) ni la maison."""
+    exclude: list[str] = []
+    if hass is not None:
+        from .occupancy import is_real_person
+
+        exclude = [st.entity_id for st in hass.states.async_all("person") if not is_real_person(st)]
+    sel = selector.EntitySelector(
+        selector.EntitySelectorConfig(domain="person", multiple=True, exclude_entities=exclude)
+    )
+    current = [e for e in (d.get(CONF_PERSONS) or []) if e not in exclude]
+    return {vol.Optional(CONF_PERSONS, description={"suggested_value": current}): sel}
+
+
 def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = None) -> vol.Schema:
     d = defaults or {}
     schema: dict = {
@@ -197,6 +212,7 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
         }
     )
     schema.update(_with_default(CONF_PRESENCE_SENSOR, _PRESENCE_SENSOR, d))
+    schema.update(_persons_field(d, hass))
     schema.update(_windows_field(d, hass))
     schema.update(
         {
@@ -319,6 +335,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         ),
                         CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
                     CONF_NOTIFY_SERVICE: user_input.get(CONF_NOTIFY_SERVICE),
+                    CONF_PERSONS: user_input.get(CONF_PERSONS) or [],
                         CONF_WINDOW_SENSORS: _normalize_windows(
                             user_input.get(CONF_WINDOW_SENSORS)
                         ),
@@ -394,6 +411,7 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
                     CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
                     CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
                     CONF_NOTIFY_SERVICE: user_input.get(CONF_NOTIFY_SERVICE),
+                    CONF_PERSONS: user_input.get(CONF_PERSONS) or [],
                     CONF_WINDOW_SENSORS: _normalize_windows(
                         user_input.get(CONF_WINDOW_SENSORS)
                     ),

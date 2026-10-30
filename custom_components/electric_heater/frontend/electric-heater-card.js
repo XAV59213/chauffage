@@ -80,12 +80,27 @@ function _discover(hass) {
 }
 
 /* Personnes à la maison : person.* « home » (friendly_name), sinon attribut du capteur Présents. */
-const NON_PERSONNES = ["maison", "home"];
+const NON_PERSONNES = ["tablette", "tablet", "ipad", "iphone", "android", "telephone", "téléphone",
+  "phone", "mqtt", "mqtta", "maison", "home", "tv", "television", "pc", "ordinateur", "macbook", "laptop",
+  "chromecast", "alexa", "echo", "box", "freebox", "serveur", "server", "voiture", "car", "koleos"];
+function _isDevice(text, skip) {
+  const words = String(text).toLowerCase().split(/[^0-9a-zà-ÿ]+/).filter(Boolean);
+  return words.some((w) => skip.includes(w)) || skip.includes(String(text).toLowerCase());
+}
 function _presentNames(hass, pres, exclure = []) {
   const skip = [...NON_PERSONNES, ...exclure.map((x) => String(x).toLowerCase())];
+  // Priorité au capteur Présents (personnes choisies dans la config de l'intégration).
+  if (pres && Array.isArray(pres.attributes.personnes)) {
+    return pres.attributes.personnes
+      .filter((n) => !skip.includes(String(n).toLowerCase()))
+      .map((n) => {
+        const id = Object.keys(hass.states).find((k) => k.startsWith("person.") && _name(hass, k) === n);
+        return { id: id || pres.entity_id, name: n };
+      });
+  }
   const list = Object.keys(hass.states)
     .filter((id) => id.startsWith("person.") && hass.states[id].state === "home")
-    .filter((id) => !skip.includes(id.slice(7).toLowerCase()) && !skip.includes(_name(hass, id).toLowerCase()))
+    .filter((id) => !_isDevice(id.slice(7), skip) && !_isDevice(_name(hass, id), skip))
     .map((id) => ({ id, name: _name(hass, id) }))
     .sort((a, b) => a.name.localeCompare(b.name, "fr"));
   if (list.length) return list;

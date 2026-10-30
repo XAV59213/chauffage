@@ -11,6 +11,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from .const import (
     CENTRAL,
     CENTRAL_ENTITY_ID,
+    CONF_PERSONS,
     CONF_PRESENCE_SENSOR,
     CONF_TEMPERATURE_SENSOR,
     CONF_WEATHER,
@@ -27,7 +28,7 @@ from .fil_pilote import (
     rooms_sensor_ko,
     parse_window_sensors,
 )
-from .occupancy import occupancy_count
+from .occupancy import occupancy_count, present_names
 from .weather import outdoor_temperature, weather_condition
 
 
@@ -150,16 +151,11 @@ class WhoIsHomeSensor(SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        noms = sorted(
-            (st.attributes.get("friendly_name") or st.entity_id)
-            for st in self.hass.states.async_all("person")
-            if st.state == "home"
-            and (st.attributes.get("friendly_name") or "").strip().lower() not in ("maison", "home")
-            and st.entity_id not in ("person.maison", "person.home")
-        )
+        noms = present_names(self.hass, {**dict(self.entry.data), **dict(self.entry.options or {})})
         return {
             "source": self._sensor,
-            "count": occupancy_count(self.hass, self._sensor),
+            "count": len(noms) if self.entry.data.get(CONF_PERSONS) else occupancy_count(self.hass, self._sensor),
+            "personnes_suivies": self.entry.data.get(CONF_PERSONS) or "auto",
             "personnes": noms,
             "noms": ", ".join(noms) or "Personne",
         }
@@ -184,11 +180,16 @@ class WhoIsHomeSensor(SensorEntity):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
         self._sensor = self.entry.data.get(CONF_PRESENCE_SENSOR)
-        if not self._sensor:
+        chosen = self.entry.data.get(CONF_PERSONS) or []
+        if not self._sensor and not chosen:
             self._attr_native_value = "Non configure"
             self._attr_icon = "mdi:account-question"
         else:
-            count = occupancy_count(self.hass, self._sensor)
+            count = (
+                len(present_names(self.hass, dict(self.entry.data)))
+                if chosen
+                else occupancy_count(self.hass, self._sensor)
+            )
             if count <= 0:
                 self._attr_native_value = "Personne"
                 self._attr_icon = "mdi:account-off"
