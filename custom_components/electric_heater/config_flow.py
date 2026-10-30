@@ -118,7 +118,7 @@ def _parse_windows(value):
     return [s.strip() for s in str(value).split(",") if s.strip()]
 
 
-def _window_options(hass: HomeAssistant | None):
+def _window_options(hass: HomeAssistant | None, current: list[str] | None = None):
     options = []
     if hass is None:
         return options
@@ -130,18 +130,27 @@ def _window_options(hass: HomeAssistant | None):
             continue
         label = f"{state.name}  —  {eid}"
         options.append({"value": eid, "label": label})
+    # Valeurs déjà configurées toujours acceptées (même si elles ne passent plus le filtre),
+    # sinon la validation échoue avec « value must be one of [...] ».
+    known = {o["value"] for o in options}
+    for eid in current or []:
+        if eid not in known and eid.split(".", 1)[0] in ("binary_sensor", "sensor", "input_boolean", "cover"):
+            st = hass.states.get(eid)
+            options.append({"value": eid, "label": f"{st.name if st else eid}  —  {eid}"})
+            known.add(eid)
     options.sort(key=lambda item: item["label"].lower())
     return options
 
 
-def _windows_selector(hass: HomeAssistant | None):
-    options = _window_options(hass)
+def _windows_selector(hass: HomeAssistant | None, current: list[str] | None = None):
+    options = _window_options(hass, current)
     if not options:
         return _WINDOWS_FALLBACK
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=options,
             multiple=True,
+            custom_value=True,
             mode="dropdown",
         )
     )
@@ -149,7 +158,7 @@ def _windows_selector(hass: HomeAssistant | None):
 
 def _windows_field(defaults, hass: HomeAssistant | None = None):
     windows = _parse_windows((defaults or {}).get(CONF_WINDOW_SENSORS))
-    selector_obj = _windows_selector(hass)
+    selector_obj = _windows_selector(hass, windows)
     if windows:
         return {vol.Optional(CONF_WINDOW_SENSORS, default=windows): selector_obj}
     return {vol.Optional(CONF_WINDOW_SENSORS): selector_obj}
@@ -334,8 +343,13 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_PRESENCE_AWAY_MODE, PRESET_ECO
                         ),
                         CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
-                    CONF_NOTIFY_SERVICE: user_input.get(CONF_NOTIFY_SERVICE),
-                    CONF_PERSONS: user_input.get(CONF_PERSONS) or [],
+                        CONF_NOTIFY_SERVICE: user_input.get(CONF_NOTIFY_SERVICE),
+                        CONF_PERSONS: user_input.get(CONF_PERSONS) or [],
+                        CONF_ABOVE_TARGET_MODE: user_input.get(CONF_ABOVE_TARGET_MODE),
+                        CONF_HYSTERESIS: user_input.get(CONF_HYSTERESIS),
+                        CONF_WINDOW_OFF_DELAY: user_input.get(CONF_WINDOW_OFF_DELAY),
+                        CONF_RESYNC_INTERVAL: user_input.get(CONF_RESYNC_INTERVAL),
+                        CONF_NOTIFICATIONS: user_input.get(CONF_NOTIFICATIONS, True),
                         CONF_WINDOW_SENSORS: _normalize_windows(
                             user_input.get(CONF_WINDOW_SENSORS)
                         ),
