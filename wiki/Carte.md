@@ -1,5 +1,7 @@
 # Carte Lovelace « Chauffage Fil Pilote »
 
+🇫🇷 Français · 🇬🇧 [English](Carte-EN.md)
+
 Livrée avec l'intégration (depuis 3.1.7), rien à installer en plus.
 
 ```yaml

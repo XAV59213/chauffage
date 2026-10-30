@@ -1,5 +1,7 @@
 # Dépannage
 
+🇫🇷 Français · 🇬🇧 [English](Depannage-EN.md)
+
 ## Relais / fil pilote
 
 - Menu du relais vide : Développeur → États → chercher `select.*pilot_wire*` ou `select.*fil_pilote*`.

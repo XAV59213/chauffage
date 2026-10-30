@@ -1,5 +1,7 @@
 # Wiki — Chauffage Electrique Fil Pilote FR
 
+🇫🇷 Français · 🇬🇧 [English](Home-EN.md)
+
 Integration Home Assistant locale pour piloter des radiateurs électriques français à **fil pilote** depuis un **thermostat virtuel**.
 
 ## Pages
@@ -10,7 +12,7 @@ Integration Home Assistant locale pour piloter des radiateurs électriques fran�
 - [Notifications](Notifications.md)
 - [Dépannage](Depannage.md)
 
-Version documentée : **3.1.27** (manifest, `VERSION` et tag de release alignés ; HACS installe le zip `electric_heater.zip` de la release).
+Version documentée : **3.1.28** (manifest, `VERSION` et tag de release alignés ; HACS installe le zip `electric_heater.zip` de la release).
 
 ## En deux phrases
 

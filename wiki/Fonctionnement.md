@@ -1,5 +1,7 @@
 # Fonctionnement
 
+🇫🇷 Français · 🇬🇧 [English](Fonctionnement-EN.md)
+
 ## Auto
 
 La consigne reste visible et réglable. Elle part vers les radiateurs.

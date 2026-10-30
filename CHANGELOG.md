@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.28 — 2026-10-30
+
+- **HACS** : workflow CI HACS + Hassfest, `manifest.json` (nom accentué) aligné sur `hacs.json`, version = `VERSION` = tag.
+- **Traductions** : `strings.json`, `translations/en.json` et `translations/fr.json` ont exactement les mêmes clés (clés `comfort_-1/-2` invalides pour hassfest retirées de fr.json).
+- **Docs FR / EN** : `README.en.md` + pages Wiki anglaises (`*-EN`), liens de langue et barre latérale bilingue.
+
 ## 3.1.27 — 2026-10-30
 
 - **docs : Licence README** — licence MIT au nom de l'auteur (XAV59213) uniquement, avec son bouton Buy Me a Coffee. Aucun changement de code.

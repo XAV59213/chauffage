@@ -1,5 +1,7 @@
 # Configuration
 
+🇫🇷 Français · 🇬🇧 [English](Configuration-EN.md)
+
 ## Installation
 
 HACS → Dépôts personnalisés → `https://github.com/XAV59213/chauffage` → catégorie Integration → installer → redémarrer.
