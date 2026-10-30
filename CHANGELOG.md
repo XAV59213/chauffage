@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.27 — 2026-10-30
+
+- **docs : Licence README** — licence MIT au nom de l'auteur (XAV59213) uniquement, avec son bouton Buy Me a Coffee. Aucun changement de code.
+
 ## 3.1.26 — 2026-10-30
 
 - **docs : Licence README** — section Licence (MIT) avec remerciements à @gvigroux (projet d'origine) et boutons Buy Me a Coffee (xav59213, gvigroux). Aucun changement de code.
