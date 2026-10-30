@@ -294,6 +294,31 @@ class ElectricHeaterCard extends HTMLElement {
         if (isWin && areas.has(areaOf(id))) allWin.add(id);
       }
     }
+    // + détecteurs dont le nom contient la pièce d'un radiateur (ex. « salon »), même hors zone.
+    const roomWords = new Set();
+    for (const a of areas) {
+      const n = hass.areas && hass.areas[a] && hass.areas[a].name;
+      if (n) roomWords.add(n.toLowerCase().trim());
+    }
+    for (const rid of this._ents.radiateurs) {
+      const n = _name(hass, rid).toLowerCase();
+      for (const w of ["salon", "sejour", "séjour", "cuisine", "entree", "entrée", "bureau", "salle a manger", "salle à manger"]) {
+        if (n.includes(w)) roomWords.add(w);
+      }
+    }
+    for (const id of Object.keys(hass.states)) {
+      if (!id.startsWith("binary_sensor.") || allWin.has(id)) continue;
+      const st = hass.states[id];
+      const dc = st.attributes.device_class;
+      const hint = `${id} ${st.attributes.friendly_name || ""}`.toLowerCase();
+      if ((reg[id] && reg[id].platform === DOMAIN) || /batter|_low|tamper|problem|update|connect|securit|alarm|vibration|motion|mouvement|occupancy|presence/.test(hint)) continue;
+      const winLike = WIN_CLASSES.includes(dc) || (!dc && /fen[eê]tre|window|baie|porte|ouverture|contact/.test(hint));
+      if (winLike && [...roomWords].some((w) => w.length >= 4 && hint.includes(w))) allWin.add(id);
+    }
+    this._areaName = (id) => {
+      const a = areaOf(id);
+      return (a && hass.areas && hass.areas[a] && hass.areas[a].name) || "";
+    };
     this._ents.detecteurs = Array.isArray(c.detecteurs_fenetre) && c.detecteurs_fenetre.length
       ? c.detecteurs_fenetre
       : [...allWin];
@@ -408,7 +433,7 @@ class ElectricHeaterCard extends HTMLElement {
     };
     const winRow = (p) => `<div class="row" data-id="${_esc(p.eid)}">
         <ha-icon icon="${_windowState(hass, p.eid) === "ouvert" ? "mdi:window-open-variant" : "mdi:window-closed-variant"}"></ha-icon>
-        <div class="n">${_esc(p.name)}</div>
+        <div class="n">${_esc(p.name)}${this._areaName && this._areaName(p.eid) && !p.name.toLowerCase().includes(this._areaName(p.eid).toLowerCase()) ? ` <span class="muted">· ${_esc(this._areaName(p.eid))}</span>` : ""}</div>
         ${etat(p)}
         ${p.low ? `<span class="badge ko">Pile faible</span>` : p.unknown ? `<span class="badge">Pile ?</span>` : ""}
         <div class="t">${p.pct !== null ? `🔋 ${Math.round(p.pct)} %` : ""}</div>
