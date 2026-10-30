@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.20 — 2026-10-30
+
+- **Carte : état de chaque détecteur de fenêtre** : la section devient « Détecteurs de fenêtre (état et pile) » et affiche pour chaque détecteur un badge **Ouvert** / **Fermé** / Indisponible, à côté du pourcentage de pile (et « Pile faible » le cas échéant). Un clic ouvre la fiche du détecteur.
+
 ## 3.1.19 — 2026-10-30
 
 - **Carte : plus de doublons « Pile ? »** (ex. `binary_sensor.baie_vitree`, `fenetre_papa`) : les piles sont dédupliquées par appareil, capteur batterie et nom de base ; une entité inexistante (ancien entity_id) est ignorée ; une ligne « Pile ? » n'est plus affichée si le même détecteur a déjà son pourcentage.
