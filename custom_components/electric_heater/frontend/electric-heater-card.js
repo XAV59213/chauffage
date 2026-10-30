@@ -150,10 +150,43 @@ function _batteryFor(hass, eid) {
     unknown: pct === null && low === null };
 }
 
+function _base(eid) {
+  return eid.split(".")[1]
+    .replace(/_(contact|ouverture|opening|window|door|porte|fenetre|temperature|temp|humidity|humidite|battery|batterie|battery_low)$/, "")
+    .replace(/_\d+$/, "");
+}
+
 function _batteries(hass, ids) {
-  return [...new Set(ids.filter(Boolean))]
-    .map((id) => _batteryFor(hass, id))
-    .sort((a, b) => (b.low - a.low) || (a.unknown - b.unknown) || a.name.localeCompare(b.name, "fr"));
+  const reg = hass.entities || {};
+  const rows = [];
+  const seen = new Set();
+  for (const id of [...new Set(ids.filter(Boolean).map((x) => String(x).trim()))]) {
+    // Entité inexistante (ancien entity_id) : ignorée, le vrai détecteur est déjà listé.
+    if (!hass.states[id]) continue;
+    const row = _batteryFor(hass, id);
+    const dev = reg[id] && reg[id].device_id;
+    row.keys = [dev && `dev:${dev}`, `bat:${row.id}`, `base:${_base(id)}`].filter(Boolean);
+    if (!row.unknown && row.keys.some((k) => k.startsWith("bat:") && seen.has(k))) continue;
+    if (!row.unknown) row.keys.forEach((k) => seen.add(k));
+    rows.push(row);
+  }
+  // « Pile ? » masqué si le même détecteur (appareil ou nom de base) a déjà un %.
+  const norm = (t) => String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_");
+  const known = rows.filter((r) => !r.unknown).map((r) => [norm(r.name), ...r.keys.filter((k) => k.startsWith("base:")).map((k) => k.slice(5))]).flat();
+  const sameDetector = (r) => {
+    const mine = [norm(r.name), ...r.keys.filter((k) => k.startsWith("base:")).map((k) => k.slice(5))];
+    return mine.some((m) => m.length >= 4 && known.some((k) => k.includes(m) || m.includes(k)));
+  };
+  const out = rows.filter((r) => !r.unknown || (!r.keys.some((k) => seen.has(k)) && !sameDetector(r)));
+  const uniq = [];
+  const done = new Set();
+  for (const r of out) {
+    const k = r.keys[0];
+    if (done.has(k)) continue;
+    done.add(k);
+    uniq.push(r);
+  }
+  return uniq.sort((a, b) => (b.low - a.low) || (a.unknown - b.unknown) || a.name.localeCompare(b.name, "fr"));
 }
 
 function _windowBatteries(hass, winIds) {
