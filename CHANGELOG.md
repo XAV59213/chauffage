@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.8 — 2026-10-30
+
+- **Présents avec les prénoms** : la carte « Chauffage Fil Pilote » affiche une pastille par personne à la maison (nom des entités `person.*` à l'état « home », ex. Papa, Maman, Xavier, Anais), en plus du compte. Clic sur un prénom = fiche de la personne.
+- Capteur `Présents` : nouveaux attributs `personnes` (liste) et `noms` (texte), mis à jour à chaque arrivée / départ.
+
 ## 3.1.7 — 2026-10-30
 
 - **Carte Lovelace native « Chauffage Fil Pilote »** (`type: custom:electric-heater-card`), livrée et chargée automatiquement par l'intégration : Tableau de bord → Ajouter une carte → « Chauffage Fil Pilote ».
