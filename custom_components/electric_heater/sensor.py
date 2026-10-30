@@ -154,6 +154,8 @@ class WhoIsHomeSensor(SensorEntity):
             (st.attributes.get("friendly_name") or st.entity_id)
             for st in self.hass.states.async_all("person")
             if st.state == "home"
+            and (st.attributes.get("friendly_name") or "").strip().lower() not in ("maison", "home")
+            and st.entity_id not in ("person.maison", "person.home")
         )
         return {
             "source": self._sensor,

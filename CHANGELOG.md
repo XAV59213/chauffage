@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.9 — 2026-10-30
+
+- **Piles des détecteurs de fenêtre** sur la carte « Chauffage Fil Pilote » : pour chaque détecteur de fenêtre configuré, le capteur batterie du même appareil est trouvé automatiquement (pourcentage ou alerte batterie). Affichage du % et d'un badge « Pile faible » à 20 % ou moins, plus une pastille résumé « N piles fenêtre faibles » / « Piles fenêtres OK ». Option de repli `detecteurs_fenetre`.
+- **Présents** : l'entité `person` « MAISON » (qui représente la maison, pas une personne) n'apparaît plus dans les prénoms. Option carte `exclure_personnes` pour en masquer d'autres.
+
 ## 3.1.8 — 2026-10-30
 
 - **Présents avec les prénoms** : la carte « Chauffage Fil Pilote » affiche une pastille par personne à la maison (nom des entités `person.*` à l'état « home », ex. Papa, Maman, Xavier, Anais), en plus du compte. Clic sur un prénom = fiche de la personne.

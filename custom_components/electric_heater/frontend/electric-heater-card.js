@@ -80,14 +80,17 @@ function _discover(hass) {
 }
 
 /* Personnes à la maison : person.* « home » (friendly_name), sinon attribut du capteur Présents. */
-function _presentNames(hass, pres) {
+const NON_PERSONNES = ["maison", "home"];
+function _presentNames(hass, pres, exclure = []) {
+  const skip = [...NON_PERSONNES, ...exclure.map((x) => String(x).toLowerCase())];
   const list = Object.keys(hass.states)
     .filter((id) => id.startsWith("person.") && hass.states[id].state === "home")
+    .filter((id) => !skip.includes(id.slice(7).toLowerCase()) && !skip.includes(_name(hass, id).toLowerCase()))
     .map((id) => ({ id, name: _name(hass, id) }))
     .sort((a, b) => a.name.localeCompare(b.name, "fr"));
   if (list.length) return list;
   const attr = (pres && pres.attributes.personnes) || [];
-  return attr.map((n) => ({ id: pres.entity_id, name: n }));
+  return attr.filter((n) => !skip.includes(String(n).toLowerCase())).map((n) => ({ id: pres.entity_id, name: n }));
 }
 
 /* Piles des détecteurs de fenêtre : capteur batterie du même appareil (registre HA). */
@@ -252,7 +255,7 @@ class ElectricHeaterCard extends HTMLElement {
       chips.push(`<div class="chip" data-id="${_esc(e.presents)}">
         <ha-icon icon="${_esc(pres.attributes.icon || "mdi:account-group")}"></ha-icon>${_esc(pres.state)}</div>`);
     }
-    const noms = _presentNames(hass, pres);
+    const noms = _presentNames(hass, pres, this._config.exclure_personnes || []);
     if (noms.length) {
       chips.push(...noms.map((p) => `<div class="chip" data-id="${_esc(p.id)}">
         <ha-icon icon="mdi:account"></ha-icon>${_esc(p.name)}</div>`));
