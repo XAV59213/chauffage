@@ -1,5 +1,7 @@
 # Chauffage Électrique Fil Pilote FR
 
+<p align="center"><img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/custom_components/electric_heater/brand/logo.png" alt="Chauffage Électrique Fil Pilote FR" width="360"></p>
+
 🇫🇷 Français · 🇬🇧 [English version](README.en.md)
 
 Integration Home Assistant **100 % locale** pour les radiateurs electriques francais a **fil pilote**.
@@ -97,17 +99,17 @@ Details : [wiki/Configuration.md](wiki/Configuration.md).
 3. Modifier plus tard via **Configurer**.
 
 <p align="center">
-  <img src="docs/images/config-thermostat.jpg" alt="Configuration du thermostat virtuel" width="320">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/config-thermostat.jpg" alt="Configuration du thermostat virtuel" width="320">
 </p>
 
 <details>
 <summary>Autres écrans de configuration</summary>
 
 <p align="center">
-  <img src="docs/images/config-thermostat-2.jpg" alt="Configuration 2" width="240">
-  <img src="docs/images/config-thermostat-3.jpg" alt="Configuration 3" width="240">
-  <img src="docs/images/config-thermostat-4.jpg" alt="Configuration 4" width="240">
-  <img src="docs/images/config-thermostat-5.jpg" alt="Configuration 5" width="240">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/config-thermostat-2.jpg" alt="Configuration 2" width="240">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/config-thermostat-3.jpg" alt="Configuration 3" width="240">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/config-thermostat-4.jpg" alt="Configuration 4" width="240">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/config-thermostat-5.jpg" alt="Configuration 5" width="240">
 </p>
 
 </details>
@@ -126,7 +128,7 @@ Tableau de bord → **Modifier** → **Ajouter une carte** → chercher **Chauff
 Aucune option nécessaire : thermostat central, radiateurs, fenêtres (état + pile), sondes (pile), présents et alertes sont trouvés automatiquement.
 
 <p align="center">
-  <img src="docs/images/carte-chauffage.jpg" alt="Carte Chauffage Fil Pilote" width="320">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/carte-chauffage.jpg" alt="Carte Chauffage Fil Pilote" width="320">
 </p>
 
 Options, ressource manuelle et exemples : [examples/lovelace/README.md](examples/lovelace/README.md).

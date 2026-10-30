@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.36 — 2026-10-30
+
+- **docs : images visibles dans HACS** — les images du README (FR/EN), des exemples et du wiki utilisent des URL absolues (`raw.githubusercontent.com`) : les chemins relatifs ne s'affichaient pas dans le détail HACS. Logo ajouté en tête du README. Aucun changement de code.
+
 ## 3.1.35 — 2026-10-30
 
 - **Conso du jour depuis les compteurs réels** : nouveau capteur par radiateur `Consommation compteur aujourd'hui` (kWh, remis à zéro à minuit) calculé depuis le compteur lié (ex. `sensor.radiateur_papa_energy`), et total maison `Consommation compteurs aujourd'hui` (détail `par_radiateur`). Gère la remise à zéro d'un compteur et le redémarrage de HA.

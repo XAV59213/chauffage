@@ -51,4 +51,4 @@ Ajouter **à nouveau** l'intégration pour chaque pièce.
 
 Sur l'entrée → **Configurer**. Pas besoin de tout recréer.
 
-![Configuration du thermostat](../docs/images/config-thermostat.jpg)
+![Configuration du thermostat](https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/config-thermostat.jpg)

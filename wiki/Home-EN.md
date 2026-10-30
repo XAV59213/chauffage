@@ -12,7 +12,7 @@ Local Home Assistant integration to drive French **pilot wire** electric radiato
 - [Notifications](Notifications-EN.md)
 - [Troubleshooting](Depannage-EN.md)
 
-Documented version: **3.1.35** (manifest, `VERSION` and release tag aligned; HACS installs the release zip `electric_heater.zip`).
+Documented version: **3.1.36** (manifest, `VERSION` and release tag aligned; HACS installs the release zip `electric_heater.zip`).
 
 ## In two sentences
 

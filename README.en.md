@@ -1,5 +1,7 @@
 # Chauffage Électrique Fil Pilote FR (Pilot Wire Electric Heating)
 
+<p align="center"><img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/custom_components/electric_heater/brand/logo.png" alt="Chauffage Électrique Fil Pilote FR" width="360"></p>
+
 🇫🇷 [Version française](README.md) · 🇬🇧 English
 
 **100 % local** Home Assistant integration for French electric radiators controlled by **pilot wire** (*fil pilote*).
@@ -95,7 +97,7 @@ Details: [wiki/Configuration-EN.md](wiki/Configuration-EN.md).
 3. Change later via **Configure**.
 
 <p align="center">
-  <img src="docs/images/config-thermostat.jpg" alt="Virtual thermostat configuration" width="320">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/config-thermostat.jpg" alt="Virtual thermostat configuration" width="320">
 </p>
 
 ---
@@ -112,7 +114,7 @@ Dashboard → **Edit** → **Add card** → search **Chauffage Fil Pilote**.
 No option needed: central thermostat, radiators, windows (state + battery), sensors (battery), people at home and alerts are found automatically.
 
 <p align="center">
-  <img src="docs/images/carte-chauffage.jpg" alt="Chauffage Fil Pilote card" width="320">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/carte-chauffage.jpg" alt="Chauffage Fil Pilote card" width="320">
 </p>
 
 Options and examples: [examples/lovelace/README.md](examples/lovelace/README.md).

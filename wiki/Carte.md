@@ -10,7 +10,7 @@ type: custom:electric-heater-card
 
 Tableau de bord → **Modifier** → **Ajouter une carte** → **Chauffage Fil Pilote**.
 
-![Carte](../docs/images/carte-chauffage.jpg)
+![Carte](https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/carte-chauffage.jpg)
 
 ## Ce qu'elle affiche (découverte automatique)
 

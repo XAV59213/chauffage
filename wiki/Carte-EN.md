@@ -10,7 +10,7 @@ type: custom:electric-heater-card
 
 Dashboard → **Edit** → **Add card** → **Chauffage Fil Pilote**.
 
-![Card](../docs/images/carte-chauffage.jpg)
+![Card](https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/carte-chauffage.jpg)
 
 ## What it shows (auto-discovery)
 
