@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.32 — 2026-10-30
+
+- **Carte : graphique unique** des courbes de température de toutes les pièces / radiateurs (historique HA, 24 h par défaut, une couleur par radiateur, légende). Options `graphique: false` pour le masquer, `heures: 48` pour changer la durée. Rafraîchi toutes les 10 min.
+
 ## 3.1.31 — 2026-10-30
 
 - **Statistiques de chauffe** (statistiques long terme HA) par radiateur : `Temps de chauffe aujourd'hui` / `total` (h) et `Consommation aujourd'hui` / `totale` (kWh estimés = temps de chauffe × puissance).
