@@ -8,6 +8,12 @@ from homeassistant.core import HomeAssistant, State
 from .const import CONF_PERSONS, NOT_PERSON_HINTS
 
 
+_STRONG_HINTS = (
+    "tablette", "tablet", "ipad", "iphone", "android", "mqtt", "telephone", "téléphone",
+    "smartphone", "galaxy", "pixel", "macbook", "laptop", "chromecast", "freebox",
+)
+
+
 def _words(text: str) -> set[str]:
     return set(re.split(r"[^0-9a-zà-ÿ]+", text.lower())) - {""}
 
@@ -18,7 +24,11 @@ def is_real_person(state: State | None) -> bool:
         return False
     name = str(state.attributes.get("friendly_name") or "")
     words = _words(name) | _words(state.entity_id.split(".", 1)[-1])
-    return not any(hint in words for hint in NOT_PERSON_HINTS)
+    if any(hint in words for hint in NOT_PERSON_HINTS):
+        return False
+    # Indices forts collés au nom : ipadpapa, tablettep, iphonexav...
+    flat = f"{name} {state.entity_id}".lower()
+    return not any(hint in flat for hint in _STRONG_HINTS)
 
 
 def tracked_persons(hass: HomeAssistant, data: dict | None) -> list[State]:
