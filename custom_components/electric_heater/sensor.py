@@ -150,9 +150,16 @@ class WhoIsHomeSensor(SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        noms = sorted(
+            (st.attributes.get("friendly_name") or st.entity_id)
+            for st in self.hass.states.async_all("person")
+            if st.state == "home"
+        )
         return {
             "source": self._sensor,
             "count": occupancy_count(self.hass, self._sensor),
+            "personnes": noms,
+            "noms": ", ".join(noms) or "Personne",
         }
 
     async def async_added_to_hass(self):
@@ -162,6 +169,11 @@ class WhoIsHomeSensor(SensorEntity):
         if self._sensor:
             self.async_on_remove(
                 async_track_state_change_event(self.hass, [self._sensor], self._update)
+            )
+        persons = self.hass.states.async_entity_ids("person")
+        if persons:
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, persons, self._update)
             )
         self._update()
 

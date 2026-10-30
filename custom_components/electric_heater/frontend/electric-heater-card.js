@@ -75,6 +75,17 @@ function _discover(hass) {
   };
 }
 
+/* Personnes à la maison : person.* « home » (friendly_name), sinon attribut du capteur Présents. */
+function _presentNames(hass, pres) {
+  const list = Object.keys(hass.states)
+    .filter((id) => id.startsWith("person.") && hass.states[id].state === "home")
+    .map((id) => ({ id, name: _name(hass, id) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  if (list.length) return list;
+  const attr = (pres && pres.attributes.personnes) || [];
+  return attr.map((n) => ({ id: pres.entity_id, name: n }));
+}
+
 function _name(hass, id) {
   const st = hass.states[id];
   return (st && st.attributes.friendly_name) || id;
@@ -135,7 +146,8 @@ class ElectricHeaterCard extends HTMLElement {
     const sig = ids.map((id) => {
       const s = hass.states[id];
       return s ? `${id}|${s.last_updated}` : id;
-    }).join(";");
+    }).join(";") + "#" + Object.keys(hass.states)
+      .filter((id) => id.startsWith("person.") && hass.states[id].state === "home").join(",");
     if (sig === this._sig) return;
     this._sig = sig;
     this._render();
@@ -196,6 +208,11 @@ class ElectricHeaterCard extends HTMLElement {
     if (pres) {
       chips.push(`<div class="chip" data-id="${_esc(e.presents)}">
         <ha-icon icon="${_esc(pres.attributes.icon || "mdi:account-group")}"></ha-icon>${_esc(pres.state)}</div>`);
+    }
+    const noms = _presentNames(hass, pres);
+    if (noms.length) {
+      chips.push(...noms.map((p) => `<div class="chip" data-id="${_esc(p.id)}">
+        <ha-icon icon="mdi:account"></ha-icon>${_esc(p.name)}</div>`));
     }
 
     let alerts = "";
