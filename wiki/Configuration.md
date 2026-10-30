@@ -30,7 +30,7 @@ Paramètres → Appareils et services → Ajouter → **Chauffage Electrique Fil
 | Délai fenêtre ouverte | 45 s par défaut |
 | Renvoi périodique fil pilote | 10 min par défaut (pris en compte après redémarrage) |
 | Notifications | Activées par défaut (voir [Notifications](Notifications.md)) |
-| Service notify en plus | Liste des `notify.*` (application mobile en premier) |
+| Services notify en plus | Un ou plusieurs `notify.*` (ex. téléphone de Maman et de Papa) |
 
 Entité : `climate.electric_heater_central`.
 

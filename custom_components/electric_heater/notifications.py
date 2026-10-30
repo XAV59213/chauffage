@@ -117,9 +117,12 @@ class HeaterNotifier:
         persistent_notification.async_create(
             self.hass, message, title=_TITLE, notification_id=notification_id
         )
-        service = str(self._opt(CONF_NOTIFY_SERVICE, "") or "").strip()
-        if service:
-            service = service.removeprefix("notify.")
+        raw = self._opt(CONF_NOTIFY_SERVICE, []) or []
+        items = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
+        for item in items:
+            service = str(item).strip().removeprefix("notify.")
+            if not service:
+                continue
             if self.hass.services.has_service("notify", service):
                 self.hass.async_create_task(
                     self.hass.services.async_call(

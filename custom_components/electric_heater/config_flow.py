@@ -175,7 +175,22 @@ def _windows_field(defaults, hass: HomeAssistant | None = None):
     return {vol.Optional(CONF_WINDOW_SENSORS): selector_obj}
 
 
-def _notify_selector(hass: HomeAssistant | None, current: str | None = None):
+def notify_list(value) -> list[str]:
+    """Services notify (liste, ou ancien texte « a, b »)."""
+    if not value:
+        return []
+    items = value if isinstance(value, (list, tuple)) else str(value).split(",")
+    out: list[str] = []
+    for item in items:
+        name = str(item).strip()
+        if name and not name.startswith("notify."):
+            name = f"notify.{name}"
+        if name and name not in out:
+            out.append(name)
+    return out
+
+
+def _notify_selector(hass: HomeAssistant | None, current=None):
     """Liste déroulante des services notify.* (application mobile en premier)."""
     names: list[str] = []
     if hass is not None:
@@ -188,10 +203,13 @@ def _notify_selector(hass: HomeAssistant | None, current: str | None = None):
         else:
             label = f"notify.{name}"
         options.append({"value": f"notify.{name}", "label": label})
-    if current and current not in {o["value"] for o in options}:
-        options.append({"value": current, "label": current})
+    for cur in notify_list(current):
+        if cur not in {o["value"] for o in options}:
+            options.append({"value": cur, "label": cur})
     return selector.SelectSelector(
-        selector.SelectSelectorConfig(options=options, mode="dropdown", custom_value=True)
+        selector.SelectSelectorConfig(
+            options=options, mode="dropdown", custom_value=True, multiple=True
+        )
     )
 
 
@@ -281,7 +299,7 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
             ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_NOTIFY_SERVICE,
-                description={"suggested_value": d.get(CONF_NOTIFY_SERVICE) or None},
+                description={"suggested_value": notify_list(d.get(CONF_NOTIFY_SERVICE)) or None},
             ): _notify_selector(hass, d.get(CONF_NOTIFY_SERVICE)),
         }
     )
@@ -386,7 +404,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_PRESENCE_AWAY_MODE, PRESET_ECO
                         ),
                         CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
-                        CONF_NOTIFY_SERVICE: user_input.get(CONF_NOTIFY_SERVICE),
+                        CONF_NOTIFY_SERVICE: notify_list(user_input.get(CONF_NOTIFY_SERVICE)),
                         CONF_PERSONS: user_input.get(CONF_PERSONS) or [],
                         CONF_ABOVE_TARGET_MODE: user_input.get(CONF_ABOVE_TARGET_MODE),
                         CONF_HYSTERESIS: user_input.get(CONF_HYSTERESIS),
@@ -473,7 +491,7 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
                     CONF_WEATHER: user_input.get(CONF_WEATHER),
                     CONF_HEATING_CALENDAR: user_input.get(CONF_HEATING_CALENDAR),
                     CONF_PRESENCE_SENSOR: user_input.get(CONF_PRESENCE_SENSOR),
-                    CONF_NOTIFY_SERVICE: user_input.get(CONF_NOTIFY_SERVICE),
+                    CONF_NOTIFY_SERVICE: notify_list(user_input.get(CONF_NOTIFY_SERVICE)),
                     CONF_PERSONS: user_input.get(CONF_PERSONS) or [],
                     CONF_WINDOW_SENSORS: _normalize_windows(
                         user_input.get(CONF_WINDOW_SENSORS)

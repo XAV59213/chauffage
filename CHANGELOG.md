@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.34 — 2026-10-30
+
+- **Notifications vers plusieurs téléphones** : le champ « Services notify en plus » accepte plusieurs services (ex. `notify.mobile_app_maman` + `notify.mobile_app_papa`). Chaque alerte part vers tous. L'ancienne valeur unique est reprise automatiquement.
+
 ## 3.1.33 — 2026-10-30
 
 - **Carte** : pastille « Calendrier chauffage actif / inactif » à côté de « Sondes OK » (capteur `Calendrier chauffage activé`, option `calendrier` pour forcer l'entité).
