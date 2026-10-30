@@ -5,6 +5,7 @@ from .const import (
     HYSTERESIS,
     PRESET_COMFORT,
     PRESET_COMFORT_M1,
+    PRESET_COMFORT_M2,
     PRESET_ECO,
     PRESET_FROST_PROTECTION,
     PRESET_OFF,
@@ -29,20 +30,38 @@ def should_heat(
     return heating
 
 
+HEATING_ORDERS = {PRESET_COMFORT, PRESET_COMFORT_M1, PRESET_COMFORT_M2}
+
+
+def order_heats(order: str | None) -> bool:
+    """Vrai si l'ordre fil pilote fait chauffer le radiateur (Confort, -1, -2)."""
+    return order in HEATING_ORDERS
+
+
 def regulate_preset(
     base: str,
     current: float | None,
     target: float | None,
+    last: str | None = None,
 ) -> str:
-    """Adapte l'ordre fil pilote à l'écart consigne / pièce."""
+    """Adapte l'ordre fil pilote à l'écart consigne / pièce.
+
+    - au-dessus de la consigne : Eco (non chauffant) ;
+    - sous consigne - hystérésis : l'ordre de base, jamais plus chaud que lui ;
+    - entre les deux : on garde le dernier ordre envoyé (hystérésis avec mémoire).
+    """
     if base in _HOLD:
         return base
     if current is None or target is None:
         return base
+    if base not in HEATING_ORDERS:
+        # Eco (absence, nuit...) : jamais remonter en Confort.
+        return base
     hyst = HYSTERESIS.get(base, 0.3)
     if current >= target:
-        # Au-dessus de la consigne : ordre non chauffant
         return PRESET_ECO
     if current <= target - hyst:
-        return PRESET_COMFORT
+        return base
+    if last == PRESET_ECO:
+        return PRESET_ECO
     return base
