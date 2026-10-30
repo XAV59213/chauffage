@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.3 — 2026-10-30
+
+- **Absence / Eco ne force plus Confort** : sous la consigne, l'ordre fil pilote ne remonte jamais au-dessus de l'ordre de base (un radiateur en Eco reste en Eco).
+- **Hystérésis avec mémoire** : entre consigne − hystérésis et consigne, le dernier ordre envoyé est conservé, ce qui supprime le va-et-vient Confort / Eco autour de la consigne.
+- **hvac_action cohérent** : l'état Chauffe / Inactif des radiateurs est déduit de l'ordre fil pilote réellement envoyé (Confort, −1, −2 = chauffe ; Eco, Hors-gel, Arrêt = inactif). Nouvel attribut `ordre_envoye`.
+
 ## 3.1.2 — 2026-10-30
 
 - **Régulation au-dessus de la consigne** : quand la pièce dépasse la consigne, l'ordre fil pilote passe en Eco (non chauffant) au lieu de Confort −1, qui restait un ordre de chauffe via le thermostat interne du radiateur.
