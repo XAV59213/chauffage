@@ -15,6 +15,7 @@ from .const import (
 )
 from .fil_pilote import windows_from_entry
 from .frontend import async_register_card
+from .notifications import HeaterNotifier
 
 PLATFORMS = ["climate", "sensor", "binary_sensor"]
 
@@ -55,6 +56,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             sw_version=VERSION,
         )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if entry.data.get("type") == CENTRAL:
+        notifier = HeaterNotifier(hass, entry)
+        hass.data[DOMAIN]["notifier"] = notifier
+        entry.async_on_unload(notifier.async_stop)
+        await notifier.async_start()
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 

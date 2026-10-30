@@ -327,7 +327,8 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "temperature_sensor": self._reference_sensor,
             "window_open": self._window_open,
             "window_mode": self._window_mode,
-            "fenetre": "Ouverte" if self._window_open else "Fermee",
+            "fenetre": "Ouverte" if (self._window_open or self._windows_live_open()) else "Fermee",
+            "fenetre_detectee": self._windows_live_open(),
             "hysteresis": hysteresis_for(self._preset_mode, self._comfort_hyst()),
             "rooms": [e.title for e in iter_room_entries(self.hass)],
         }
@@ -710,6 +711,10 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._relay_check = None
 
     @callback
+    def _any_window_open_live(self) -> bool:
+        """Fenêtre de la pièce détectée ouverte maintenant (avant le délai de coupure)."""
+        return entry_windows_open(self.hass, self.entry)
+
     def _on_window_delay(self, _now=None):
         self._window_delay = None
         if entry_windows_open(self.hass, self.entry) and not self._window_open:
@@ -777,7 +782,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         mode = self._order_base()
         return {
             "window_open": self._window_open,
-            "fenetre": "Ouverte" if self._window_open else "Fermee",
+            "fenetre": "Ouverte" if (self._window_open or self._any_window_open_live()) else "Fermee",
+            "fenetre_detectee": self._any_window_open_live(),
             "follow_central": self._follow_central,
             "manual_preset": None if self._follow_central else self._preset_mode,
             "fil_pilote_mode": mode,

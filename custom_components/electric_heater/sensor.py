@@ -311,6 +311,12 @@ class WindowStateSensor(SensorEntity):
         if not sensors:
             self._attr_native_value = "Non configuree"
             self._attr_icon = "mdi:window-closed-variant"
+        elif not opened and all(
+            (st := self.hass.states.get(eid)) is None or st.state in ("unknown", "unavailable")
+            for eid in sensors
+        ):
+            self._attr_native_value = "Indisponible"
+            self._attr_icon = "mdi:window-shutter-alert"
         elif opened:
             self._attr_native_value = "Ouverte"
             self._attr_icon = "mdi:window-open-variant"

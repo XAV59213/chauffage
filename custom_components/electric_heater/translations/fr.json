@@ -35,7 +35,9 @@
           "above_target_mode": "Ordre quand la piece depasse la consigne (Eco par defaut)",
           "hysteresis": "Hysteresis Confort (C)",
           "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
-          "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)"
+          "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)",
+          "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
+          "notify_service": "Service notify en plus (optionnel, ex. notify.mobile_app_telephone)"
         }
       },
       "room": {
@@ -92,7 +94,9 @@
           "above_target_mode": "Ordre quand la piece depasse la consigne (Eco par defaut)",
           "hysteresis": "Hysteresis Confort (C)",
           "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
-          "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)"
+          "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)",
+          "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
+          "notify_service": "Service notify en plus (optionnel, ex. notify.mobile_app_telephone)"
         }
       },
       "room": {
