@@ -94,25 +94,40 @@ Details : [wiki/Configuration.md](wiki/Configuration.md).
 2. Ajouter l'integration **a nouveau** pour chaque radiateur (relais + sonde + fenetre piece).
 3. Modifier plus tard via **Configurer**.
 
+<p align="center">
+  <img src="docs/images/config-thermostat.jpg" alt="Configuration du thermostat virtuel" width="320">
+</p>
+
+<details>
+<summary>Autres écrans de configuration</summary>
+
+<p align="center">
+  <img src="docs/images/config-thermostat-2.jpg" alt="Configuration 2" width="240">
+  <img src="docs/images/config-thermostat-3.jpg" alt="Configuration 3" width="240">
+  <img src="docs/images/config-thermostat-4.jpg" alt="Configuration 4" width="240">
+  <img src="docs/images/config-thermostat-5.jpg" alt="Configuration 5" width="240">
+</p>
+
+</details>
+
 ---
 
 ## Carte Lovelace
 
-```yaml
-type: vertical-stack
-cards:
-  - type: thermostat
-    entity: climate.electric_heater_central
-    name: Thermostat virtuel
+Carte native livrée avec l'intégration : **Chauffage Fil Pilote**.
 
-  - type: glance
-    title: Radiateurs
-    entities:
-      - climate.salon_chauffage_salon
-      - climate.chambre_chauffage_chambre
-      - climate.cuisine_chauffage_cuisine
-    state_color: true
+```yaml
+type: custom:electric-heater-card
 ```
+
+Tableau de bord → **Modifier** → **Ajouter une carte** → chercher **Chauffage Fil Pilote**.
+Aucune option nécessaire : thermostat central, radiateurs, fenêtres (état + pile), sondes (pile), présents et alertes sont trouvés automatiquement.
+
+<p align="center">
+  <img src="docs/images/carte-chauffage.jpg" alt="Carte Chauffage Fil Pilote" width="320">
+</p>
+
+Options, ressource manuelle et exemples : [examples/lovelace/README.md](examples/lovelace/README.md).
 
 L'entity_id d'un radiateur = nom de la piece + « Chauffage » + nom de la piece (ex. piece « Salon » → `climate.salon_chauffage_salon`). Verifier dans **Parametres → Entites**.
 
