@@ -102,6 +102,15 @@ def _number(min_v, max_v, step=0.1):
     )
 
 
+def _temp_default(d: dict, key: str, default: float, lo: float, hi: float) -> float:
+    """Valeur par défaut d'une consigne : arrondie à 0,1 °C et ramenée dans les bornes du champ."""
+    try:
+        value = round(float(d.get(key, default)), 1)
+    except (TypeError, ValueError):
+        value = default
+    return min(max(value, lo), hi)
+
+
 def _with_default(key, selector_obj, defaults, required=False):
     val = (defaults or {}).get(key)
     marker = vol.Required if required else vol.Optional
@@ -257,22 +266,22 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
     schema.update(
         {
             vol.Required(
-                "comfort_temp", default=d.get("comfort_temp", 20.0)
+                "comfort_temp", default=_temp_default(d, "comfort_temp", 20.0, 15, 30)
             ): _number(15, 30),
             vol.Required(
-                "comfort_m1_temp", default=d.get("comfort_m1_temp", 19.0)
+                "comfort_m1_temp", default=_temp_default(d, "comfort_m1_temp", 19.0, 15, 30)
             ): _number(15, 30),
             vol.Required(
-                "comfort_m2_temp", default=d.get("comfort_m2_temp", 18.0)
+                "comfort_m2_temp", default=_temp_default(d, "comfort_m2_temp", 18.0, 15, 30)
             ): _number(15, 30),
             vol.Required(
-                "eco_temp", default=d.get("eco_temp", 16.5)
+                "eco_temp", default=_temp_default(d, "eco_temp", 16.5, 10, 25)
             ): _number(10, 25),
             vol.Required(
-                "frost_temp", default=d.get("frost_temp", 7.0)
-            ): _number(5, 10),
-            vol.Required("min_temp", default=d.get("min_temp", 7.0)): _number(5, 15),
-            vol.Required("max_temp", default=d.get("max_temp", 30.0)): _number(20, 35),
+                "frost_temp", default=_temp_default(d, "frost_temp", 7.0, 5, 15)
+            ): _number(5, 15),
+            vol.Required("min_temp", default=_temp_default(d, "min_temp", 7.0, 5, 15)): _number(5, 15),
+            vol.Required("max_temp", default=_temp_default(d, "max_temp", 30.0, 20, 35)): _number(20, 35),
             vol.Required("temp_step", default=d.get("temp_step", 0.1)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0.1, max=1.0, step=0.1, mode="box")
             ),
@@ -314,6 +323,10 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_central(self, user_input=None):
         errors: dict[str, str] = {}
         if user_input is not None:
+            for _key in ("comfort_temp", "comfort_m1_temp", "comfort_m2_temp", "eco_temp",
+                         "frost_temp", "min_temp", "max_temp"):
+                if isinstance(user_input.get(_key), (int, float)):
+                    user_input[_key] = round(float(user_input[_key]), 1)
             method = user_input[CONF_TEMP_METHOD]
             sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
             if method == CONF_TEMP_METHOD_REFERENCE and not sensor:
@@ -412,6 +425,10 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
     async def async_step_central(self, user_input=None):
         errors: dict[str, str] = {}
         if user_input is not None:
+            for _key in ("comfort_temp", "comfort_m1_temp", "comfort_m2_temp", "eco_temp",
+                         "frost_temp", "min_temp", "max_temp"):
+                if isinstance(user_input.get(_key), (int, float)):
+                    user_input[_key] = round(float(user_input[_key]), 1)
             method = user_input[CONF_TEMP_METHOD]
             sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
             if method == CONF_TEMP_METHOD_REFERENCE and not sensor:
