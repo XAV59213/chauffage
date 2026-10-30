@@ -49,7 +49,8 @@
           "fil_pilote_select": "Pilot-wire relay (select or climate)",
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors (optional)",
-          "power": "Radiator power (W, for estimated consumption; 0 = not tracked)"
+          "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
         }
       }
     },
@@ -110,7 +111,8 @@
           "fil_pilote_select": "Pilot-wire relay",
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors",
-          "power": "Radiator power (W, for estimated consumption; 0 = not tracked)"
+          "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
         }
       }
     }

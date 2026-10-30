@@ -44,6 +44,7 @@ Add the integration **again** for each room.
 | Pilot wire relay | `select.*pilot_wire_mode` or `climate` |
 | Room sensor | Required |
 | Room window(s) | Only **this** radiator goes to window mode |
+| Energy meter | Optional; empty = auto-detect a `sensor.*_energy` |
 | Power (W) | For estimated consumption (0 = not tracked) |
 
 ## 3. Change later
