@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.22 — 2026-10-30
+
+- **Carte : détecteurs de la même pièce** : en plus des détecteurs configurés, la carte affiche les `binary_sensor` fenêtre / porte / ouverture situés dans la même pièce Home Assistant (zone de l'entité ou de son appareil) qu'un radiateur ou que le thermostat central — ex. détecteur fenêtre papa, salon. Les capteurs batterie, sabotage, problème et ceux de l'intégration sont ignorés.
+
 ## 3.1.21 — 2026-10-30
 
 - **Carte : tous les détecteurs de fenêtre** (thermostat central et chaque radiateur) sont affichés. La déduplication de la 3.1.19 masquait à tort des détecteurs sans pile trouvée dont le nom ressemblait partiellement à un autre (fenetre_papa, fenetre_cuisine…). Elle ne fusionne plus que le même appareil, le même capteur de batterie ou exactement le même nom (hors « Détecteur » et suffixes techniques).
