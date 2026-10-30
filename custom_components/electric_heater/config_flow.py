@@ -122,11 +122,9 @@ def _with_default(key, selector_obj, defaults, required=False):
 
 
 def _parse_windows(value):
-    if not value:
-        return []
-    if isinstance(value, (list, tuple)):
-        return [str(s) for s in value if s]
-    return [s.strip() for s in str(value).split(",") if s.strip()]
+    from .fil_pilote import parse_window_sensors
+
+    return parse_window_sensors({CONF_WINDOW_SENSORS: value})
 
 
 def _window_options(hass: HomeAssistant | None, current: list[str] | None = None):
