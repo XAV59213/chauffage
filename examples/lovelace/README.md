@@ -7,7 +7,7 @@ type: custom:electric-heater-card
 ```
 
 <p align="center">
-  <img src="../../docs/images/carte-chauffage.jpg" alt="Carte Chauffage Fil Pilote" width="320">
+  <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/carte-chauffage.jpg" alt="Carte Chauffage Fil Pilote" width="320">
 </p>
 
 Après mise à jour (HACS) : **redémarre Home Assistant** puis vide le cache du navigateur (ou recharge l'app).
