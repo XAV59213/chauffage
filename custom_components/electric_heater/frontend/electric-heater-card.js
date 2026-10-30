@@ -47,7 +47,16 @@ function _statsFor(hass, id) {
   };
   const h = ids.filter((x) => x.includes("temps_de_chauffe") && x.includes("aujourd")).map(val)[0];
   const kwh = ids.filter((x) => x.includes("consommation") && x.includes("aujourd")).map(val)[0];
-  return { h: h ?? null, kwh: kwh ?? null };
+  // Compteur réel (sensor.*_energy) lié au radiateur ou somme centrale.
+  let meter = null;
+  const linked = hass.states[id] && hass.states[id].attributes.energy_sensor;
+  const meterId = linked || ids.find((x) => x.includes("conso_compteurs") || x.includes("consommation_radiateurs"));
+  if (meterId && hass.states[meterId]) {
+    const ms = hass.states[meterId];
+    const n = Number(ms.state);
+    if (Number.isFinite(n)) meter = ms.attributes.unit_of_measurement === "Wh" ? n / 1000 : n;
+  }
+  return { h: h ?? null, kwh: kwh ?? null, meter };
 }
 
 function _fmtStats(st) {
@@ -58,6 +67,10 @@ function _fmtStats(st) {
   }
   if (st.kwh) parts.push(`⚡ ${st.kwh.toFixed(2)} kWh`);
   return parts.join(" · ");
+}
+
+function _fmtMeter(st) {
+  return st.meter !== null && st.meter !== undefined ? `🔌 ${st.meter.toFixed(1)} kWh compteur` : "";
 }
 
 function _discover(hass) {
@@ -365,7 +378,7 @@ class ElectricHeaterCard extends HTMLElement {
       const dev = (hass.entities || {})[w] && hass.entities[w].device_id;
       return dev ? Object.keys(hass.entities).filter((id) => hass.entities[id].device_id === dev) : [w];
     });
-    const statIds = Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && (x.includes("temps_de_chauffe") || x.includes("consommation")));
+    const statIds = Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && (x.includes("temps_de_chauffe") || x.includes("consommation") || x.includes("conso") || x.endsWith("_energy")));
     const ids = [...bats, ...statIds, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
       this._ents.presents, ...this._ents.radiateurs];
     const sig = ids.map((id) => {
@@ -453,8 +466,10 @@ class ElectricHeaterCard extends HTMLElement {
         <br><span class="muted">Radiateurs concernés en Hors-gel par sécurité.</span></div>`;
     }
 
-    const tot = _fmtStats(_statsFor(hass, e.central));
+    const totS = _statsFor(hass, e.central);
+    const tot = _fmtStats(totS);
     if (tot) chips.push(`<div class="chip">${tot} aujourd'hui</div>`);
+    if (_fmtMeter(totS)) chips.push(`<div class="chip">${_fmtMeter(totS).replace("compteur", "total compteurs")}</div>`);
 
     const piles = _windowBatteries(hass, e.detecteurs || []);
     const pilesSondes = _batteries(hass, e.sondes || []);
@@ -498,7 +513,7 @@ class ElectricHeaterCard extends HTMLElement {
       const win = a.window_open || a.fenetre_detectee ? ` <ha-icon icon="mdi:window-open-variant" style="--mdc-icon-size:16px"></ha-icon>` : "";
       return `<div class="row" data-id="${_esc(id)}">
         <ha-icon icon="${heat ? "mdi:radiator" : "mdi:radiator-disabled"}"></ha-icon>
-        <div class="n">${_esc(a.friendly_name || id)}${win}${(() => { const t = _fmtStats(_statsFor(hass, id)); return t ? `<div class="muted" style="font-size:12px">${t} aujourd'hui</div>` : ""; })()}</div>
+        <div class="n">${_esc(a.friendly_name || id)}${win}${(() => { const x = _statsFor(hass, id); const t = [_fmtStats(x) && `${_fmtStats(x)} aujourd'hui`, _fmtMeter(x)].filter(Boolean).join(" · "); return t ? `<div class="muted" style="font-size:12px">${t}</div>` : ""; })()}</div>
         ${badge}
         <div class="t">${_num(a.current_temperature)}° <span class="muted">/ ${_num(a.temperature)}°</span></div>
       </div>`;
