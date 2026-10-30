@@ -272,6 +272,28 @@ class ElectricHeaterCard extends HTMLElement {
           .forEach((w) => allWin.add(w.trim()));
       }
     }
+    // + détecteurs fenêtre / porte de la même pièce (zone HA) que chaque radiateur ou le central.
+    const reg = hass.entities || {};
+    const devs = hass.devices || {};
+    const areaOf = (id) => {
+      const e = reg[id];
+      if (!e) return null;
+      return e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id) || null;
+    };
+    const areas = new Set([...this._ents.radiateurs, this._ents.central].map(areaOf).filter(Boolean));
+    const WIN_CLASSES = ["window", "door", "opening", "garage_door"];
+    if (areas.size) {
+      for (const id of Object.keys(hass.states)) {
+        if (!id.startsWith("binary_sensor.")) continue;
+        const st = hass.states[id];
+        const dc = st.attributes.device_class;
+        const hint = `${id} ${st.attributes.friendly_name || ""}`.toLowerCase();
+        if ((reg[id] && reg[id].platform === DOMAIN) || /batter|_low|tamper|problem|update|connect|securit|alarm|vibration/.test(hint)) continue;
+        if (dc && !WIN_CLASSES.includes(dc)) continue;
+        const isWin = WIN_CLASSES.includes(dc) || /fen[eê]tre|window|baie|porte/.test(hint);
+        if (isWin && areas.has(areaOf(id))) allWin.add(id);
+      }
+    }
     this._ents.detecteurs = Array.isArray(c.detecteurs_fenetre) && c.detecteurs_fenetre.length
       ? c.detecteurs_fenetre
       : [...allWin];
