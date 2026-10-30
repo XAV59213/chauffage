@@ -14,6 +14,7 @@ from .const import (
     VERSION,
 )
 from .fil_pilote import windows_from_entry
+from .frontend import async_register_card
 
 PLATFORMS = ["climate", "sensor", "binary_sensor"]
 
@@ -39,6 +40,9 @@ def _track_windows(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {}).setdefault("snapshots", {})[entry.entry_id] = _snapshot(entry)
+    if not hass.data[DOMAIN].get("_card_registered"):
+        await async_register_card(hass)
+        hass.data[DOMAIN]["_card_registered"] = True
     _track_windows(hass, entry)
     if entry.data.get("type") == CENTRAL:
         device_registry = dr.async_get(hass)
