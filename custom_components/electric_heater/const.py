@@ -129,6 +129,15 @@ CONF_WINDOW_OFF_DELAY = "window_off_delay"
 CONF_RESYNC_INTERVAL = "resync_interval"
 # Notifications (pile / sonde KO, fenêtre ouverte)
 CONF_NOTIFICATIONS = "notifications"
+# Personnes suivies pour « Présents » (vide = détection automatique)
+CONF_PERSONS = "persons"
+# Entités person qui sont en fait des appareils / la maison (exclues automatiquement)
+NOT_PERSON_HINTS = (
+    "tablette", "tablet", "ipad", "iphone", "android", "telephone", "téléphone", "phone",
+    "mqtt", "mqtta", "maison", "home", "tv", "television", "télévision", "pc", "ordinateur",
+    "macbook", "laptop", "chromecast", "alexa", "echo", "box", "freebox", "serveur",
+    "server", "voiture", "car", "koleos",
+)
 CONF_NOTIFY_SERVICE = "notify_service"
 DEFAULT_CALENDAR_OFF_MODE = PRESET_FROST_PROTECTION
 
