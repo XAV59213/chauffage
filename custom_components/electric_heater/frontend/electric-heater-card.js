@@ -620,6 +620,24 @@ class ElectricHeaterCard extends HTMLElement {
         ${this._graph()}
         ${pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Détecteurs de fenêtre (état et pile)</div>${pileRows}</div>` : ""}
         ${sondeRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des sondes de température</div>${sondeRows}</div>` : ""}
+        ${(() => {
+          const fmtH = (h) => { const m = Math.round((h || 0) * 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`; };
+          let totH = 0, totK = 0, anyK = false;
+          const lines = e.radiateurs.map((id) => {
+            const x = _statsFor(hass, id);
+            if (x.h === null && x.kwh === null) return "";
+            totH += x.h || 0;
+            if (x.kwh !== null) { totK += x.kwh; anyK = anyK || x.kwh > 0; }
+            const nom = _name(hass, id).replace(/^Radiateur\s*/i, "").replace(/\s*Chauffage.*$/i, "");
+            return `<div class="row" data-id="${_esc(id)}"><ha-icon icon="mdi:lightning-bolt"></ha-icon>
+              <div class="n">${_esc(nom)}</div><span class="badge">${fmtH(x.h)}</span>
+              <div class="t">${x.kwh !== null && x.kwh > 0 ? `${x.kwh.toFixed(2)} kWh` : "–"}</div></div>`;
+          }).join("");
+          if (!lines) return "";
+          return `<div class="rows"><div class="muted" style="margin-top:6px">Consommation du jour par radiateur</div>${lines}
+            <div class="row"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
+              <span class="badge">${fmtH(totH)}</span><div class="t"><b>${anyK ? `${totK.toFixed(2)} kWh` : "–"}</b></div></div></div>`;
+        })()}
       </ha-card>`;
     this.shadowRoot.querySelectorAll("[data-id]").forEach((el) =>
       el.addEventListener("click", () => this._more(el.getAttribute("data-id")))

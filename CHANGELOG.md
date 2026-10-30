@@ -3,6 +3,7 @@
 ## 3.1.33 — 2026-10-30
 
 - **Carte** : pastille « Calendrier chauffage actif / inactif » à côté de « Sondes OK » (capteur `Calendrier chauffage activé`, option `calendrier` pour forcer l'entité).
+- **Carte** : section « Consommation du jour par radiateur » sous les piles des sondes (temps de chauffe + kWh estimés) avec ligne Total.
 
 ## 3.1.32 — 2026-10-30
 

@@ -19,6 +19,7 @@ Dashboard → **Edit** → **Add card** → **Chauffage Fil Pilote**.
 - Each radiator: pilot wire order, temperature / setpoint, window, sensor KO.
 - **Window detectors**: Open / Closed + battery (%). Detectors configured on the thermostat and each radiator, plus those in the same HA area.
 - **Batteries of room temperature sensors**.
+- **Daily consumption per radiator** (time + kWh) and total.
 
 - **Chart**: temperature curves of all radiators (24 h by default).
 
