@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.15 — 2026-10-30
+
+- **Service notify en liste déroulante** : le champ « Service notify en plus » propose les services `notify.*` existants, applications mobiles (`mobile_app_…`) en premier. Saisie libre toujours possible.
+- Rappel : les consignes du formulaire sont arrondies à 0,1 °C depuis la 3.1.14 (mettre à jour puis redémarrer Home Assistant et recharger l'application pour ne plus voir 20,199999…).
+
 ## 3.1.14 — 2026-10-30
 
 - **Correctif « Temperature Confort 20,199999999999998 »** : les champs de température du formulaire n'imposent plus de pas de 0,1 côté navigateur (le calcul par pas produisait ces valeurs). L'arrondi à 0,1 °C est fait par l'intégration, en décimal exact, sur toutes les consignes (Confort, -1, -2, Eco, Hors-gel, min, max) et l'hystérésis : valeurs affichées, saisie et thermostat.
