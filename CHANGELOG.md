@@ -3,6 +3,7 @@
 ## 3.1.23 — 2026-10-30
 
 - **Carte : détecteur du salon** : sont aussi ajoutés les `binary_sensor` fenêtre / porte / ouverture dont le nom contient la pièce d'un radiateur (zone Home Assistant, ou salon, séjour, cuisine, entrée, bureau…), même s'ils ne sont pas rangés dans la bonne zone.
+- **Correctif : les détecteurs configurés sur un radiateur (Configurer) sont toujours listés**. Ils étaient lus seulement dans les données initiales de la pièce et pas dans ses options (cas du détecteur du salon). Les radiateurs exposent maintenant l'attribut `window_sensors`, que la carte lit directement ; capteurs « État fenêtre » et « Sécurité Fenêtre » corrigés de la même façon.
 - Chaque détecteur affiche sa pièce Home Assistant à côté du nom (ex. « Détecteur baie vitrée · Salon »).
 
 ## 3.1.22 — 2026-10-30

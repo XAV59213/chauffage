@@ -272,6 +272,14 @@ class ElectricHeaterCard extends HTMLElement {
           .forEach((w) => allWin.add(w.trim()));
       }
     }
+    // Détecteurs configurés sur chaque radiateur (Configurer) : toujours listés.
+    for (const rid of this._ents.radiateurs) {
+      const ws = hass.states[rid] && hass.states[rid].attributes.window_sensors;
+      if (Array.isArray(ws)) {
+        ws.filter((w) => typeof w === "string" && /^(binary_sensor|sensor|input_boolean|cover)\.[a-z0-9_]+$/.test(w.trim()))
+          .forEach((w) => allWin.add(w.trim()));
+      }
+    }
     // + détecteurs fenêtre / porte de la même pièce (zone HA) que chaque radiateur ou le central.
     const reg = hass.entities || {};
     const devs = hass.devices || {};
