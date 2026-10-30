@@ -146,8 +146,20 @@ function _batteryFor(hass, eid) {
   const st = hass.states[eid];
   const attrPct = st && Number(st.attributes.battery);
   if (pct === null && Number.isFinite(attrPct)) { pct = attrPct; src = eid; }
-  return { id: src || eid, name: _name(hass, eid), pct, low: low === true || (pct !== null && pct <= PILE_FAIBLE),
+  return { id: src || eid, eid, name: _name(hass, eid), pct, low: low === true || (pct !== null && pct <= PILE_FAIBLE),
     unknown: pct === null && low === null };
+}
+
+const OUVERT = ["on", "open", "opened", "opening", "true", "1", "ouvert", "ouverte"];
+const FERME = ["off", "closed", "closing", "false", "0", "ferme", "fermé", "fermee", "fermée"];
+function _windowState(hass, eid) {
+  const st = hass.states[eid];
+  if (!st || ["unknown", "unavailable"].includes(st.state)) return "indispo";
+  const v = String(st.state).toLowerCase();
+  if (OUVERT.includes(v)) return "ouvert";
+  if (FERME.includes(v)) return "ferme";
+  if (typeof st.attributes.contact === "boolean") return st.attributes.contact ? "ferme" : "ouvert";
+  return "indispo";
 }
 
 function _base(eid) {
@@ -364,13 +376,26 @@ class ElectricHeaterCard extends HTMLElement {
         <ha-icon icon="${faibles.length ? "mdi:battery-alert" : "mdi:battery-high"}"></ha-icon>
         ${faibles.length ? `${faibles.length} pile${faibles.length > 1 ? "s" : ""} faible${faibles.length > 1 ? "s" : ""}` : "Piles OK"}</div>`);
     }
+    const etat = (p) => {
+      const w = _windowState(hass, p.eid);
+      if (w === "ouvert") return `<span class="badge" style="background:rgba(255,152,0,.2);color:var(--warning-color,#ff9800)">🪟 Ouvert</span>`;
+      if (w === "ferme") return `<span class="badge">Fermé</span>`;
+      return `<span class="badge ko">Indisponible</span>`;
+    };
+    const winRow = (p) => `<div class="row" data-id="${_esc(p.eid)}">
+        <ha-icon icon="${_windowState(hass, p.eid) === "ouvert" ? "mdi:window-open-variant" : "mdi:window-closed-variant"}"></ha-icon>
+        <div class="n">${_esc(p.name)}</div>
+        ${etat(p)}
+        ${p.low ? `<span class="badge ko">Pile faible</span>` : p.unknown ? `<span class="badge">Pile ?</span>` : ""}
+        <div class="t">${p.pct !== null ? `🔋 ${Math.round(p.pct)} %` : ""}</div>
+      </div>`;
     const pileRow = (p) => `<div class="row" data-id="${_esc(p.id)}">
         <ha-icon icon="${p.low ? "mdi:battery-alert" : p.pct !== null && p.pct < 50 ? "mdi:battery-50" : "mdi:battery-high"}"></ha-icon>
         <div class="n">${_esc(p.name)}</div>
         ${p.low ? `<span class="badge ko">Pile faible</span>` : p.unknown ? `<span class="badge">Pile ?</span>` : `<span class="badge">OK</span>`}
         <div class="t">${p.pct !== null ? `${Math.round(p.pct)} %` : ""}</div>
       </div>`;
-    const pileRows = piles.map(pileRow).join("");
+    const pileRows = piles.map(winRow).join("");
     const sondeRows = pilesSondes.map(pileRow).join("");
 
     const rows = e.radiateurs.map((id) => {
@@ -397,7 +422,7 @@ class ElectricHeaterCard extends HTMLElement {
         <div class="chips">${chips.join("")}</div>
         ${alerts}
         <div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>
-        ${pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des détecteurs de fenêtre</div>${pileRows}</div>` : ""}
+        ${pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Détecteurs de fenêtre (état et pile)</div>${pileRows}</div>` : ""}
         ${sondeRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des sondes de température</div>${sondeRows}</div>` : ""}
       </ha-card>`;
     this.shadowRoot.querySelectorAll("[data-id]").forEach((el) =>
