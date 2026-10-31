@@ -7,6 +7,7 @@ from datetime import timedelta
 
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
+from .device_link import via_central
 from .const import (
     CENTRAL,
     CENTRAL_ENTITY_ID,
@@ -273,7 +274,7 @@ class RoomWindowSecurity(BinarySensorEntity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            "via_device": (DOMAIN, "electric_heater_central"),
+            **via_central(getattr(self, "hass", None)),
         }
 
     async def async_added_to_hass(self):

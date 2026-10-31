@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.43
+- Compatibilité HA 2027 : thermostats central/radiateurs passent à l'API climate `native_*` (`_attr_native_temperature_unit`, `native_current_temperature`, `native_target_temperature`) — fin des avertissements (retrait en 2027.11), anciennes versions HA toujours supportées. / Climate native_* API.
+- Lien appareils radiateurs → thermostat central via `via_device_id` au lieu de `via_device` (déprécié, retrait 2027.8) — climate, sensor, binary_sensor, stats. / via_device_id.
+- Radiateurs : mise à jour d'état allégée (détection fenêtres de la pièce et compteur d'énergie mis en cache 60 s au lieu d'un scan complet des registres à chaque écriture) — corrige « Updating state … took 1.1 s ». / Faster state updates.
+
 ## 3.1.42
 - Carte Lovelace réglable avec éditeur visuel : titre, thermostat central, choix des radiateurs, sections affichables (en-tête, badges, alertes, radiateurs, graphique, fenêtres, piles sondes, consommation), durée du graphique, détecteurs. / Configurable card with visual editor.
 

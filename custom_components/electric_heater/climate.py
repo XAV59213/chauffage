@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 import logging
+import time
 from typing import Any
 
 from homeassistant.components.climate import (
@@ -23,7 +24,9 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.helpers.restore_state import RestoreEntity
 
+from .device_link import via_central
 from .const import (
+    CONF_WINDOW_INVERT,
     CENTRAL_ENTITY_ID,
     CONF_CALENDAR_OFF_MODE,
     CONF_CALENDAR_ON_MODE,
@@ -63,6 +66,7 @@ from .const import (
 )
 from .stats import room_energy_sensor
 from .fil_pilote import (
+    any_window_open,
     apply_fil_pilote,
     central_window_open,
     entry_windows_open,
@@ -79,6 +83,9 @@ from .fil_pilote import (
 from .temps import round_temp
 from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
+
+# HA >= 2026.x : API climate « native_* » (anciens noms retirés en 2027.11).
+_NATIVE_CLIMATE = hasattr(ClimateEntity, "native_temperature_unit")
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -164,7 +171,10 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     _attr_translation_key = "central"
     _attr_unique_id = "electric_heater_central"
     entity_id = CENTRAL_ENTITY_ID
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    if _NATIVE_CLIMATE:
+        _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+    else:
+        _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.AUTO, HVACMode.HEAT, HVACMode.OFF]
     _attr_preset_modes = PRESETS
     _attr_supported_features = SUPPORTED_FEATURES
@@ -287,16 +297,20 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         }
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         return self._current_temp
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         return self._target_temp
 
     @property
     def hvac_mode(self) -> HVACMode:
         return self._hvac_mode
+
+    if not _NATIVE_CLIMATE:
+        current_temperature = native_current_temperature
+        target_temperature = native_target_temperature
 
     @property
     def hvac_action(self) -> HVACAction:
@@ -675,7 +689,10 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     _attr_has_entity_name = True
     _attr_name = None
     _attr_translation_key = "room"
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    if _NATIVE_CLIMATE:
+        _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+    else:
+        _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.AUTO, HVACMode.HEAT, HVACMode.OFF]
     _attr_preset_modes = PRESETS
     _attr_supported_features = SUPPORTED_FEATURES
@@ -718,10 +735,35 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._relay_check()
             self._relay_check = None
 
+    def _cached_value(self, key: str, compute, ttl: float = 60.0):
+        """Résultat coûteux (scan registres / pièces) mis en cache ``ttl`` s.
+
+        Évite « Updating state ... took > 1 s » : ces valeurs étaient recalculées à
+        chaque écriture d'état (scan de toutes les entités HA).
+        """
+        cache = self.__dict__.setdefault("_expensive_cache", {})
+        now = time.monotonic()
+        hit = cache.get(key)
+        if hit is not None and now - hit[0] < ttl:
+            return hit[1]
+        value = compute()
+        cache[key] = (now, value)
+        return value
+
     @callback
     def _any_window_open_live(self) -> bool:
         """Fenêtre de la pièce détectée ouverte maintenant (avant le délai de coupure)."""
-        return entry_windows_open(self.hass, self.entry)
+        sensors = self._cached_value(
+            "windows", lambda: windows_from_entry(self.entry, self.hass)
+        )
+        if not sensors:
+            return False
+        opened = any_window_open(self.hass, sensors)
+        if self.entry.data.get(CONF_WINDOW_INVERT) or (self.entry.options or {}).get(
+            CONF_WINDOW_INVERT
+        ):
+            return not opened
+        return opened
 
     def _on_window_delay(self, _now=None):
         self._window_delay = None
@@ -737,15 +779,15 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "name": self.entry.data["name"],
             "manufacturer": "XAV59213",
             "model": "Radiateur fil pilote",
-            "via_device": (DOMAIN, "electric_heater_central"),
+            **via_central(getattr(self, "hass", None)),
         }
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         return self._current_temp
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         if self._any_window_open():
             base = self._order_base()
             if base != PRESET_OFF:
@@ -755,6 +797,10 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     @property
     def hvac_mode(self) -> HVACMode:
         return self._hvac_mode
+
+    if not _NATIVE_CLIMATE:
+        current_temperature = native_current_temperature
+        target_temperature = native_target_temperature
 
     def _any_window_open(self) -> bool:
         return self._window_open or self._central_window_open
@@ -788,12 +834,17 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         mode = self._order_base()
+        live = self._any_window_open_live()
         return {
             "window_open": self._window_open,
-            "fenetre": "Ouverte" if (self._window_open or self._any_window_open_live()) else "Fermee",
-            "fenetre_detectee": self._any_window_open_live(),
-            "window_sensors": windows_from_entry(self.entry, self.hass),
-            "energy_sensor": room_energy_sensor(self.hass, self.entry),
+            "fenetre": "Ouverte" if (self._window_open or live) else "Fermee",
+            "fenetre_detectee": live,
+            "window_sensors": self._cached_value(
+                "windows", lambda: windows_from_entry(self.entry, self.hass)
+            ),
+            "energy_sensor": self._cached_value(
+                "energy", lambda: room_energy_sensor(self.hass, self.entry)
+            ),
             "follow_central": self._follow_central,
             "manual_preset": None if self._follow_central else self._preset_mode,
             "fil_pilote_mode": mode,

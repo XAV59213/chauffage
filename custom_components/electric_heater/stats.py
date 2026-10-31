@@ -21,6 +21,7 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.util import dt as dt_util
 
+from .device_link import via_central
 from .const import CONF_POWER, DOMAIN
 from .fil_pilote import iter_room_entries
 
@@ -141,7 +142,7 @@ class RoomHeatingTimeSensor(RestoreSensor):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            "via_device": (DOMAIN, "electric_heater_central"),
+            **via_central(getattr(self, "hass", None)),
         }
 
     @property
@@ -369,7 +370,7 @@ class RoomMeterDailySensor(RestoreSensor):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            "via_device": (DOMAIN, "electric_heater_central"),
+            **via_central(getattr(self, "hass", None)),
         }
 
     @property
