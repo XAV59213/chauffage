@@ -8,11 +8,9 @@ Integration Home Assistant **100 % locale** pour les radiateurs electriques fran
 
 **NodOn SIN-4-FP-21 • Legrand • Delta Dore • sondes Zigbee • Zigbee2MQTT / ZHA • aucun cloud**
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
-[![Downloads](https://img.shields.io/github/downloads/XAV59213/chauffage/total.svg?label=Downloads)](https://github.com/XAV59213/chauffage/releases)
-[![Version](https://img.shields.io/github/v/release/XAV59213/chauffage?style=for-the-badge&label=Version)](https://github.com/XAV59213/chauffage/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-%3E%3D2025.1-00A1DF.svg?style=for-the-badge)](https://www.home-assistant.io)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz) [![Release](https://img.shields.io/github/v/release/XAV59213/chauffage?label=release)](https://github.com/XAV59213/chauffage/releases/latest) [![Hassfest](https://img.shields.io/github/actions/workflow/status/XAV59213/chauffage/validate.yml?branch=main&label=Hassfest&logo=github)](https://github.com/XAV59213/chauffage/actions/workflows/validate.yml) [![HACS validation](https://img.shields.io/github/actions/workflow/status/XAV59213/chauffage/validate.yml?branch=main&label=HACS%20validation&logo=github)](https://github.com/XAV59213/chauffage/actions/workflows/validate.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/XAV59213/chauffage/total.svg?label=Downloads)](https://github.com/XAV59213/chauffage/releases) [![Version](https://img.shields.io/github/v/release/XAV59213/chauffage?label=VERSION&color=blue)](https://github.com/XAV59213/chauffage/releases/latest) [![Home Assistant](https://img.shields.io/badge/HOME%20ASSISTANT-%3E%3D2025.1.0-41BDF5.svg)](https://www.home-assistant.io)
+
+[![Buy Me A Coffee](https://img.buymeacoffee.com/button-api/?text=xav59213&emoji=&slug=xav59213&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00)](https://www.buymeacoffee.com/xav59213)
 
 **Wiki** : [Accueil](wiki/Home.md) · [Configuration](wiki/Configuration.md) · [Fonctionnement](wiki/Fonctionnement.md) · [Carte](wiki/Carte.md) · [Notifications](wiki/Notifications.md) · [Depannage](wiki/Depannage.md) · 🇬🇧 [Wiki EN](wiki/Home-EN.md)
 
