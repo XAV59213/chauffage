@@ -294,10 +294,21 @@ const STYLES = `
 class ElectricHeaterCard extends HTMLElement {
   setConfig(config) {
     this._config = config || {};
+    this._sig = null;
+    this._histAt = 0;
+    if (this._hass) this.hass = this._hass;
   }
 
   static getStubConfig() {
     return {};
+  }
+
+  static getConfigElement() {
+    return document.createElement("electric-heater-card-editor");
+  }
+
+  _show(k) {
+    return (this._config || {})[k] !== false;
   }
 
   getCardSize() {
@@ -410,7 +421,7 @@ class ElectricHeaterCard extends HTMLElement {
   async _loadHistory() {
     const hass = this._hass;
     const c = this._config || {};
-    if (!hass || c.graphique === false || !this._ents) return;
+    if (!hass || c.graphique === false || c.afficher_graphique === false || !this._ents) return;
     const now = Date.now();
     if (this._histAt && now - this._histAt < 10 * 60 * 1000) return;
     this._histAt = now;
@@ -419,6 +430,7 @@ class ElectricHeaterCard extends HTMLElement {
       .filter((x) => x.sensor);
     if (!series.length) return;
     const heures = Number(c.heures) || 24;
+    if (this._histH !== heures) { this._histH = heures; }
     const start = new Date(now - heures * 3600 * 1000).toISOString();
     const ids = series.map((x) => x.sensor).join(",");
     try {
@@ -607,6 +619,7 @@ class ElectricHeaterCard extends HTMLElement {
     const pileRows = piles.map(winRow).join("");
     const sondeRows = pilesSondes.map(pileRow).join("");
 
+    const S = (k) => this._show(k);
     const rows = e.radiateurs.map((id) => {
       const s = st(id);
       if (!s) return "";
@@ -627,14 +640,14 @@ class ElectricHeaterCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `<style>${STYLES}</style>
       <ha-card>
-        ${head}
-        <div class="chips">${chips.join("")}</div>
-        ${alerts}
-        <div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>
-        ${this._graph()}
-        ${pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Détecteurs de fenêtre (état et pile)</div>${pileRows}</div>` : ""}
-        ${sondeRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des sondes de température</div>${sondeRows}</div>` : ""}
-        ${(() => {
+        ${S("afficher_entete") ? head : ""}
+        ${S("afficher_badges") ? `<div class="chips">${chips.join("")}</div>` : ""}
+        ${S("afficher_alertes") ? alerts : ""}
+        ${S("afficher_radiateurs") ? `<div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>` : ""}
+        ${S("afficher_graphique") && this._config.graphique !== false ? this._graph() : ""}
+        ${S("afficher_fenetres") && pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Détecteurs de fenêtre (état et pile)</div>${pileRows}</div>` : ""}
+        ${S("afficher_piles_sondes") && sondeRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des sondes de température</div>${sondeRows}</div>` : ""}
+        ${!S("afficher_conso") ? "" : (() => {
           const fmtH = (h) => { const m = Math.round((h || 0) * 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`; };
           let totH = 0, totK = 0, anyK = false;
           const lines = e.radiateurs.map((id) => {
@@ -660,6 +673,64 @@ class ElectricHeaterCard extends HTMLElement {
     );
   }
 }
+
+const SECTIONS = [
+  ["afficher_entete", "En-tête (thermostat central)"],
+  ["afficher_badges", "Badges (fenêtres, sondes, présents, conso)"],
+  ["afficher_alertes", "Alertes"],
+  ["afficher_radiateurs", "Liste des radiateurs"],
+  ["afficher_graphique", "Graphique des températures"],
+  ["afficher_fenetres", "Détecteurs de fenêtre"],
+  ["afficher_piles_sondes", "Piles des sondes"],
+  ["afficher_conso", "Consommation du jour"],
+];
+const LABELS = Object.assign(Object.fromEntries(SECTIONS), {
+  titre: "Titre", central: "Thermostat central", radiateurs: "Radiateurs (vide = tous)",
+  heures: "Durée du graphique (heures)", detecteurs_fenetre: "Détecteurs de fenêtre (vide = auto)",
+  exclure_personnes: "Personnes à masquer",
+});
+
+class ElectricHeaterCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = { ...(config || {}) };
+    this._draw();
+  }
+  set hass(h) {
+    this._hass = h;
+    if (this._form) this._form.hass = h; else this._draw();
+  }
+  _schema() {
+    return [
+      { name: "titre", selector: { text: {} } },
+      { name: "central", selector: { entity: { domain: "climate" } } },
+      { name: "radiateurs", selector: { entity: { domain: "climate", multiple: true } } },
+      { type: "grid", name: "", schema: SECTIONS.map(([n]) => ({ name: n, selector: { boolean: {} } })) },
+      { name: "heures", selector: { number: { min: 1, max: 168, mode: "box", unit_of_measurement: "h" } } },
+      { name: "detecteurs_fenetre", selector: { entity: { domain: ["binary_sensor", "sensor", "input_boolean", "cover"], multiple: true } } },
+    ];
+  }
+  _draw() {
+    if (!this._hass || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (s) => LABELS[s.name] || s.name;
+      this._form.addEventListener("value-changed", (ev) => {
+        const v = { ...ev.detail.value };
+        for (const [n] of SECTIONS) if (v[n] === true) delete v[n];
+        for (const k of Object.keys(v)) if (v[k] === "" || v[k] === undefined || (Array.isArray(v[k]) && !v[k].length)) delete v[k];
+        this._config = v;
+        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: v }, bubbles: true, composed: true }));
+      });
+      this.appendChild(this._form);
+    }
+    const data = { ...this._config };
+    for (const [n] of SECTIONS) if (data[n] === undefined) data[n] = n === "afficher_graphique" ? data.graphique !== false : true;
+    this._form.hass = this._hass;
+    this._form.data = data;
+    this._form.schema = this._schema();
+  }
+}
+if (!customElements.get("electric-heater-card-editor")) customElements.define("electric-heater-card-editor", ElectricHeaterCardEditor);
 
 if (!customElements.get(CARD_TAG)) customElements.define(CARD_TAG, ElectricHeaterCard);
 window.customCards = window.customCards || [];

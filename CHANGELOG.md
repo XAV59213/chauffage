@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.42
+- Carte Lovelace réglable avec éditeur visuel : titre, thermostat central, choix des radiateurs, sections affichables (en-tête, badges, alertes, radiateurs, graphique, fenêtres, piles sondes, consommation), durée du graphique, détecteurs. / Configurable card with visual editor.
+
 ## 3.1.41
 - Détecteurs fenêtre : resynchro toutes les 60 s (relance des capteurs indisponibles + réévaluation) ; un détecteur brièvement Indisponible garde son dernier état connu 15 min au lieu d'être compté fermé ; la carte affiche « Ouvert/Fermé · 📶? » au lieu de « Indisponible » pendant ce délai. / Window sensors: 60 s resync, last known state kept 15 min when unavailable.
 
