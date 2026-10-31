@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.41
+- Détecteurs fenêtre : resynchro toutes les 60 s (relance des capteurs indisponibles + réévaluation) ; un détecteur brièvement Indisponible garde son dernier état connu 15 min au lieu d'être compté fermé ; la carte affiche « Ouvert/Fermé · 📶? » au lieu de « Indisponible » pendant ce délai. / Window sensors: 60 s resync, last known state kept 15 min when unavailable.
+
 ## 3.1.40
 - Fenêtre ouverte → Hors-gel (Eco retiré des choix ; un ancien réglage Eco bascule automatiquement en Hors-gel). / Open window → Frost protection (Eco option removed, migrated).
 

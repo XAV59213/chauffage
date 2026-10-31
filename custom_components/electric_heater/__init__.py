@@ -3,7 +3,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from datetime import timedelta
 
 from .const import (
     CENTRAL,
@@ -38,6 +39,23 @@ def _track_windows(hass: HomeAssistant, entry: ConfigEntry) -> None:
         hass.bus.async_fire(EVENT_WINDOWS_CHANGED, {"entity_id": event.data.get("entity_id")})
 
     entry.async_on_unload(async_track_state_change_event(hass, windows, _on_window))
+
+    async def _resync(_now=None) -> None:
+        """Toutes les 60 s : relance les détecteurs indisponibles et réévalue les fenêtres."""
+        stale = [
+            eid for eid in windows
+            if (st := hass.states.get(eid)) is None or st.state in ("unknown", "unavailable")
+        ]
+        if stale:
+            try:
+                await hass.services.async_call(
+                    "homeassistant", "update_entity", {"entity_id": stale}, blocking=False
+                )
+            except Exception:  # noqa: BLE001 - capteur radio non interrogeable
+                pass
+        hass.bus.async_fire(EVENT_WINDOWS_CHANGED, {"entity_id": None, "resync": True})
+
+    entry.async_on_unload(async_track_time_interval(hass, _resync, timedelta(seconds=60)))
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

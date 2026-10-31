@@ -193,9 +193,19 @@ function _batteryFor(hass, eid) {
 
 const OUVERT = ["on", "open", "opened", "opening", "true", "1", "ouvert", "ouverte"];
 const FERME = ["off", "closed", "closing", "false", "0", "ferme", "fermé", "fermee", "fermée"];
+const _WIN_LAST = {};
+const _WIN_GRACE = 15 * 60 * 1000;
 function _windowState(hass, eid) {
   const st = hass.states[eid];
-  if (!st || ["unknown", "unavailable"].includes(st.state)) return "indispo";
+  if (!st || ["unknown", "unavailable"].includes(st.state)) {
+    const l = _WIN_LAST[eid];
+    return l && Date.now() - l.t <= _WIN_GRACE ? l.v + "_perdu" : "indispo";
+  }
+  const v0 = _windowStateRaw(st);
+  if (v0 !== "indispo") _WIN_LAST[eid] = { v: v0, t: Date.now() };
+  return v0;
+}
+function _windowStateRaw(st) {
   const v = String(st.state).toLowerCase();
   if (OUVERT.includes(v)) return "ouvert";
   if (FERME.includes(v)) return "ferme";
@@ -577,10 +587,12 @@ class ElectricHeaterCard extends HTMLElement {
       const w = _windowState(hass, p.eid);
       if (w === "ouvert") return `<span class="badge" style="background:rgba(255,152,0,.2);color:var(--warning-color,#ff9800)">🪟 Ouvert</span>`;
       if (w === "ferme") return `<span class="badge">Fermé</span>`;
+      if (w === "ouvert_perdu") return `<span class="badge" title="Signal perdu, dernier état connu">🪟 Ouvert · 📶?</span>`;
+      if (w === "ferme_perdu") return `<span class="badge" title="Signal perdu, dernier état connu">Fermé · 📶?</span>`;
       return `<span class="badge ko">Indisponible</span>`;
     };
     const winRow = (p) => `<div class="row" data-id="${_esc(p.eid)}">
-        <ha-icon icon="${_windowState(hass, p.eid) === "ouvert" ? "mdi:window-open-variant" : "mdi:window-closed-variant"}"></ha-icon>
+        <ha-icon icon="${_windowState(hass, p.eid).startsWith("ouvert") ? "mdi:window-open-variant" : "mdi:window-closed-variant"}"></ha-icon>
         <div class="n">${_esc(p.name)}${this._areaName && this._areaName(p.eid) && !p.name.toLowerCase().includes(this._areaName(p.eid).toLowerCase()) ? ` <span class="muted">· ${_esc(this._areaName(p.eid))}</span>` : ""}</div>
         ${etat(p)}
         ${p.low ? `<span class="badge ko">Pile faible</span>` : p.unknown ? `<span class="badge">Pile ?</span>` : ""}

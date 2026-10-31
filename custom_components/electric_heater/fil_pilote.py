@@ -201,8 +201,27 @@ def is_window_open_state(state: State | None) -> bool:
     return False
 
 
+WINDOW_UNAVAILABLE_GRACE = 900  # s : on garde le dernier état connu d'un détecteur indisponible
+
+
+def _window_open_cached(hass: HomeAssistant, eid: str) -> bool:
+    """État ouvert du détecteur ; si indisponible, dernier état connu (≤ 15 min)."""
+    import time
+
+    cache = hass.data.setdefault(DOMAIN, {}).setdefault("window_last", {})
+    state = hass.states.get(eid)
+    if state is not None and state.state not in ("unknown", "unavailable"):
+        opened = is_window_open_state(state)
+        cache[eid] = (opened, time.monotonic())
+        return opened
+    last = cache.get(eid)
+    if last and time.monotonic() - last[1] <= WINDOW_UNAVAILABLE_GRACE:
+        return last[0]
+    return False
+
+
 def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
-    return any(is_window_open_state(hass.states.get(eid)) for eid in sensors or [])
+    return any(_window_open_cached(hass, eid) for eid in sensors or [])
 
 
 def open_windows(hass: HomeAssistant) -> list[dict]:
