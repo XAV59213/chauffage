@@ -791,8 +791,29 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if self._any_window_open():
             base = self._order_base()
             if base != PRESET_OFF:
-                return self._order_target(base)
-        return self._target_temp
+                target = self._order_target(base)
+                if target is not None:
+                    return target
+        return self._effective_target()
+
+    def _effective_target(self) -> float | None:
+        """Consigne réelle : la sienne, sinon celle du central (suivi) ou du preset."""
+        if self._target_temp is not None:
+            return self._target_temp
+        central = None
+        try:
+            central = self._central_state() if self.hass else None
+        except Exception:  # noqa: BLE001
+            central = None
+        attrs = central.attributes if central else {}
+        if self._follow_central:
+            for key in ("consigne", "temperature"):
+                val = attrs.get(key)
+                if isinstance(val, (int, float)):
+                    return float(val)
+        temps = self._temps or attrs.get("temperatures") or {}
+        key = PRESET_TO_TEMP_KEY.get(self._preset_mode, "comfort")
+        return temps.get(key) or temps.get("comfort")
 
     @property
     def hvac_mode(self) -> HVACMode:
@@ -916,9 +937,15 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             )
         )
         self.async_on_remove(lambda: self.hass.bus.async_fire(EVENT_ROOMS_CHANGED))
-        self._update_room_temp(apply=False)
-        self._check_windows(apply=False)
-        self._sync_from_central(apply=False)
+        for step in (
+            lambda: self._update_room_temp(apply=False),
+            lambda: self._check_windows(apply=False),
+            lambda: self._sync_from_central(apply=False),
+        ):
+            try:
+                step()
+            except Exception:  # noqa: BLE001 — une étape KO ne doit pas bloquer la consigne
+                _LOGGER.exception("Initialisation radiateur %s", self.entry.data.get("name"))
         self.async_write_ha_state()
         self._schedule_apply()
         self.hass.bus.async_fire(EVENT_ROOMS_CHANGED)
@@ -951,6 +978,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._preset_mode = preset
             key = PRESET_TO_TEMP_KEY.get(self._preset_mode, "comfort")
             self._target_temp = attrs.get("consigne")
+            if not isinstance(self._target_temp, (int, float)):
+                self._target_temp = attrs.get("temperature")
             if self._target_temp is None or self._central_window_open:
                 self._target_temp = self._temps.get(key) or self._temps.get("comfort")
             self._hysteresis = hysteresis_for(self._preset_mode, self._comfort_hyst())

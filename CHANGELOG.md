@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.44
+- Correctif : consigne des radiateurs vide (carte « xx° / 0.0° ») depuis 3.1.43. La consigne exposée (`temperature` / `native_target_temperature`) retombe désormais sur la consigne du thermostat central (suivi) ou du preset si la consigne interne n'est pas encore connue ; l'initialisation d'un radiateur ne s'arrête plus si une étape échoue. / Fix empty room target temperature.
+- Carte : une consigne absente s'affiche « – » au lieu de « 0.0 ». / Card shows – for missing target.
+
 ## 3.1.43
 - Compatibilité HA 2027 : thermostats central/radiateurs passent à l'API climate `native_*` (`_attr_native_temperature_unit`, `native_current_temperature`, `native_target_temperature`) — fin des avertissements (retrait en 2027.11), anciennes versions HA toujours supportées. / Climate native_* API.
 - Lien appareils radiateurs → thermostat central via `via_device_id` au lieu de `via_device` (déprécié, retrait 2027.8) — climate, sensor, binary_sensor, stats. / via_device_id.

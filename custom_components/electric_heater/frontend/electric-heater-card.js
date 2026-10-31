@@ -29,6 +29,7 @@ function _esc(v) {
 }
 
 function _num(v, d = 1) {
+  if (v === null || v === undefined || v === "") return "–";
   const n = Number(v);
   return Number.isFinite(n) ? n.toFixed(d) : "–";
 }
