@@ -2,7 +2,7 @@
 
 <p align="center"><img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/custom_components/electric_heater/brand/logo.png" alt="Chauffage Électrique Fil Pilote FR" width="360"></p>
 
-🇫🇷 Français · 🇬🇧 [English version](README.en.md)
+🇫🇷 Français · 🇬🇧 [English version](https://github.com/XAV59213/chauffage/blob/main/README.en.md)
 
 Integration Home Assistant **100 % locale** pour les radiateurs electriques francais a **fil pilote**.
 
@@ -19,7 +19,7 @@ Integration Home Assistant **100 % locale** pour les radiateurs electriques fran
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=electric_heater)
 
 
-**Wiki** : [Accueil](wiki/Home.md) · [Configuration](wiki/Configuration.md) · [Fonctionnement](wiki/Fonctionnement.md) · [Carte](wiki/Carte.md) · [Notifications](wiki/Notifications.md) · [Depannage](wiki/Depannage.md) · 🇬🇧 [Wiki EN](wiki/Home-EN.md)
+**Wiki** : [Accueil](https://github.com/XAV59213/chauffage/blob/main/wiki/Home.md) · [Configuration](https://github.com/XAV59213/chauffage/blob/main/wiki/Configuration.md) · [Fonctionnement](https://github.com/XAV59213/chauffage/blob/main/wiki/Fonctionnement.md) · [Carte](https://github.com/XAV59213/chauffage/blob/main/wiki/Carte.md) · [Notifications](https://github.com/XAV59213/chauffage/blob/main/wiki/Notifications.md) · [Depannage](https://github.com/XAV59213/chauffage/blob/main/wiki/Depannage.md) · 🇬🇧 [Wiki EN](https://github.com/XAV59213/chauffage/blob/main/wiki/Home-EN.md)
 
 ---
 
@@ -94,7 +94,7 @@ La meteo (`weather.*`) est **affichee** (capteur Temperature exterieure) ; elle 
 
 Copier `custom_components/electric_heater/` dans `config/custom_components/`, puis redemarrer.
 
-Details : [wiki/Configuration.md](wiki/Configuration.md).
+Details : [wiki/Configuration.md](https://github.com/XAV59213/chauffage/blob/main/wiki/Configuration.md).
 
 ---
 
@@ -137,7 +137,7 @@ Aucune option nécessaire : thermostat central, radiateurs, fenêtres (état + p
   <img src="https://raw.githubusercontent.com/XAV59213/chauffage/main/docs/images/carte-chauffage.jpg" alt="Carte Chauffage Fil Pilote" width="320">
 </p>
 
-Options, ressource manuelle et exemples : [examples/lovelace/README.md](examples/lovelace/README.md).
+Options, ressource manuelle et exemples : [examples/lovelace/README.md](https://github.com/XAV59213/chauffage/blob/main/examples/lovelace/README.md).
 
 L'entity_id d'un radiateur = nom de la piece + « Chauffage » + nom de la piece (ex. piece « Salon » → `climate.salon_chauffage_salon`). Verifier dans **Parametres → Entites**.
 
@@ -145,7 +145,7 @@ L'entity_id d'un radiateur = nom de la piece + « Chauffage » + nom de la piece
 
 ## Depannage
 
-Voir [wiki/Depannage.md](wiki/Depannage.md).
+Voir [wiki/Depannage.md](https://github.com/XAV59213/chauffage/blob/main/wiki/Depannage.md).
 
 ---
 
