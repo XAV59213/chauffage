@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.54 — Sécurités
+- **Consigne max de sécurité** (`consigne_max_securite`, 23 °C par défaut, 15–30) : consigne du central et des radiateurs plafonnée (curseur limité, consigne demandée au-dessus ramenée à la limite, régulation toujours plafonnée). Noté dans l'historique « Consigne limitée (sécurité) · par … ».
+- **Surchauffe** : si une pièce dépasse consigne + `marge_surchauffe` (2 °C par défaut) pendant que le radiateur chauffe, ou si un radiateur consomme > 10 W alors que l'ordre est Arrêt / Hors-gel, pendant plus de 3 min → **Arrêt forcé**, historique (`surchauffe` / `radiateur_desobeit`), événement `electric_heater_alerte`, notification persistante + services notify configurés (au plus une fois toutes les 30 min par pièce). Fin automatique quand tout redevient normal.
+- **Détecteur fenêtre instable** : si un détecteur passe ≥ `seuil_detecteur_instable` fois (5 par défaut) en Indisponible en 1 h → alerte, notification (au plus toutes les 6 h), historique ; fin après 1 h stable.
+- Nouveaux binary_sensor (classe Problème) : « Alerte surchauffe » et « Détecteur fenêtre instable » par pièce + les mêmes sur le thermostat central (toutes pièces).
+- Carte : ces alertes s'affichent dans le bloc Alertes.
+- Réglages dans les options du thermostat central (libellés français). Les notifications utilisent les « Services notify » déjà configurés.
+
 ## 3.1.53
 - Nouveau capteur diagnostic **« Dernière décision »** sur l'appareil du thermostat central : dernière décision toutes pièces confondues, ex. « Salon · Arrêt · au-dessus consigne · 22,5/20,6 °C · 0 W ». Attributs `piece`, `raison`, `ordre`, `temperature`, `consigne`, `puissance_w`, `heure`, `par_piece` (dernière décision de chaque pièce), `historique` (50 dernières, toutes pièces, conservées au redémarrage). Visible dans l'onglet Activité du central.
 

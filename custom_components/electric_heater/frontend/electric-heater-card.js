@@ -406,7 +406,8 @@ class ElectricHeaterCard extends HTMLElement {
       return dev ? Object.keys(hass.entities).filter((id) => hass.entities[id].device_id === dev) : [w];
     });
     const statIds = Object.keys(hass.states).filter((x) => x.startsWith("sensor.") && (x.includes("temps_de_chauffe") || x.includes("consommation") || x.includes("conso") || x.endsWith("_energy")) || x.includes("calendrier_chauffage"));
-    const ids = [...bats, ...statIds, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
+    const alertIds = Object.keys(hass.states).filter((x) => x.startsWith("binary_sensor.") && hass.states[x].attributes.electric_heater_alerte);
+    const ids = [...bats, ...statIds, ...alertIds, this._ents.central, this._ents.fenetres, this._ents.sondes_ko, this._ents.alerte_pile,
       this._ents.presents, ...this._ents.radiateurs];
     const sig = ids.map((id) => {
       const s = hass.states[id];
@@ -583,6 +584,14 @@ class ElectricHeaterCard extends HTMLElement {
         <br><span class="muted">Radiateurs concernés en Hors-gel par sécurité.</span></div>`;
     }
 
+    Object.keys(hass.states).filter((id) => id.startsWith("binary_sensor.")).forEach((id) => {
+      const st = hass.states[id];
+      const kind = st.attributes.electric_heater_alerte;
+      if (!kind || st.state !== "on" || !id.includes("central") && Object.keys(hass.states).some((x) => x.startsWith("binary_sensor.") && x.includes("central") && hass.states[x].attributes.electric_heater_alerte === kind)) return;
+      const msgs = (st.attributes.messages || []).filter(Boolean);
+      const icon = kind === "surchauffe" ? "🔥 Surchauffe" : "📶 Détecteur fenêtre instable";
+      alerts += `<div class="alert" data-id="${_esc(id)}">${icon} : ${_esc(msgs.join(" · ") || (st.attributes.pieces || []).join(", "))}</div>`;
+    });
     const totS = _statsFor(hass, e.central);
     const tot = _fmtStats(totS);
     if (tot) chips.push(`<div class="chip">${tot} aujourd'hui</div>`);

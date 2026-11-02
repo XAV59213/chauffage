@@ -184,3 +184,6 @@ puissances_masquees:
 **3.1.52 :** capteur « Dernier changement » sur le thermostat central (qui a changé la consigne / le mode / le preset), visible dans l'onglet Activité.
 
 **3.1.53 :** capteur « Dernière décision » aussi sur le thermostat central (toutes pièces, avec le détail par pièce).
+
+### Sécurités (3.1.54)
+Options du thermostat central : **Consigne maximale de sécurité** (23 °C), **Marge de surchauffe** (2 °C), **Détecteur fenêtre instable** (5 passages Indisponible / h). En surchauffe (ou radiateur qui consomme alors qu'il devrait être coupé) pendant 3 min : Arrêt forcé + notification. Capteurs « Alerte surchauffe » et « Détecteur fenêtre instable » par pièce et sur le central. Événement `electric_heater_alerte` utilisable dans vos automatisations.

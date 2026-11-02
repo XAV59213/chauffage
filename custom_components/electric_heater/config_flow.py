@@ -8,6 +8,14 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .temps import round_temp
+from .safety import (
+    CONF_MAX_SAFE_TEMP,
+    CONF_OVERHEAT_MARGIN,
+    CONF_UNSTABLE_COUNT,
+    DEFAULT_MAX_SAFE_TEMP,
+    DEFAULT_OVERHEAT_MARGIN,
+    DEFAULT_UNSTABLE_COUNT,
+)
 from .const import (
     ABOVE_TARGET_MODES,
     CONF_ABOVE_TARGET_MODE,
@@ -295,6 +303,15 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
                 default=d.get(CONF_RESYNC_INTERVAL, RESYNC_INTERVAL_MIN),
             ): _int_number(1, 120, "min"),
             vol.Required(
+                CONF_MAX_SAFE_TEMP, default=d.get(CONF_MAX_SAFE_TEMP, DEFAULT_MAX_SAFE_TEMP)
+            ): _number(15, 30),
+            vol.Required(
+                CONF_OVERHEAT_MARGIN, default=d.get(CONF_OVERHEAT_MARGIN, DEFAULT_OVERHEAT_MARGIN)
+            ): _number(0.5, 10),
+            vol.Required(
+                CONF_UNSTABLE_COUNT, default=d.get(CONF_UNSTABLE_COUNT, DEFAULT_UNSTABLE_COUNT)
+            ): _int_number(2, 50, "fois/h"),
+            vol.Required(
                 CONF_NOTIFICATIONS, default=d.get(CONF_NOTIFICATIONS, True)
             ): selector.BooleanSelector(),
             vol.Optional(
@@ -411,6 +428,9 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_WINDOW_OFF_DELAY: user_input.get(CONF_WINDOW_OFF_DELAY),
                         CONF_RESYNC_INTERVAL: user_input.get(CONF_RESYNC_INTERVAL),
                         CONF_NOTIFICATIONS: user_input.get(CONF_NOTIFICATIONS, True),
+                        CONF_MAX_SAFE_TEMP: user_input.get(CONF_MAX_SAFE_TEMP, DEFAULT_MAX_SAFE_TEMP),
+                        CONF_OVERHEAT_MARGIN: user_input.get(CONF_OVERHEAT_MARGIN, DEFAULT_OVERHEAT_MARGIN),
+                        CONF_UNSTABLE_COUNT: user_input.get(CONF_UNSTABLE_COUNT, DEFAULT_UNSTABLE_COUNT),
                         CONF_WINDOW_SENSORS: _normalize_windows(
                             user_input.get(CONF_WINDOW_SENSORS)
                         ),

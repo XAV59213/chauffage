@@ -135,6 +135,11 @@ REASON_LABELS = {
     "startup_wait_valid_data": "démarrage, attente données",
     "external_change": "changé hors intégration",
     "radiator_not_obeying": "radiateur n'obéit pas",
+    "radiateur_desobeit": "radiateur n'obéit pas → Arrêt forcé",
+    "surchauffe": "SURCHAUFFE → Arrêt forcé",
+    "surchauffe_terminee": "fin de surchauffe",
+    "detecteur_instable": "détecteur fenêtre instable",
+    "detecteur_stable": "détecteur fenêtre redevenu stable",
 }
 ORDER_LABELS = {
     "comfort": "Confort", "comfort_m1": "Confort -1", "comfort_m2": "Confort -2",
@@ -171,7 +176,7 @@ def entry_summary(e: dict | None) -> str:
         return "Aucune décision"
     reason = e.get("reason") or ""
     if reason in CHANGE_LABELS:
-        unit = " °C" if reason == "changement_consigne" else ""
+        unit = " °C" if reason in ("changement_consigne", "consigne_limitee") else ""
         return (f"{CHANGE_LABELS[reason]} {_val(e.get('ancien'))}→{_val(e.get('nouveau'))}{unit}"
                 f" · par {e.get('par') or 'système'}")[:255]
     if reason == "external_change" and e.get("par"):
@@ -217,4 +222,4 @@ def own_context(hass: HomeAssistant):
     return ctx
 
 
-CHANGE_LABELS = {"changement_consigne": "Consigne", "changement_mode": "Mode", "changement_preset": "Preset"}
+CHANGE_LABELS = {"consigne_limitee": "Consigne limitée (sécurité)", "changement_consigne": "Consigne", "changement_mode": "Mode", "changement_preset": "Preset"}

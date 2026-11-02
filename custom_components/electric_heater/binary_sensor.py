@@ -7,6 +7,9 @@ from datetime import timedelta
 
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+from . import safety
 from .device_link import via_central
 from .const import (
     CENTRAL,
@@ -40,9 +43,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 CentralCalendarActive(hass, entry),
                 CentralCalendarEnabled(hass),
                 BatteryAlert(hass),
+                SafetyAlert(hass, entry, "surchauffe", central=True),
+                SafetyAlert(hass, entry, "instable", central=True),
             ]
         )
-    elif windows_from_entry(entry, hass):
+    else:
+        entities.append(SafetyAlert(hass, entry, "surchauffe"))
+        if windows_from_entry(entry, hass):
+            entities.append(SafetyAlert(hass, entry, "instable"))
+    if entry.data.get("type") != CENTRAL and windows_from_entry(entry, hass):
         entities.append(RoomWindowSecurity(hass, entry))
     async_add_entities(entities)
 
@@ -338,3 +347,54 @@ class BatteryAlert(BinarySensorEntity):
         self._ko = rooms_sensor_ko(self.hass)
         self._attr_is_on = bool(self._ko)
         self.async_write_ha_state()
+
+
+class SafetyAlert(BinarySensorEntity):
+    """Alerte surchauffe / détecteur fenêtre instable (pièce ou ensemble de la maison)."""
+
+    _attr_has_entity_name = True
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, kind: str, central: bool = False):
+        self.hass = hass
+        self.entry = entry
+        self._kind = kind
+        self._central = central
+        self._attr_name = "Alerte surchauffe" if kind == "surchauffe" else "Détecteur fenêtre instable"
+        self._attr_icon = "mdi:thermometer-alert" if kind == "surchauffe" else "mdi:wifi-alert"
+        scope = "central" if central else f"room_{entry.entry_id}"
+        self._attr_unique_id = f"electric_heater_{scope}_alerte_{kind}"
+
+    @property
+    def device_info(self):
+        if self._central:
+            return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+        return {
+            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
+            **via_central(getattr(self, "hass", None)),
+        }
+
+    def _rooms(self):
+        data = safety.alerts(self.hass)
+        if self._central:
+            return [r for r in data.values() if r.get(self._kind)]
+        r = data.get(self.entry.entry_id) or {}
+        return [r] if r.get(self._kind) else []
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self._rooms())
+
+    @property
+    def extra_state_attributes(self):
+        rooms = self._rooms()
+        return {
+            "electric_heater_alerte": self._kind,
+            "pieces": [r.get("piece") for r in rooms],
+            "messages": [(r.get(f"{self._kind}_detail") or {}).get("message") for r in rooms],
+        }
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, safety.SIGNAL_ALERTS, self.async_write_ha_state)
+        )

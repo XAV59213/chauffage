@@ -36,6 +36,9 @@
           "hysteresis": "Hysteresis Confort (C)",
           "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
           "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)",
+          "consigne_max_securite": "Consigne maximale de securite (C, 15-30)",
+          "marge_surchauffe": "Marge de surchauffe au-dessus de la consigne avant Arret force (C)",
+          "seuil_detecteur_instable": "Detecteur fenetre instable : nombre de passages Indisponible par heure",
           "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
           "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
           "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"
@@ -98,6 +101,9 @@
           "hysteresis": "Hysteresis Confort (C)",
           "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
           "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)",
+          "consigne_max_securite": "Consigne maximale de securite (C, 15-30)",
+          "marge_surchauffe": "Marge de surchauffe au-dessus de la consigne avant Arret force (C)",
+          "seuil_detecteur_instable": "Detecteur fenetre instable : nombre de passages Indisponible par heure",
           "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
           "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
           "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"

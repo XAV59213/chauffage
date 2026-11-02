@@ -86,6 +86,7 @@ from .fil_pilote import (
 from .temps import round_temp
 from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
+from . import safety
 from .history import ATTR_ENTRIES, find_power_sensor, get_history, own_context, read_power, resolve_who
 
 # HA >= 2026.x : API climate « native_* » (anciens noms retirés en 2027.11).
@@ -143,6 +144,11 @@ class _TunablesMixin:
     """Réglages avancés lus sur le thermostat central (défauts = const.py)."""
 
     hass: HomeAssistant
+
+    @property
+    def max_temp(self) -> float:
+        base = getattr(self, "_attr_max_temp", None) or 35.0
+        return min(float(base), safety.max_safe_temp(self.hass))
 
     def _comfort_hyst(self) -> float:
         return float(central_option(self.hass, CONF_HYSTERESIS, HYSTERESIS[PRESET_COMFORT]))
@@ -641,6 +647,10 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if self._window_open:
             return
         if temp := kwargs.get("temperature"):
+            limit = safety.max_safe_temp(self.hass)
+            if temp > limit:
+                await self._note_change("consigne_limitee", _r1(temp), limit)
+                temp = limit
             await self._note_change("changement_consigne", self._target_temp, _r1(temp))
             key = PRESET_TO_TEMP_KEY.get(self._preset_mode, "comfort")
             if self._preset_mode == PRESET_OFF:
@@ -758,6 +768,11 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._sending_until = 0.0
         self._started_at = time.monotonic()
         self._startup_logged = False
+        self._overheat_since: float | None = None
+        self._disobey_since: float | None = None
+        self._safety_off = False
+        self._unavail_times: list[float] = []
+        self._unstable = False
 
     def _power_w(self) -> float | None:
         sensor = self._cached_value(
@@ -831,6 +846,80 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                          target=self._effective_target())
             self.async_write_ha_state()
         self._not_obeying = bad
+
+    @callback
+    def _safety_tick(self, _now=None) -> None:
+        """Toutes les 60 s : surchauffe, radiateur désobéissant, détecteur instable."""
+        now = time.monotonic()
+        name = self.entry.data.get("name", "")
+        eid = self.entry.entry_id
+        current = room_current_temp(self.hass, self._temp_sensor)
+        target = self._effective_target()
+        margin = safety.overheat_margin(self.hass)
+        power = self._power_w()
+        hot = (isinstance(current, (int, float)) and isinstance(target, (int, float))
+               and target > 0 and current > target + margin
+               and (order_heats(self._expected_preset) or self._safety_off))
+        disobey = (power is not None and power > safety.DISOBEY_POWER_W
+                   and self._expected_preset in (PRESET_OFF, PRESET_FROST_PROTECTION)
+                   and now > self._sending_until)
+        self._overheat_since = (self._overheat_since or now) if hot else None
+        self._disobey_since = (self._disobey_since or now) if disobey else None
+        hot_c = hot and now - self._overheat_since >= safety.OVERHEAT_DELAY
+        dis_c = disobey and now - self._disobey_since >= safety.OVERHEAT_DELAY
+        if hot_c or dis_c:
+            reason = "surchauffe" if hot_c else "radiateur_desobeit"
+            msg = (f"{name} : {current} °C pour consigne {target} °C (marge {margin} °C) → Arrêt forcé"
+                   if hot_c else
+                   f"{name} : {power} W alors que l'ordre est {self._expected_preset} → le radiateur n'obéit pas au fil pilote")
+            detail = {"raison": reason, "message": msg, "temperature": current,
+                      "consigne": target, "puissance_w": power}
+            if safety.set_alert(self.hass, eid, name, "surchauffe", True, detail) or not self._safety_off:
+                self._record(self._expected_preset, PRESET_OFF, reason, target=target, current=current)
+            safety.send_alert(self.hass, f"surchauffe_{eid}", msg, safety.OVERHEAT_RATE,
+                              {"type": reason, "piece": name, "entry_id": eid})
+            if not self._safety_off:
+                self._safety_off = True
+                self._schedule_apply(force=True)
+            elif dis_c:
+                self._schedule_apply(force=True)
+        elif self._safety_off and not hot and not disobey:
+            self._safety_off = False
+            safety.set_alert(self.hass, eid, name, "surchauffe", False)
+            self._record(PRESET_OFF, self._expected_preset, "surchauffe_terminee", target=target, current=current)
+            self._schedule_apply()
+        # Détecteur instable
+        self._unavail_times = [t for t in self._unavail_times if now - t < safety.UNSTABLE_WINDOW]
+        if self._unstable and not self._unavail_times:
+            self._unstable = False
+            safety.set_alert(self.hass, eid, name, "instable", False)
+            self._record(self._expected_preset, self._expected_preset, "detecteur_stable", target=target)
+        self.async_write_ha_state()
+
+    @callback
+    def _on_window_raw(self, event) -> None:
+        new = event.data.get("new_state")
+        old = event.data.get("old_state")
+        if not new or new.state != "unavailable" or (old and old.state == "unavailable"):
+            return
+        now = time.monotonic()
+        self._unavail_times.append(now)
+        self._unavail_times = [t for t in self._unavail_times if now - t < safety.UNSTABLE_WINDOW]
+        n = len(self._unavail_times)
+        if n >= safety.unstable_count(self.hass):
+            name = self.entry.data.get("name", "")
+            eid = self.entry.entry_id
+            msg = (f"{name} : le détecteur {new.entity_id} est passé {n} fois en Indisponible "
+                   f"en 1 h (pile ou portée radio ?)")
+            if not self._unstable:
+                self._unstable = True
+                self._record(self._expected_preset, self._expected_preset, "detecteur_instable",
+                             target=self._effective_target())
+            safety.set_alert(self.hass, eid, name, "instable", True,
+                             {"message": msg, "detecteur": new.entity_id, "nombre": n})
+            safety.send_alert(self.hass, f"instable_{eid}", msg, safety.UNSTABLE_RATE,
+                              {"type": "detecteur_instable", "piece": name, "entry_id": eid,
+                               "detecteur": new.entity_id})
 
     def _cancel_window_delay(self) -> None:
         if self._window_delay:
@@ -944,8 +1033,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if base == PRESET_OFF:
             return None
         if self._any_window_open():
-            return self._temps.get(PRESET_TO_TEMP_KEY.get(base, "comfort"))
-        target = self._effective_target()
+            return safety.clamp_target(self.hass, self._temps.get(PRESET_TO_TEMP_KEY.get(base, "comfort")))
+        target = safety.clamp_target(self.hass, self._effective_target())
         return target if isinstance(target, (int, float)) and target > 0 else None
 
     @property
@@ -990,6 +1079,9 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "hysteresis": hysteresis_for(self._preset_mode, self._comfort_hyst()),
             "derniere_decision": (self._history.last(1) or [None])[0],
             "radiateur_desobeit": self._not_obeying,
+            "alerte_surchauffe": self._safety_off,
+            "detecteur_instable": self._unstable,
+            "consigne_max_securite": safety.max_safe_temp(self.hass),
             "dernier_changement_par": self._last_changer,
             "historique": self._history.last(ATTR_ENTRIES),
         }
@@ -1034,6 +1126,9 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._unsub_windows = async_track_state_change_event(
                 self.hass, self._window_sensors, self._check_windows
             )
+            self.async_on_remove(async_track_state_change_event(
+                self.hass, self._window_sensors, self._on_window_raw
+            ))
             self.async_on_remove(lambda: self._unsub_windows and self._unsub_windows())
         if self._fil_pilote_select:
             self.async_on_remove(
@@ -1043,6 +1138,9 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             )
         self.async_on_remove(
             self.hass.bus.async_listen(EVENT_WINDOWS_CHANGED, self._check_windows)
+        )
+        self.async_on_remove(
+            async_track_time_interval(self.hass, self._safety_tick, timedelta(seconds=60))
         )
         self.async_on_remove(
             async_track_time_interval(
@@ -1242,6 +1340,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                 self.hass, self.entry, base, target, exact=exact, last=self._expected_preset
             )
             reason = self._decision_reason(base, target, preset)
+            if self._safety_off:
+                preset, reason = PRESET_OFF, "surchauffe"
             if time.monotonic() - self._started_at < 120 and preset not in (
                 PRESET_OFF, PRESET_FROST_PROTECTION
             ) and order_heats(preset):
@@ -1288,6 +1388,10 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     async def async_set_temperature(self, **kwargs):
         if temp := kwargs.get("temperature"):
+            limit = safety.max_safe_temp(self.hass)
+            if temp > limit:
+                await self._record_user_change("consigne_limitee", temp, limit)
+                temp = limit
             await self._record_user_change("changement_consigne", self._effective_target(), temp)
             self._target_temp = temp
             self._preset_mode = PRESET_COMFORT
