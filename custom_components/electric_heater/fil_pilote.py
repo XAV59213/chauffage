@@ -448,6 +448,9 @@ def room_order(
     if sensor and current is None and base_preset not in (PRESET_OFF, PRESET_FROST_PROTECTION):
         # Sonde KO (pile, perte radio...) : Hors-gel par sécurité, jamais Confort.
         return PRESET_FROST_PROTECTION
+    if not sensor:
+        # Pas de sonde configurée : on applique le preset tel quel.
+        return base_preset
     return regulate_preset(
         base_preset,
         current,

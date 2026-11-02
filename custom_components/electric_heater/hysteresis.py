@@ -63,14 +63,15 @@ def regulate_preset(
     """
     if base in _HOLD:
         return base
-    if current is None or target is None:
-        return base
     if base not in HEATING_ORDERS:
         # Eco (absence, nuit...) : jamais remonter en Confort.
         return base
     if above not in (PRESET_FROST_PROTECTION, PRESET_OFF):
         # Ancien réglage « Eco » migré : au-dessus de la consigne = Arrêt.
         above = PRESET_OFF
+    if current is None or not isinstance(target, (int, float)) or target <= 0:
+        # Pas de température ou de consigne valide : jamais Confort (sécurité).
+        return above
     hyst = hysteresis_for(base, comfort_hyst)
     if current >= target:
         return above

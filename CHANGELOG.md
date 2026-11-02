@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.47
+- Nouveau : historique des décisions par radiateur (200 dernières, sauvegardé dans `.storage/electric_heater.history_<id>`, conservé au redémarrage). Chaque entrée : heure, température, consigne, hystérésis, ordre précédent / nouveau, raison (`below_target`, `above_target`, `hysteresis_keep`, `window_open`, `window_unavailable_keep`, `absence`, `sensor_ko`, `no_target_safe_off`, `off_mode`, `startup…`, `external_change`, `radiator_not_obeying`), puissance mesurée (W). Attributs du radiateur : `historique` (20 dernières), `derniere_decision`, `radiateur_desobeit`. Journal HA en INFO (`custom_components.electric_heater`).
+- Détection : relais fil pilote changé par autre chose que l'intégration ; radiateur qui consomme > 10 W alors que l'ordre est Arrêt / Hors-gel.
+- Sécurité (cause probable de la surchauffe) : sans température ou sans consigne valide (vide ou 0), la régulation envoyait l'ordre de base **Confort** ; elle envoie désormais **Arrêt**. La régulation utilise la consigne effective (central / preset) au lieu d'une consigne interne parfois vide.
+- Redémarrage HA : pendant 2 min, aucun Confort tant que température ET consigne valides ne sont pas connues (Arrêt, raison `startup_wait_valid_data`).
+
 ## 3.1.44
 - Correctif : consigne des radiateurs vide (carte « xx° / 0.0° ») depuis 3.1.43. La consigne exposée (`temperature` / `native_target_temperature`) retombe désormais sur la consigne du thermostat central (suivi) ou du preset si la consigne interne n'est pas encore connue ; l'initialisation d'un radiateur ne s'arrête plus si une étape échoue. / Fix empty room target temperature.
 - Carte : une consigne absente s'affiche « – » au lieu de « 0.0 ». / Card shows – for missing target.

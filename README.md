@@ -154,3 +154,11 @@ Voir [wiki/Depannage.md](https://github.com/XAV59213/chauffage/blob/main/wiki/De
 MIT · © [XAV59213](https://github.com/XAV59213)
 
 <a href="https://www.buymeacoffee.com/xav59213"><img src="https://img.buymeacoffee.com/button-api/?text=xav59213&emoji=&slug=xav59213&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
+
+## Historique des décisions (3.1.47)
+Chaque radiateur garde ses 200 dernières décisions (persistées). Voir **Outils de développement → États → climate.chauffage_<pièce>** : attributs `historique` (20 dernières), `derniere_decision`, `radiateur_desobeit`. Détails dans le journal HA en ajoutant :
+```yaml
+logger:
+  logs:
+    custom_components.electric_heater: info
+```

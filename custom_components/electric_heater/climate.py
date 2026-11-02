@@ -66,6 +66,7 @@ from .const import (
 )
 from .stats import room_energy_sensor
 from .fil_pilote import (
+    room_current_temp,
     any_window_open,
     apply_fil_pilote,
     central_window_open,
@@ -83,6 +84,7 @@ from .fil_pilote import (
 from .temps import round_temp
 from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
+from .history import ATTR_ENTRIES, DecisionHistory, find_power_sensor, read_power
 
 # HA >= 2026.x : API climate « native_* » (anciens noms retirés en 2027.11).
 _NATIVE_CLIMATE = hasattr(ClimateEntity, "native_temperature_unit")
@@ -724,6 +726,76 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._expected_preset: str | None = None
         self._relay_check = None
         self._relay_unavailable_logged = False
+        self._history = DecisionHistory(hass, entry.entry_id, entry.data.get("name", ""))
+        self._last_reason: str | None = None
+        self._not_obeying = False
+        self._sending_until = 0.0
+        self._started_at = time.monotonic()
+        self._startup_logged = False
+
+    def _power_w(self) -> float | None:
+        sensor = self._cached_value(
+            "power", lambda: find_power_sensor(self.hass, self._fil_pilote_select), ttl=300
+        )
+        return read_power(self.hass, sensor)
+
+    def _record(self, previous, new, reason, target=None, current=None) -> None:
+        self._history.add(
+            current_temp=current if current is not None else self._current_temp,
+            target=target,
+            hysteresis=hysteresis_for(self._preset_mode, self._comfort_hyst()),
+            previous_order=previous,
+            new_order=new,
+            reason=reason,
+            power_W=self._power_w(),
+        )
+        self._last_reason = reason
+
+    def _decision_reason(self, base: str, target, preset: str) -> str:
+        if base == PRESET_OFF:
+            return "off_mode"
+        if self._any_window_open():
+            return "window_open"
+        current = room_current_temp(self.hass, self._temp_sensor)
+        if self._temp_sensor and current is None:
+            return "sensor_ko"
+        if not self._temp_sensor:
+            return "no_sensor_follow_preset"
+        if base not in COMFORT_PRESETS:
+            return "absence" if base == PRESET_ECO else f"preset_{base}"
+        if not isinstance(target, (int, float)) or target <= 0:
+            return "no_target_safe_off"
+        unavailable = [
+            w for w in (self._window_sensors or [])
+            if (st := self.hass.states.get(w)) is None or st.state in ("unknown", "unavailable")
+        ]
+        if unavailable:
+            return "window_unavailable_keep"
+        hyst = hysteresis_for(base, self._comfort_hyst())
+        if current >= target:
+            return "above_target"
+        if current <= target - hyst:
+            return "below_target"
+        return "hysteresis_keep"
+
+    def _check_obeying(self) -> None:
+        """Puissance > 10 W alors que l'ordre est Arrêt / Hors-gel : radiateur désobéissant."""
+        power = self._power_w()
+        bad = (
+            power is not None
+            and power > 10
+            and self._expected_preset in (PRESET_OFF, PRESET_FROST_PROTECTION)
+            and time.monotonic() > self._sending_until
+        )
+        if bad and not self._not_obeying:
+            _LOGGER.warning(
+                "Radiateur %s consomme %s W alors que l'ordre est %s : il n'obéit pas au fil pilote",
+                self.entry.data.get("name"), power, self._expected_preset,
+            )
+            self._record(self._expected_preset, self._expected_preset, "radiator_not_obeying",
+                         target=self._effective_target())
+            self.async_write_ha_state()
+        self._not_obeying = bad
 
     def _cancel_window_delay(self) -> None:
         if self._window_delay:
@@ -838,7 +910,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             return None
         if self._any_window_open():
             return self._temps.get(PRESET_TO_TEMP_KEY.get(base, "comfort"))
-        return self._target_temp
+        target = self._effective_target()
+        return target if isinstance(target, (int, float)) and target > 0 else None
 
     @property
     def hvac_action(self) -> HVACAction:
@@ -880,10 +953,14 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "temperature_sensor": self._temp_sensor,
             "fil_pilote": self._fil_pilote_select,
             "hysteresis": hysteresis_for(self._preset_mode, self._comfort_hyst()),
+            "derniere_decision": (self._history.last(1) or [None])[0],
+            "radiateur_desobeit": self._not_obeying,
+            "historique": self._history.last(ATTR_ENTRIES),
         }
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
+        await self._history.async_load()
         if (last_state := await self.async_get_last_state()) and (
             last_state.attributes.get("follow_central") is False
         ):
@@ -1059,6 +1136,14 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if relay_matches(new, self._expected_preset, option):
             self._cancel_relay_check()
             return
+        if time.monotonic() > self._sending_until:
+            _LOGGER.warning(
+                "Relais %s changé en %s par autre chose que l'intégration (ordre attendu %s)",
+                self._fil_pilote_select, new.state, option,
+            )
+            self._record(self._expected_preset, new.state, "external_change",
+                         target=self._effective_target())
+            self.async_write_ha_state()
         if not self._relay_check:
             self._relay_check = async_call_later(
                 self.hass, RELAY_CHECK_DELAY, self._on_relay_check
@@ -1082,6 +1167,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     async def _periodic_resync(self, _now=None):
         await self._apply_fil_pilote(force=True)
+        self._check_obeying()
 
     @callback
     def _schedule_apply(self, force: bool = False) -> None:
@@ -1096,9 +1182,27 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             preset = room_order(
                 self.hass, self.entry, base, target, exact=exact, last=self._expected_preset
             )
+            reason = self._decision_reason(base, target, preset)
+            if time.monotonic() - self._started_at < 120 and preset not in (
+                PRESET_OFF, PRESET_FROST_PROTECTION
+            ) and order_heats(preset):
+                cur = room_current_temp(self.hass, self._temp_sensor)
+                if (self._temp_sensor and cur is None) or not isinstance(target, (int, float)) or target <= 0:
+                    preset = PRESET_OFF
+                    reason = "startup_wait_valid_data"
+            elif time.monotonic() - self._started_at < 120 and reason == "sensor_ko":
+                preset = PRESET_OFF
+                reason = "startup_wait_valid_data"
+            if not self._startup_logged:
+                self._startup_logged = True
+                reason = f"startup:{reason}"
             changed = preset != self._expected_preset
+            if changed or reason != self._last_reason:
+                self._record(self._expected_preset, preset, reason, target=target,
+                             current=room_current_temp(self.hass, self._temp_sensor))
             self._expected_preset = preset
             if changed:
+                self._sending_until = time.monotonic() + 15
                 self.async_write_ha_state()
             state = self.hass.states.get(self._fil_pilote_select) if self._fil_pilote_select else None
             if self._fil_pilote_select and not relay_available(state):
