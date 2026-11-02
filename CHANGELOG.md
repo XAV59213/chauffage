@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.56
+- Carte : corrige le retour en haut de page en faisant défiler (appli mobile). La carte réécrivait tout son contenu à chaque mise à jour d'une entité (graphique, listes…), ce qui faisait varier sa hauteur et réinitialisait le défilement. Désormais : structure construite une seule fois, seuls les blocs dont le contenu change sont mis à jour, graphique conservé pendant le rechargement de l'historique, rendu limité à une fois toutes les 3 s, cartes thermostat / tuiles conservées (seul `hass` est transmis), taille de carte fixe.
+
 ## 3.1.55
 - Historique : quand la raison change sans changement d'ordre (fenêtre ouverte / fermée, absence…), une nouvelle décision est enregistrée (réévaluation toutes les 60 s en plus des événements fenêtre). « Fenêtre ouverte » est prioritaire et la décision affiche la consigne effective (ex. Hors-gel 11,6 °C) — corrige « Arrêt · au-dessus consigne » qui restait affiché fenêtre ouverte.
 - Carte, liste des radiateurs : consigne en **rouge** avec 🪟 et info-bulle « Fenêtre ouverte → Hors-gel » quand la fenêtre est ouverte ; en rouge aussi si la consigne est Eco / Hors-gel imposée, et 🔥 en cas d'alerte surchauffe.

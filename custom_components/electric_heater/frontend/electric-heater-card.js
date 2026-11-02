@@ -313,7 +313,12 @@ class ElectricHeaterCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 3 + ((this._ents && this._ents.radiateurs.length) || 0);
+    // Valeur fixe : une taille qui varie fait recalculer la disposition du tableau de bord.
+    return 12;
+  }
+
+  getGridOptions() {
+    return { columns: 12, min_columns: 6 };
   }
 
   set hass(hass) {
@@ -417,7 +422,17 @@ class ElectricHeaterCard extends HTMLElement {
     this._loadHistory();
     if (sig === this._sig) { if (this._mainEl) this._natives(); return; }
     this._sig = sig;
-    this._render();
+    const wait = 3000 - (Date.now() - (this._renderAt || 0));
+    if (!this._mainEl || wait <= 0) {
+      this._renderAt = Date.now();
+      this._render();
+    } else if (!this._renderTimer) {
+      this._renderTimer = setTimeout(() => {
+        this._renderTimer = null;
+        this._renderAt = Date.now();
+        this._render();
+      }, wait);
+    }
   }
 
   async _loadHistory() {
@@ -460,7 +475,7 @@ class ElectricHeaterCard extends HTMLElement {
       this._sig = null;
       this._render();
     } catch (err) {
-      this._histAt = 0;
+      this._histAt = now - 9 * 60 * 1000; // nouvel essai dans 1 min
     }
   }
 
@@ -680,21 +695,44 @@ class ElectricHeaterCard extends HTMLElement {
             <div class="row"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
               <span class="badge">${fmtH(totH)}</span><div class="t"><b>${anyK ? `${totK.toFixed(2)} kWh` : "–"}</b></div></div></div>`;
         })();
-    this._mainEl.innerHTML = `<style>${STYLES}
-      .eh-blocks{display:flex;flex-direction:column;gap:8px}
-      .bt{font-size:1.1em;font-weight:600;margin-bottom:6px}
-      .blk .rows{margin-top:0}</style>
-      <div class="eh-blocks">
-        ${blk("", topHtml)}
-        ${S("afficher_radiateurs") ? blk("Radiateurs", `<div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>`) : ""}
-        ${S("afficher_graphique") && this._config.graphique !== false ? blk("", this._graph()) : ""}
-        ${S("afficher_fenetres") && pileRows ? blk("Détecteurs de fenêtre (état et pile)", `<div class="rows">${pileRows}</div>`) : ""}
-        ${S("afficher_piles_sondes") && sondeRows ? blk("Piles des sondes de température", `<div class="rows">${sondeRows}</div>`) : ""}
-        ${blk("Consommation du jour par radiateur", consoHtml)}
-      </div>`;
-    this._mainEl.querySelectorAll("[data-id]").forEach((el) =>
-      el.addEventListener("click", () => this._more(el.getAttribute("data-id")))
-    );
+    if (S("afficher_graphique") && this._config.graphique !== false) {
+      const g = this._graph();
+      if (g) this._lastGraph = g;
+    }
+    const blocks = [
+      ["top", blk("", topHtml)],
+      ["rad", S("afficher_radiateurs") ? blk("Radiateurs", `<div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>`) : ""],
+      ["graph", S("afficher_graphique") && this._config.graphique !== false && this._lastGraph ? blk("", this._lastGraph) : ""],
+      ["fen", S("afficher_fenetres") && pileRows ? blk("Détecteurs de fenêtre (état et pile)", `<div class="rows">${pileRows}</div>`) : ""],
+      ["piles", S("afficher_piles_sondes") && sondeRows ? blk("Piles des sondes de température", `<div class="rows">${sondeRows}</div>`) : ""],
+      ["conso", blk("Consommation du jour par radiateur", consoHtml)],
+    ];
+    if (!this._blocksEl) {
+      this._mainEl.innerHTML = `<style>${STYLES}
+        .eh-blocks{display:flex;flex-direction:column;gap:8px}
+        .eh-blocks > div:empty{display:none}
+        .bt{font-size:1.1em;font-weight:600;margin-bottom:6px}
+        .blk .rows{margin-top:0}</style><div class="eh-blocks"></div>`;
+      this._blocksEl = this._mainEl.querySelector(".eh-blocks");
+      this._blockEls = {};
+      this._blockHtml = {};
+      for (const [k] of blocks) {
+        const d = document.createElement("div");
+        d.dataset.block = k;
+        this._blocksEl.appendChild(d);
+        this._blockEls[k] = d;
+      }
+      // Un seul écouteur (délégation) : pas de ré-abonnement à chaque rendu.
+      this._blocksEl.addEventListener("click", (ev) => {
+        const el = ev.composedPath().find((n) => n && n.getAttribute && n.getAttribute("data-id"));
+        if (el) this._more(el.getAttribute("data-id"));
+      });
+    }
+    for (const [k, html] of blocks) {
+      if (this._blockHtml[k] === html) continue; // bloc inchangé : on ne touche pas au DOM
+      this._blockHtml[k] = html;
+      this._blockEls[k].innerHTML = html;
+    }
     this._natives();
   }
 

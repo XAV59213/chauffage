@@ -189,3 +189,5 @@ puissances_masquees:
 Options du thermostat central : **Consigne maximale de sécurité** (23 °C), **Marge de surchauffe** (2 °C), **Détecteur fenêtre instable** (5 passages Indisponible / h). En surchauffe (ou radiateur qui consomme alors qu'il devrait être coupé) pendant 3 min : Arrêt forcé + notification. Capteurs « Alerte surchauffe » et « Détecteur fenêtre instable » par pièce et sur le central. Événement `electric_heater_alerte` utilisable dans vos automatisations.
 
 **3.1.55 :** consigne en rouge (🪟 fenêtre ouverte, 🔥 surchauffe) dans la liste des radiateurs de la carte ; l'historique note le passage en « fenêtre ouverte ».
+
+**3.1.56 :** correctif de la carte qui faisait remonter la page en haut sur mobile.
