@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.50
+- Carte Lovelace « Chauffage Fil Pilote » : deux nouvelles sections réglables dans l'éditeur visuel (activées par défaut) :
+  - `afficher_thermostat` : carte thermostat native HA (modes + presets en liste déroulante) ; entité via `thermostat_entite` (vide = thermostat central détecté).
+  - `afficher_courbes_puissance` : grille de tuiles avec courbe de puissance par radiateur (détection auto `sensor.radiateur_*_power` / capteurs W « radiateur »), **rouge** au-dessus de `seuil_puissance` (5 W par défaut), **vert** sinon — sans card_mod. Options `colonnes` (2), `puissances` (liste forcée), `puissances_masquees` (à masquer).
+- Correctif : numéro de version de la carte (cache navigateur) resté à 3.1.44 ; aligné sur la version de l'intégration.
+
 ## 3.1.49
 - Nouveau : **qui change le thermostat**. Chaque changement de consigne, de mode ou de preset (thermostat central ou radiateur) est noté dans l'historique avec `par` (nom de l'utilisateur HA, automatisation « nom », script, « thermostat central (Xavier) », « système »), `ancien` et `nouveau`. Raisons : `changement_consigne`, `changement_mode`, `changement_preset`.
 - Capteur « Dernière décision » : ex. « Consigne 20,6→22 °C · par Xavier », « Fil pilote changé en Confort · par automatisation « Matin » ».

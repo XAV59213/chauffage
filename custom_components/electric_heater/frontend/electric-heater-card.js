@@ -414,7 +414,7 @@ class ElectricHeaterCard extends HTMLElement {
     }).join(";") + "#" + Object.keys(hass.states)
       .filter((id) => id.startsWith("person.") && hass.states[id].state === "home").join(",");
     this._loadHistory();
-    if (sig === this._sig) return;
+    if (sig === this._sig) { if (this._mainEl) this._natives(); return; }
     this._sig = sig;
     this._render();
   }
@@ -639,7 +639,8 @@ class ElectricHeaterCard extends HTMLElement {
       </div>`;
     }).join("");
 
-    this.shadowRoot.innerHTML = `<style>${STYLES}</style>
+    this._layout();
+    this._mainEl.innerHTML = `<style>${STYLES}</style>
       <ha-card>
         ${S("afficher_entete") ? head : ""}
         ${S("afficher_badges") ? `<div class="chips">${chips.join("")}</div>` : ""}
@@ -669,9 +670,95 @@ class ElectricHeaterCard extends HTMLElement {
               <span class="badge">${fmtH(totH)}</span><div class="t"><b>${anyK ? `${totK.toFixed(2)} kWh` : "–"}</b></div></div></div>`;
         })()}
       </ha-card>`;
-    this.shadowRoot.querySelectorAll("[data-id]").forEach((el) =>
+    this._mainEl.querySelectorAll("[data-id]").forEach((el) =>
       el.addEventListener("click", () => this._more(el.getAttribute("data-id")))
     );
+    this._natives();
+  }
+
+  _layout() {
+    if (this._mainEl) return;
+    const root = this.shadowRoot;
+    root.innerHTML = `<style>.eh-wrap{display:flex;flex-direction:column;gap:8px}
+      .eh-grid{display:grid;gap:8px}</style>
+      <div class="eh-wrap"><div id="eh-thermo"></div><div id="eh-main"></div><div id="eh-power" class="eh-grid"></div></div>`;
+    this._mainEl = root.getElementById("eh-main");
+    this._thermoEl = root.getElementById("eh-thermo");
+    this._powerEl = root.getElementById("eh-power");
+    this._cards = {};
+  }
+
+  _powerSensors() {
+    const c = this._config || {};
+    const hass = this._hass;
+    let list = Array.isArray(c.puissances) && c.puissances.length ? c.puissances : Object.keys(hass.states).filter((id) => {
+      if (!id.startsWith("sensor.")) return false;
+      if (/^sensor\.radiateur_.*_power$/.test(id)) return true;
+      const a = hass.states[id].attributes || {};
+      return /radiateur|chauffage/i.test(id + " " + (a.friendly_name || "")) && a.unit_of_measurement === "W";
+    }).sort();
+    const hide = new Set(c.puissances_masquees || []);
+    return list.filter((id) => !hide.has(id));
+  }
+
+  async _make(key, conf, parent) {
+    const sig = JSON.stringify(conf);
+    const cur = this._cards[key];
+    if (cur && cur.sig === sig) { if (cur.el) cur.el.hass = this._hass; return; }
+    if (cur && !cur.el) return;
+    if (cur && cur.el) {
+      try { cur.el.setConfig(conf); cur.sig = sig; cur.el.hass = this._hass; return; } catch (e) { /* recreate */ }
+    }
+    this._cards[key] = { sig, el: null };
+    if (!this._helpers) this._helpers = window.loadCardHelpers ? window.loadCardHelpers() : null;
+    if (!this._helpers) return;
+    const helpers = await this._helpers;
+    const el = helpers.createCardElement(conf);
+    el.hass = this._hass;
+    this._cards[key].el = el;
+    el.dataset.key = key;
+    parent.appendChild(el);
+  }
+
+  _natives() {
+    const c = this._config || {};
+    const hass = this._hass;
+    const S = (k) => this._show(k);
+    // Thermostat natif
+    const thermoEnt = c.thermostat_entite || this._ents.central;
+    if (S("afficher_thermostat") && thermoEnt && hass.states[thermoEnt]) {
+      this._make("thermo", {
+        type: "thermostat", entity: thermoEnt,
+        features: [{ type: "climate-hvac-modes" }, { type: "climate-preset-modes", style: "dropdown" }],
+      }, this._thermoEl);
+    } else if (this._cards.thermo) {
+      this._thermoEl.innerHTML = ""; delete this._cards.thermo;
+    }
+    // Courbes de puissance
+    const keep = new Set();
+    if (S("afficher_courbes_puissance")) {
+      const cols = Math.max(1, parseInt(c.colonnes, 10) || 2);
+      this._powerEl.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+      const seuil = Number(c.seuil_puissance ?? 5);
+      for (const id of this._powerSensors()) {
+        const st = hass.states[id];
+        if (!st) continue;
+        keep.add("p:" + id);
+        const nom = (st.attributes.friendly_name || id).replace(/\s*(puissance|power)\s*$/i, "");
+        this._make("p:" + id, {
+          type: "tile", entity: id, name: nom, vertical: false,
+          color: (parseFloat(st.state) || 0) > seuil ? "red" : "green",
+          features: [{ type: "trend-graph" }], features_position: "bottom",
+        }, this._powerEl);
+      }
+    }
+    for (const k of Object.keys(this._cards)) {
+      if (k.startsWith("p:") && !keep.has(k)) {
+        const el = this._cards[k].el;
+        if (el) el.remove();
+        delete this._cards[k];
+      }
+    }
   }
 }
 
@@ -684,11 +771,17 @@ const SECTIONS = [
   ["afficher_fenetres", "Détecteurs de fenêtre"],
   ["afficher_piles_sondes", "Piles des sondes"],
   ["afficher_conso", "Consommation du jour"],
+  ["afficher_thermostat", "Thermostat (carte HA native)"],
+  ["afficher_courbes_puissance", "Courbes de puissance des radiateurs"],
 ];
 const LABELS = Object.assign(Object.fromEntries(SECTIONS), {
   titre: "Titre", central: "Thermostat central", radiateurs: "Radiateurs (vide = tous)",
   heures: "Durée du graphique (heures)", detecteurs_fenetre: "Détecteurs de fenêtre (vide = auto)",
   exclure_personnes: "Personnes à masquer",
+  thermostat_entite: "Thermostat affiché (vide = central)",
+  puissances: "Capteurs de puissance (vide = auto)",
+  puissances_masquees: "Capteurs de puissance à masquer",
+  colonnes: "Colonnes des courbes", seuil_puissance: "Seuil rouge (W)",
 });
 
 class ElectricHeaterCardEditor extends HTMLElement {
@@ -707,6 +800,11 @@ class ElectricHeaterCardEditor extends HTMLElement {
       { name: "radiateurs", selector: { entity: { domain: "climate", multiple: true } } },
       { type: "grid", name: "", schema: SECTIONS.map(([n]) => ({ name: n, selector: { boolean: {} } })) },
       { name: "heures", selector: { number: { min: 1, max: 168, mode: "box", unit_of_measurement: "h" } } },
+      { name: "thermostat_entite", selector: { entity: { domain: "climate" } } },
+      { name: "puissances", selector: { entity: { domain: "sensor", multiple: true } } },
+      { name: "puissances_masquees", selector: { entity: { domain: "sensor", multiple: true } } },
+      { name: "colonnes", selector: { number: { min: 1, max: 4, mode: "box" } } },
+      { name: "seuil_puissance", selector: { number: { min: 0, max: 3000, mode: "box", unit_of_measurement: "W" } } },
       { name: "detecteurs_fenetre", selector: { entity: { domain: ["binary_sensor", "sensor", "input_boolean", "cover"], multiple: true } } },
     ];
   }

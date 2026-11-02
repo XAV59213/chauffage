@@ -166,3 +166,15 @@ logger:
 **3.1.48 :** capteur diagnostic « Dernière décision » par radiateur (`sensor.<pièce>_derniere_decision`), visible dans l'onglet Activité de l'appareil, avec l'historique des 20 dernières décisions en attribut.
 
 **3.1.49 :** l'historique indique **qui** a changé la consigne / le mode / le preset (utilisateur, automatisation, thermostat central, système) — attribut `dernier_changement_par` et capteur « Dernière décision » (ex. « Consigne 20,6→22 °C · par Xavier »).
+
+**3.1.50 :** la carte intègre un thermostat natif et les courbes de puissance des radiateurs (rouge > seuil, vert sinon), le tout réglable dans l'éditeur visuel :
+```yaml
+type: custom:electric-heater-card
+afficher_thermostat: true
+thermostat_entite: climate.electric_heater_electric_heater_central   # optionnel
+afficher_courbes_puissance: true
+colonnes: 2
+seuil_puissance: 5
+puissances_masquees:
+  - sensor.radiateur_salon_power
+```
