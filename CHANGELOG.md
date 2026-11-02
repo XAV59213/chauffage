@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.55
+- Historique : quand la raison change sans changement d'ordre (fenêtre ouverte / fermée, absence…), une nouvelle décision est enregistrée (réévaluation toutes les 60 s en plus des événements fenêtre). « Fenêtre ouverte » est prioritaire et la décision affiche la consigne effective (ex. Hors-gel 11,6 °C) — corrige « Arrêt · au-dessus consigne » qui restait affiché fenêtre ouverte.
+- Carte, liste des radiateurs : consigne en **rouge** avec 🪟 et info-bulle « Fenêtre ouverte → Hors-gel » quand la fenêtre est ouverte ; en rouge aussi si la consigne est Eco / Hors-gel imposée, et 🔥 en cas d'alerte surchauffe.
+
 ## 3.1.54 — Sécurités
 - **Consigne max de sécurité** (`consigne_max_securite`, 23 °C par défaut, 15–30) : consigne du central et des radiateurs plafonnée (curseur limité, consigne demandée au-dessus ramenée à la limite, régulation toujours plafonnée). Noté dans l'historique « Consigne limitée (sécurité) · par … ».
 - **Surchauffe** : si une pièce dépasse consigne + `marge_surchauffe` (2 °C par défaut) pendant que le radiateur chauffe, ou si un radiateur consomme > 10 W alors que l'ordre est Arrêt / Hors-gel, pendant plus de 3 min → **Arrêt forcé**, historique (`surchauffe` / `radiateur_desobeit`), événement `electric_heater_alerte`, notification persistante + services notify configurés (au plus une fois toutes les 30 min par pièce). Fin automatique quand tout redevient normal.

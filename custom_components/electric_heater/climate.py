@@ -894,6 +894,16 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._unstable = False
             safety.set_alert(self.hass, eid, name, "instable", False)
             self._record(self._expected_preset, self._expected_preset, "detecteur_stable", target=target)
+        # Raison de décision qui change sans changement d'ordre (fenêtre, absence…) : on réévalue.
+        try:
+            base = self._order_base()
+            reason = "surchauffe" if self._safety_off else self._decision_reason(
+                base, self._order_target(base), self._expected_preset)
+            last = (self._last_reason or "").removeprefix("startup:")
+            if reason != last:
+                self._schedule_apply()
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Réévaluation raison", exc_info=True)
         self.async_write_ha_state()
 
     @callback

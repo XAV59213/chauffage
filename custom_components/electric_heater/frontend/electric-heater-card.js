@@ -644,7 +644,15 @@ class ElectricHeaterCard extends HTMLElement {
         <ha-icon icon="${heat ? "mdi:radiator" : "mdi:radiator-disabled"}"></ha-icon>
         <div class="n">${_esc(a.friendly_name || id)}${win}${(() => { const x = _statsFor(hass, id); const t = [_fmtStats(x) && `${_fmtStats(x)} aujourd'hui`, _fmtMeter(x)].filter(Boolean).join(" · "); return t ? `<div class="muted" style="font-size:12px">${t}</div>` : ""; })()}</div>
         ${badge}
-        <div class="t">${_num(a.current_temperature)}° <span class="muted">/ ${_num(a.temperature)}°</span></div>
+        <div class="t">${_num(a.current_temperature)}° ${(() => {
+          const winOpen = a.window_open || a.fenetre === "Ouverte" || a.fenetre_detectee;
+          const mode = a.consigne_mode || "";
+          const over = !winOpen && /hors|eco/i.test(mode) && !/confort/i.test(mode);
+          if (a.alerte_surchauffe) return `<span style="color:var(--error-color,#f44336);font-weight:600" title="Surchauffe → Arrêt forcé">🔥 / ${_num(a.temperature)}°</span>`;
+          if (winOpen) return `<span style="color:var(--error-color,#f44336);font-weight:600" title="Fenêtre ouverte → ${_esc(mode || "Hors-gel")}">🪟 / ${_num(a.temperature)}°</span>`;
+          if (over) return `<span style="color:var(--error-color,#f44336);font-weight:600" title="Consigne ${_esc(mode)}">/ ${_num(a.temperature)}°</span>`;
+          return `<span class="muted">/ ${_num(a.temperature)}°</span>`;
+        })()}</div>
       </div>`;
     }).join("");
 
