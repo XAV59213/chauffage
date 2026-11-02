@@ -349,6 +349,7 @@ async def apply_fil_pilote(
     preset: str,
     temperature: float | None = None,
     force: bool = False,
+    context=None,
 ) -> bool:
     """Envoie l'ordre au relais. Sans force, rien n'est envoyé s'il y est déjà.
 
@@ -396,32 +397,32 @@ async def apply_fil_pilote(
                 "select",
                 "select_option",
                 {"entity_id": entity_id, "option": option},
-                blocking=True,
+                blocking=True, context=context,
             )
         elif domain == "climate":
             data: dict[str, Any] = {"entity_id": entity_id}
             if preset == PRESET_OFF:
                 await hass.services.async_call(
-                    "climate", "set_hvac_mode", {**data, "hvac_mode": "off"}, blocking=True
+                    "climate", "set_hvac_mode", {**data, "hvac_mode": "off"}, blocking=True, context=context
                 )
             else:
                 if state.state == "off":
                     await hass.services.async_call(
-                        "climate", "set_hvac_mode", {**data, "hvac_mode": "heat"}, blocking=True
+                        "climate", "set_hvac_mode", {**data, "hvac_mode": "heat"}, blocking=True, context=context
                     )
                 if option:
                     await hass.services.async_call(
                         "climate",
                         "set_preset_mode",
                         {**data, "preset_mode": option},
-                        blocking=True,
+                        blocking=True, context=context,
                     )
                 if temperature is not None:
                     await hass.services.async_call(
                         "climate",
                         "set_temperature",
                         {**data, "temperature": temperature},
-                        blocking=True,
+                        blocking=True, context=context,
                     )
         else:
             _LOGGER.warning("Type d'entité fil pilote non supporté: %s", entity_id)

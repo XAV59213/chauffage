@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 import logging
+
+from homeassistant.util import dt as dt_util
 import time
 from typing import Any
 
@@ -84,7 +86,7 @@ from .fil_pilote import (
 from .temps import round_temp
 from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
-from .history import ATTR_ENTRIES, find_power_sensor, get_history, read_power
+from .history import ATTR_ENTRIES, find_power_sensor, get_history, own_context, read_power, resolve_who
 
 # HA >= 2026.x : API climate « native_* » (anciens noms retirés en 2027.11).
 _NATIVE_CLIMATE = hasattr(ClimateEntity, "native_temperature_unit")
@@ -198,6 +200,8 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         # None = état du calendrier encore jamais connu
         self._calendar_active: bool | None = None
         self._manual_hold = False
+        self._last_changer: str | None = None
+        self._last_change: dict | None = None
         self._window_open = False
         self._window_delay = None
         self._unsub_temp = None
@@ -355,7 +359,18 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "fenetre_detectee": self._windows_live_open(),
             "hysteresis": hysteresis_for(self._preset_mode, self._comfort_hyst()),
             "rooms": [e.title for e in iter_room_entries(self.hass)],
+            "dernier_changement_par": self._last_changer,
+            "dernier_changement": self._last_change,
         }
+
+    async def _note_change(self, kind: str, old, new) -> None:
+        if old == new:
+            return
+        who = await resolve_who(self.hass, self._context)
+        self._last_changer = who
+        self._last_change = {"type": kind, "ancien": old, "nouveau": new, "par": who,
+                             "heure": dt_util.now().isoformat(timespec="seconds")}
+        _LOGGER.info("Thermostat central : %s %s → %s par %s", kind, old, new, who)
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
@@ -620,6 +635,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if self._window_open:
             return
         if temp := kwargs.get("temperature"):
+            await self._note_change("changement_consigne", self._target_temp, _r1(temp))
             key = PRESET_TO_TEMP_KEY.get(self._preset_mode, "comfort")
             if self._preset_mode == PRESET_OFF:
                 key = "comfort"
@@ -634,6 +650,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._notify_rooms()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
+        await self._note_change("changement_mode", str(self._hvac_mode), str(hvac_mode))
         self._hvac_mode = hvac_mode
         self._manual_hold = False
         if hvac_mode == HVACMode.OFF:
@@ -658,6 +675,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     async def async_set_preset_mode(self, preset_mode: str):
         if preset_mode not in PRESETS:
             return
+        await self._note_change("changement_preset", self._preset_mode, preset_mode)
         self._preset_mode = preset_mode
         self._have_mode = True
         if preset_mode in COMFORT_PRESETS:
@@ -728,6 +746,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._relay_unavailable_logged = False
         self._history = get_history(hass, entry.entry_id, entry.data.get("name", ""))
         self._window_unavail_logged = False
+        self._last_changer: str | None = None
         self._last_reason: str | None = None
         self._not_obeying = False
         self._sending_until = 0.0
@@ -772,6 +791,21 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if current <= target - hyst:
             return "below_target"
         return "hysteresis_keep"
+
+    def _record_change(self, kind: str, old, new, who: str) -> None:
+        if old == new:
+            return
+        self._last_changer = who
+        self._history.add(
+            current_temp=self._current_temp, target=self._effective_target(),
+            hysteresis=hysteresis_for(self._preset_mode, self._comfort_hyst()),
+            previous_order=self._expected_preset, new_order=self._expected_preset,
+            reason=kind, par=who, ancien=old, nouveau=new, power_W=self._power_w(),
+        )
+
+    async def _record_user_change(self, kind: str, old, new) -> None:
+        if old != new:
+            self._record_change(kind, old, new, await resolve_who(self.hass, self._context))
 
     def _check_obeying(self) -> None:
         """Puissance > 10 W alors que l'ordre est Arrêt / Hors-gel : radiateur désobéissant."""
@@ -950,6 +984,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "hysteresis": hysteresis_for(self._preset_mode, self._comfort_hyst()),
             "derniere_decision": (self._history.last(1) or [None])[0],
             "radiateur_desobeit": self._not_obeying,
+            "dernier_changement_par": self._last_changer,
             "historique": self._history.last(ATTR_ENTRIES),
         }
 
@@ -1041,6 +1076,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._central_window_open = bool(attrs.get("window_open"))
         mode = attrs.get("window_mode")
         self._window_mode = mode if mode in WINDOW_MODES else DEFAULT_WINDOW_MODE
+        before = (self._target_temp, self._preset_mode, str(self._hvac_mode))
         if self._follow_central:
             if central.state in ("heat", "off", "auto"):
                 self._hvac_mode = HVACMode(central.state)
@@ -1055,6 +1091,14 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             if self._target_temp is None or self._central_window_open:
                 self._target_temp = self._temps.get(key) or self._temps.get("comfort")
             self._hysteresis = hysteresis_for(self._preset_mode, self._comfort_hyst())
+            if apply and self._history.entries:
+                who = attrs.get("dernier_changement_par")
+                who = f"thermostat central ({who})" if who else "thermostat central"
+                after = (self._target_temp, self._preset_mode, str(self._hvac_mode))
+                for kind, old, new in zip(
+                    ("changement_consigne", "changement_preset", "changement_mode"), before, after
+                ):
+                    self._record_change(kind, old, new, who)
         if apply:
             self.async_write_ha_state()
             self._schedule_apply()
@@ -1136,13 +1180,27 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                 "Relais %s changé en %s par autre chose que l'intégration (ordre attendu %s)",
                 self._fil_pilote_select, new.state, option,
             )
-            self._record(self._expected_preset, new.state, "external_change",
-                         target=self._effective_target())
+            ctx = new.context
+            self.hass.async_create_task(self._record_external(new.state, ctx))
             self.async_write_ha_state()
         if not self._relay_check:
             self._relay_check = async_call_later(
                 self.hass, RELAY_CHECK_DELAY, self._on_relay_check
             )
+
+    @callback
+    async def _record_external(self, state: str, ctx) -> None:
+        who = await resolve_who(self.hass, ctx)
+        if who == "intégration":
+            return
+        self._last_changer = who
+        self._history.add(
+            current_temp=self._current_temp, target=self._effective_target(),
+            hysteresis=hysteresis_for(self._preset_mode, self._comfort_hyst()),
+            previous_order=self._expected_preset, new_order=state,
+            reason="external_change", par=who, power_W=self._power_w(),
+        )
+        self.async_write_ha_state()
 
     @callback
     def _on_relay_check(self, _now=None):
@@ -1218,11 +1276,13 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                     self._relay_unavailable_logged = True
                 return
             await apply_fil_pilote(
-                self.hass, self._fil_pilote_select, preset, temperature=target, force=force
+                self.hass, self._fil_pilote_select, preset, temperature=target, force=force,
+                context=own_context(self.hass),
             )
 
     async def async_set_temperature(self, **kwargs):
         if temp := kwargs.get("temperature"):
+            await self._record_user_change("changement_consigne", self._effective_target(), temp)
             self._target_temp = temp
             self._preset_mode = PRESET_COMFORT
             self._hvac_mode = HVACMode.HEAT
@@ -1231,6 +1291,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         await self._apply_fil_pilote()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
+        await self._record_user_change("changement_mode", str(self._hvac_mode), str(hvac_mode))
         if hvac_mode == HVACMode.AUTO:
             # Auto : le radiateur suit de nouveau le thermostat virtuel.
             self._follow_central = True
@@ -1255,6 +1316,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     async def async_set_preset_mode(self, preset_mode: str):
         if preset_mode not in PRESETS:
             return
+        await self._record_user_change("changement_preset", self._preset_mode, preset_mode)
         self._follow_central = False
         self._preset_mode = preset_mode
         if preset_mode in PRESET_TO_TEMP_KEY and self._temps:

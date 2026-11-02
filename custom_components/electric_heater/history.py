@@ -77,6 +77,9 @@ class DecisionHistory:
     def add(self, **entry: Any) -> dict[str, Any]:
         entry = {"time": dt_util.now().isoformat(timespec="seconds"), **entry}
         self.entries.append(entry)
+        if entry.get("par"):
+            _LOGGER.info("[%s] %s par %s : %s → %s", self.name, entry.get("reason"),
+                         entry.get("par"), entry.get("ancien"), entry.get("nouveau"))
         _LOGGER.info(
             "[%s] décision %s → %s (raison=%s, temp=%s, consigne=%s, hyst=%s, puissance=%s W)",
             self.name,
@@ -143,11 +146,64 @@ def _num(v) -> str:
     return "–" if not isinstance(v, (int, float)) else f"{v:.1f}".replace(".", ",")
 
 
+def _val(v) -> str:
+    if isinstance(v, (int, float)):
+        return f"{v:g}".replace(".", ",")
+    return ORDER_LABELS.get(v, MODE_LABELS.get(v, str(v) if v is not None else "–"))
+
+
+MODE_LABELS = {"auto": "Auto", "heat": "Chauffe", "off": "Arrêt"}
+
+
 def entry_summary(e: dict | None) -> str:
     if not e:
         return "Aucune décision"
+    reason = e.get("reason") or ""
+    if reason in CHANGE_LABELS:
+        unit = " °C" if reason == "changement_consigne" else ""
+        return (f"{CHANGE_LABELS[reason]} {_val(e.get('ancien'))}→{_val(e.get('nouveau'))}{unit}"
+                f" · par {e.get('par') or 'système'}")[:255]
+    if reason == "external_change" and e.get("par"):
+        return (f"Fil pilote changé en {_val(e.get('new_order'))} · par {e['par']}")[:255]
     order = ORDER_LABELS.get(e.get("new_order"), e.get("new_order") or "–")
     p = e.get("power_W")
     power = "– W" if p is None else f"{p:.0f} W"
     return (f"{order} · {reason_label(e.get('reason'))} · "
             f"{_num(e.get('current_temp'))}/{_num(e.get('target'))} °C · {power}")[:255]
+
+
+async def resolve_who(hass: HomeAssistant, context) -> str:
+    """Nom de l'auteur d'un changement à partir du contexte HA."""
+    if context is None:
+        return "système"
+    own = hass.data.get(DOMAIN, {}).get("_own_contexts", set())
+    if context.id in own:
+        return "intégration"
+    if context.user_id:
+        try:
+            user = await hass.auth.async_get_user(context.user_id)
+        except Exception:  # noqa: BLE001
+            user = None
+        return (user.name if user and user.name else "utilisateur")
+    for domain, label in (("automation", "automatisation"), ("script", "script")):
+        for st in hass.states.async_all(domain):
+            if st.context and st.context.id in (context.id, context.parent_id):
+                return f"{label} « {st.attributes.get('friendly_name', st.entity_id)} »"
+    if context.parent_id:
+        return "automatisation"
+    return "système"
+
+
+def own_context(hass: HomeAssistant):
+    """Contexte des écritures de l'intégration (attribution correcte dans le journal)."""
+    from homeassistant.core import Context
+
+    ctx = Context()
+    own = hass.data.setdefault(DOMAIN, {}).setdefault("_own_contexts", set())
+    if len(own) > 500:
+        own.clear()
+    own.add(ctx.id)
+    return ctx
+
+
+CHANGE_LABELS = {"changement_consigne": "Consigne", "changement_mode": "Mode", "changement_preset": "Preset"}

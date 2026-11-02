@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.49
+- Nouveau : **qui change le thermostat**. Chaque changement de consigne, de mode ou de preset (thermostat central ou radiateur) est noté dans l'historique avec `par` (nom de l'utilisateur HA, automatisation « nom », script, « thermostat central (Xavier) », « système »), `ancien` et `nouveau`. Raisons : `changement_consigne`, `changement_mode`, `changement_preset`.
+- Capteur « Dernière décision » : ex. « Consigne 20,6→22 °C · par Xavier », « Fil pilote changé en Confort · par automatisation « Matin » ».
+- Attribut `dernier_changement_par` sur le thermostat central et chaque radiateur (`dernier_changement` en plus sur le central).
+- Changement du relais fil pilote hors intégration : l'auteur est indiqué.
+- Les ordres envoyés par l'intégration portent leur propre contexte : le journal HA les attribue correctement et ils ne sont plus confondus avec un changement externe.
+
 ## 3.1.48
 - Nouveau capteur diagnostic par radiateur **« Dernière décision »** (`sensor.<pièce>_derniere_decision`, même appareil que le radiateur) : état lisible, ex. « Arrêt · au-dessus consigne · 24,1/20,6 °C · 0 W ». Attributs : `raison`, `temperature`, `consigne`, `ordre`, `ordre_precedent`, `puissance_w`, `heure`, `historique` (20 dernières). Mis à jour à chaque décision → visible dans l'onglet **Activité** de l'appareil.
 - Raisons traduites en français.

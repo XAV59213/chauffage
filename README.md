@@ -164,3 +164,5 @@ logger:
 ```
 
 **3.1.48 :** capteur diagnostic « Dernière décision » par radiateur (`sensor.<pièce>_derniere_decision`), visible dans l'onglet Activité de l'appareil, avec l'historique des 20 dernières décisions en attribut.
+
+**3.1.49 :** l'historique indique **qui** a changé la consigne / le mode / le preset (utilisateur, automatisation, thermostat central, système) — attribut `dernier_changement_par` et capteur « Dernière décision » (ex. « Consigne 20,6→22 °C · par Xavier »).
