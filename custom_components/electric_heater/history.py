@@ -16,6 +16,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger("custom_components.electric_heater")
 
 MAX_ENTRIES = 200
+MERGED_ID = "central_decisions"
 ATTR_ENTRIES = 20
 STORAGE_VERSION = 1
 
@@ -93,7 +94,17 @@ class DecisionHistory:
         )
         self._store.async_delay_save(lambda: list(self.entries), 10)
         async_dispatcher_send(self.hass, signal(self.entry_id))
+        if self.entry_id not in ("central", MERGED_ID):
+            get_history(self.hass, MERGED_ID, "Toutes les pièces").append_raw(
+                {**entry, "piece": self.name}
+            )
         return entry
+
+    def append_raw(self, entry: dict[str, Any]) -> None:
+        """Ajout sans journal (historique fusionné des pièces)."""
+        self.entries.append(entry)
+        self._store.async_delay_save(lambda: list(self.entries), 30)
+        async_dispatcher_send(self.hass, signal(self.entry_id))
 
     def last(self, count: int = ATTR_ENTRIES) -> list[dict[str, Any]]:
         return list(self.entries)[-count:][::-1]

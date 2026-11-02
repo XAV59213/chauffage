@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.53
+- Nouveau capteur diagnostic **« Dernière décision »** sur l'appareil du thermostat central : dernière décision toutes pièces confondues, ex. « Salon · Arrêt · au-dessus consigne · 22,5/20,6 °C · 0 W ». Attributs `piece`, `raison`, `ordre`, `temperature`, `consigne`, `puissance_w`, `heure`, `par_piece` (dernière décision de chaque pièce), `historique` (50 dernières, toutes pièces, conservées au redémarrage). Visible dans l'onglet Activité du central.
+
 ## 3.1.52
 - Nouveau capteur diagnostic **« Dernier changement »** sur l'appareil du thermostat central : ex. « Consigne 20,6→29,9 °C · par Xavier » (aussi mode et preset). Attributs `type`, `ancien`, `nouveau`, `par`, `heure`, `historique` (50 derniers, conservés au redémarrage). Visible dans l'onglet **Activité** du central.
 - Correctif : en 3.1.49 l'auteur d'un changement du central n'était stocké que dans un attribut du thermostat — rien n'apparaissait dans Activité. Les changements sont maintenant historisés et publiés par ce capteur.

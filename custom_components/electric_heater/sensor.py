@@ -29,7 +29,7 @@ from .fil_pilote import (
     rooms_sensor_ko,
     windows_from_entry,
 )
-from .history import ATTR_ENTRIES, CHANGE_LABELS, entry_summary, get_history, signal as history_signal
+from .history import ATTR_ENTRIES, CHANGE_LABELS, MERGED_ID, entry_summary, get_history, signal as history_signal
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .occupancy import occupancy_count, present_names
 from .stats import CentralMeterDailySensor, CentralMeteredEnergySensor, RoomMeterDailySensor, CentralStatSensor, RoomHeatingTimeSensor
@@ -51,6 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         entities.append(CentralMeteredEnergySensor(hass))
         entities.append(CentralMeterDailySensor(hass))
         entities.append(LastChangeSensor(hass, entry))
+        entities.append(CentralLastDecisionSensor(hass, entry))
     else:
         entities.append(RoomTemperatureSensor(hass, entry))
         entities.append(WindowStateSensor(hass, entry, central=False))
@@ -553,6 +554,65 @@ class LastChangeSensor(SensorEntity):
         await self._history.async_load()
         self.async_on_remove(
             async_dispatcher_connect(self.hass, history_signal("central"), self._updated)
+        )
+
+    @callback
+    def _updated(self):
+        self.async_write_ha_state()
+
+
+class CentralLastDecisionSensor(SensorEntity):
+    """Dernière décision toutes pièces confondues (appareil central)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Dernière décision"
+    _attr_icon = "mdi:history"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_unique_id = "electric_heater_central_derniere_decision"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        self.hass = hass
+        self.entry = entry
+        self._history = get_history(hass, MERGED_ID, "Toutes les pièces")
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    def _last(self):
+        return self._history.entries[-1] if self._history.entries else None
+
+    @property
+    def native_value(self):
+        e = self._last()
+        if not e:
+            return "Aucune décision"
+        return f"{e.get('piece', '?')} · {entry_summary(e)}"[:255]
+
+    @property
+    def extra_state_attributes(self):
+        e = self._last() or {}
+        par_piece = {}
+        for x in reversed(self._history.entries):
+            p = x.get("piece")
+            if p and p not in par_piece:
+                par_piece[p] = entry_summary(x)
+        return {
+            "piece": e.get("piece"),
+            "raison": e.get("reason"),
+            "ordre": e.get("new_order"),
+            "temperature": e.get("current_temp"),
+            "consigne": e.get("target"),
+            "puissance_w": e.get("power_W"),
+            "heure": e.get("time"),
+            "par_piece": par_piece,
+            "historique": list(reversed(self._history.entries))[:50],
+        }
+
+    async def async_added_to_hass(self):
+        await self._history.async_load()
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, history_signal(MERGED_ID), self._updated)
         )
 
     @callback

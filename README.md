@@ -182,3 +182,5 @@ puissances_masquees:
 **3.1.51 :** la carte affiche chaque section dans un bloc séparé (thermostat, radiateurs, températures, fenêtres, piles, consommation, puissances) ; chaque bloc se masque avec son option `afficher_*`.
 
 **3.1.52 :** capteur « Dernier changement » sur le thermostat central (qui a changé la consigne / le mode / le preset), visible dans l'onglet Activité.
+
+**3.1.53 :** capteur « Dernière décision » aussi sur le thermostat central (toutes pièces, avec le détail par pièce).
