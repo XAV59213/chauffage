@@ -202,6 +202,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._manual_hold = False
         self._last_changer: str | None = None
         self._last_change: dict | None = None
+        self._central_history = get_history(hass, "central", "Thermostat central")
         self._window_open = False
         self._window_delay = None
         self._unsub_temp = None
@@ -370,10 +371,15 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._last_changer = who
         self._last_change = {"type": kind, "ancien": old, "nouveau": new, "par": who,
                              "heure": dt_util.now().isoformat(timespec="seconds")}
-        _LOGGER.info("Thermostat central : %s %s → %s par %s", kind, old, new, who)
+        self._central_history.add(
+            reason=kind, par=who, ancien=old, nouveau=new,
+            current_temp=self._current_temp, target=self._target_temp,
+        )
+        self.async_write_ha_state()
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
+        await self._central_history.async_load()
         previous_calendar: bool | None = None
         if last_state := await self.async_get_last_state():
             attrs = last_state.attributes

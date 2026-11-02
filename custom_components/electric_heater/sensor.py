@@ -29,7 +29,7 @@ from .fil_pilote import (
     rooms_sensor_ko,
     windows_from_entry,
 )
-from .history import ATTR_ENTRIES, entry_summary, get_history, signal as history_signal
+from .history import ATTR_ENTRIES, CHANGE_LABELS, entry_summary, get_history, signal as history_signal
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .occupancy import occupancy_count, present_names
 from .stats import CentralMeterDailySensor, CentralMeteredEnergySensor, RoomMeterDailySensor, CentralStatSensor, RoomHeatingTimeSensor
@@ -50,6 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 entities.append(CentralStatSensor(hass, daily=daily, kind=kind))
         entities.append(CentralMeteredEnergySensor(hass))
         entities.append(CentralMeterDailySensor(hass))
+        entities.append(LastChangeSensor(hass, entry))
     else:
         entities.append(RoomTemperatureSensor(hass, entry))
         entities.append(WindowStateSensor(hass, entry, central=False))
@@ -485,6 +486,7 @@ class LastDecisionSensor(SensorEntity):
             "ordre_precedent": e.get("previous_order"),
             "puissance_w": e.get("power_W"),
             "heure": e.get("time"),
+            "dernier_changement": _last_change(self._history),
             "historique": self._history.last(ATTR_ENTRIES),
         }
 
@@ -492,6 +494,65 @@ class LastDecisionSensor(SensorEntity):
         await self._history.async_load()
         self.async_on_remove(
             async_dispatcher_connect(self.hass, history_signal(self.entry.entry_id), self._updated)
+        )
+
+    @callback
+    def _updated(self):
+        self.async_write_ha_state()
+
+
+def _change_entries(history, count):
+    return [e for e in reversed(history.entries) if e.get("reason") in CHANGE_LABELS][:count]
+
+
+def _last_change(history):
+    found = _change_entries(history, 1)
+    return entry_summary(found[0]) if found else None
+
+
+class LastChangeSensor(SensorEntity):
+    """Dernier changement de consigne / mode / preset du thermostat central (Activité)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Dernier changement"
+    _attr_icon = "mdi:account-edit"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_unique_id = "electric_heater_central_dernier_changement"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        self.hass = hass
+        self.entry = entry
+        self._history = get_history(hass, "central", "Thermostat central")
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    def _last(self):
+        found = _change_entries(self._history, 1)
+        return found[0] if found else None
+
+    @property
+    def native_value(self):
+        e = self._last()
+        return entry_summary(e) if e else "Aucun changement"
+
+    @property
+    def extra_state_attributes(self):
+        e = self._last() or {}
+        return {
+            "type": e.get("reason"),
+            "ancien": e.get("ancien"),
+            "nouveau": e.get("nouveau"),
+            "par": e.get("par"),
+            "heure": e.get("time"),
+            "historique": _change_entries(self._history, 50),
+        }
+
+    async def async_added_to_hass(self):
+        await self._history.async_load()
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, history_signal("central"), self._updated)
         )
 
     @callback

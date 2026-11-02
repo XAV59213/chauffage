@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.52
+- Nouveau capteur diagnostic **« Dernier changement »** sur l'appareil du thermostat central : ex. « Consigne 20,6→29,9 °C · par Xavier » (aussi mode et preset). Attributs `type`, `ancien`, `nouveau`, `par`, `heure`, `historique` (50 derniers, conservés au redémarrage). Visible dans l'onglet **Activité** du central.
+- Correctif : en 3.1.49 l'auteur d'un changement du central n'était stocké que dans un attribut du thermostat — rien n'apparaissait dans Activité. Les changements sont maintenant historisés et publiés par ce capteur.
+- Radiateurs : le capteur « Dernière décision » a un attribut `dernier_changement` (la décision de régulation qui suit un changement ne masque plus l'auteur).
+
 ## 3.1.51
 - Carte Lovelace : chaque section est maintenant dans son **propre bloc** (cadre séparé avec titre, espacement, comme une pile verticale) : en-tête/badges/alertes, Radiateurs, Températures des pièces, Détecteurs de fenêtre, Piles des sondes, Consommation du jour — en plus du thermostat et des courbes de puissance. Les options `afficher_*` fonctionnent comme avant.
 
