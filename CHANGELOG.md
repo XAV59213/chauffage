@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.48
+- Nouveau capteur diagnostic par radiateur **« Dernière décision »** (`sensor.<pièce>_derniere_decision`, même appareil que le radiateur) : état lisible, ex. « Arrêt · au-dessus consigne · 24,1/20,6 °C · 0 W ». Attributs : `raison`, `temperature`, `consigne`, `ordre`, `ordre_precedent`, `puissance_w`, `heure`, `historique` (20 dernières). Mis à jour à chaque décision → visible dans l'onglet **Activité** de l'appareil.
+- Raisons traduites en français.
+- Détecteur fenêtre qui clignote en Indisponible : noté une seule fois dans l'historique (plus de spam).
+
 ## 3.1.47
 - Nouveau : historique des décisions par radiateur (200 dernières, sauvegardé dans `.storage/electric_heater.history_<id>`, conservé au redémarrage). Chaque entrée : heure, température, consigne, hystérésis, ordre précédent / nouveau, raison (`below_target`, `above_target`, `hysteresis_keep`, `window_open`, `window_unavailable_keep`, `absence`, `sensor_ko`, `no_target_safe_off`, `off_mode`, `startup…`, `external_change`, `radiator_not_obeying`), puissance mesurée (W). Attributs du radiateur : `historique` (20 dernières), `derniere_decision`, `radiateur_desobeit`. Journal HA en INFO (`custom_components.electric_heater`).
 - Détection : relais fil pilote changé par autre chose que l'intégration ; radiateur qui consomme > 10 W alors que l'ordre est Arrêt / Hors-gel.

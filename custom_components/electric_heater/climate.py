@@ -84,7 +84,7 @@ from .fil_pilote import (
 from .temps import round_temp
 from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
-from .history import ATTR_ENTRIES, DecisionHistory, find_power_sensor, read_power
+from .history import ATTR_ENTRIES, find_power_sensor, get_history, read_power
 
 # HA >= 2026.x : API climate « native_* » (anciens noms retirés en 2027.11).
 _NATIVE_CLIMATE = hasattr(ClimateEntity, "native_temperature_unit")
@@ -726,7 +726,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._expected_preset: str | None = None
         self._relay_check = None
         self._relay_unavailable_logged = False
-        self._history = DecisionHistory(hass, entry.entry_id, entry.data.get("name", ""))
+        self._history = get_history(hass, entry.entry_id, entry.data.get("name", ""))
+        self._window_unavail_logged = False
         self._last_reason: str | None = None
         self._not_obeying = False
         self._sending_until = 0.0
@@ -765,12 +766,6 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             return "absence" if base == PRESET_ECO else f"preset_{base}"
         if not isinstance(target, (int, float)) or target <= 0:
             return "no_target_safe_off"
-        unavailable = [
-            w for w in (self._window_sensors or [])
-            if (st := self.hass.states.get(w)) is None or st.state in ("unknown", "unavailable")
-        ]
-        if unavailable:
-            return "window_unavailable_keep"
         hyst = hysteresis_for(base, self._comfort_hyst())
         if current >= target:
             return "above_target"
@@ -1197,6 +1192,14 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                 self._startup_logged = True
                 reason = f"startup:{reason}"
             changed = preset != self._expected_preset
+            unavailable = any(
+                (st := self.hass.states.get(w)) is None or st.state in ("unknown", "unavailable")
+                for w in (self._window_sensors or [])
+            )
+            if unavailable and not self._window_unavail_logged and not changed:
+                self._record(self._expected_preset, preset, "window_unavailable_keep", target=target,
+                             current=room_current_temp(self.hass, self._temp_sensor))
+            self._window_unavail_logged = unavailable
             if changed or reason != self._last_reason:
                 self._record(self._expected_preset, preset, reason, target=target,
                              current=room_current_temp(self.hass, self._temp_sensor))

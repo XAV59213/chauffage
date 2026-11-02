@@ -162,3 +162,5 @@ logger:
   logs:
     custom_components.electric_heater: info
 ```
+
+**3.1.48 :** capteur diagnostic « Dernière décision » par radiateur (`sensor.<pièce>_derniere_decision`), visible dans l'onglet Activité de l'appareil, avec l'historique des 20 dernières décisions en attribut.

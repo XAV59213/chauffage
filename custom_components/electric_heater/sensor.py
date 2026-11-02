@@ -29,6 +29,8 @@ from .fil_pilote import (
     rooms_sensor_ko,
     windows_from_entry,
 )
+from .history import ATTR_ENTRIES, entry_summary, get_history, signal as history_signal
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .occupancy import occupancy_count, present_names
 from .stats import CentralMeterDailySensor, CentralMeteredEnergySensor, RoomMeterDailySensor, CentralStatSensor, RoomHeatingTimeSensor
 from .weather import outdoor_temperature, weather_condition
@@ -55,6 +57,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             for daily in (True, False):
                 entities.append(RoomHeatingTimeSensor(hass, entry, daily=daily, kind=kind))
         entities.append(RoomMeterDailySensor(hass, entry))
+        entities.append(LastDecisionSensor(hass, entry))
     async_add_entities(entities)
 
 
@@ -438,4 +441,59 @@ class SensorKoSensor(SensorEntity):
     def _update(self, event=None):
         self._ko = rooms_sensor_ko(self.hass)
         self._attr_native_value = len(self._ko)
+        self.async_write_ha_state()
+
+
+class LastDecisionSensor(SensorEntity):
+    """Dernière décision de régulation du radiateur (visible dans Activité)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Dernière décision"
+    _attr_icon = "mdi:history"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        self.hass = hass
+        self.entry = entry
+        self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_derniere_decision"
+        self._history = get_history(hass, entry.entry_id, entry.data.get("name", ""))
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
+            "name": self.entry.data["name"],
+            **via_central(getattr(self, "hass", None)),
+        }
+
+    def _last(self):
+        last = self._history.last(1)
+        return last[0] if last else None
+
+    @property
+    def native_value(self):
+        return entry_summary(self._last())
+
+    @property
+    def extra_state_attributes(self):
+        e = self._last() or {}
+        return {
+            "raison": e.get("reason"),
+            "temperature": e.get("current_temp"),
+            "consigne": e.get("target"),
+            "ordre": e.get("new_order"),
+            "ordre_precedent": e.get("previous_order"),
+            "puissance_w": e.get("power_W"),
+            "heure": e.get("time"),
+            "historique": self._history.last(ATTR_ENTRIES),
+        }
+
+    async def async_added_to_hass(self):
+        await self._history.async_load()
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, history_signal(self.entry.entry_id), self._updated)
+        )
+
+    @callback
+    def _updated(self):
         self.async_write_ha_state()

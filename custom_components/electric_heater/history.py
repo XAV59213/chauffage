@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -58,16 +58,21 @@ class DecisionHistory:
     def __init__(self, hass: HomeAssistant, entry_id: str, name: str) -> None:
         self.hass = hass
         self.name = name
+        self.entry_id = entry_id
+        self._loaded = False
         self._store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.history_{entry_id}")
         self.entries: deque[dict[str, Any]] = deque(maxlen=MAX_ENTRIES)
 
     async def async_load(self) -> None:
+        if self._loaded:
+            return
+        self._loaded = True
         try:
             data = await self._store.async_load()
         except Exception:  # noqa: BLE001
             data = None
         if isinstance(data, list):
-            self.entries.extend(data[-MAX_ENTRIES:])
+            self.entries.extendleft(reversed(data[-MAX_ENTRIES:]))
 
     def add(self, **entry: Any) -> dict[str, Any]:
         entry = {"time": dt_util.now().isoformat(timespec="seconds"), **entry}
@@ -84,7 +89,65 @@ class DecisionHistory:
             entry.get("power_W"),
         )
         self._store.async_delay_save(lambda: list(self.entries), 10)
+        async_dispatcher_send(self.hass, signal(self.entry_id))
         return entry
 
     def last(self, count: int = ATTR_ENTRIES) -> list[dict[str, Any]]:
         return list(self.entries)[-count:][::-1]
+
+
+def signal(entry_id: str) -> str:
+    return f"{DOMAIN}_history_{entry_id}"
+
+
+def get_history(hass: HomeAssistant, entry_id: str, name: str = "") -> DecisionHistory:
+    store = hass.data.setdefault(DOMAIN, {}).setdefault("_histories", {})
+    if entry_id not in store:
+        store[entry_id] = DecisionHistory(hass, entry_id, name)
+    return store[entry_id]
+
+
+REASON_LABELS = {
+    "below_target": "sous consigne",
+    "above_target": "au-dessus consigne",
+    "hysteresis_keep": "hystérésis (ordre gardé)",
+    "window_open": "fenêtre ouverte",
+    "window_unavailable_keep": "détecteur fenêtre indisponible",
+    "absence": "absence",
+    "sensor_ko": "sonde KO",
+    "no_target_safe_off": "consigne absente (sécurité)",
+    "no_sensor_follow_preset": "sans sonde (preset)",
+    "off_mode": "mode arrêt",
+    "startup_wait_valid_data": "démarrage, attente données",
+    "external_change": "changé hors intégration",
+    "radiator_not_obeying": "radiateur n'obéit pas",
+}
+ORDER_LABELS = {
+    "comfort": "Confort", "comfort_m1": "Confort -1", "comfort_m2": "Confort -2",
+    "eco": "Eco", "frost_protection": "Hors-gel", "off": "Arrêt",
+}
+
+
+def reason_label(code: str | None) -> str:
+    if not code:
+        return "–"
+    prefix = ""
+    if code.startswith("startup:"):
+        prefix, code = "démarrage · ", code[8:]
+    if code.startswith("preset_"):
+        return prefix + "preset " + ORDER_LABELS.get(code[7:], code[7:])
+    return prefix + REASON_LABELS.get(code, code)
+
+
+def _num(v) -> str:
+    return "–" if not isinstance(v, (int, float)) else f"{v:.1f}".replace(".", ",")
+
+
+def entry_summary(e: dict | None) -> str:
+    if not e:
+        return "Aucune décision"
+    order = ORDER_LABELS.get(e.get("new_order"), e.get("new_order") or "–")
+    p = e.get("power_W")
+    power = "– W" if p is None else f"{p:.0f} W"
+    return (f"{order} · {reason_label(e.get('reason'))} · "
+            f"{_num(e.get('current_temp'))}/{_num(e.get('target'))} °C · {power}")[:255]
