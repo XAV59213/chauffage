@@ -494,7 +494,7 @@ class ElectricHeaterCard extends HTMLElement {
     const legend = h.series.map((s) =>
       `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span style="width:10px;height:3px;background:${s.color};display:inline-block"></span>${_esc(s.name)}</span>`
     ).join("");
-    return `<div class="rows"><div class="muted" style="margin-top:6px">Températures des pièces (${hrs} h)</div>
+    return `<div class="rows"><div class="bt">Températures des pièces (${hrs} h)</div>
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${grid}${lines}${ticks}</svg>
       <div class="muted" style="font-size:11px;line-height:1.8">${legend}</div></div>`;
   }
@@ -640,16 +640,10 @@ class ElectricHeaterCard extends HTMLElement {
     }).join("");
 
     this._layout();
-    this._mainEl.innerHTML = `<style>${STYLES}</style>
-      <ha-card>
-        ${S("afficher_entete") ? head : ""}
-        ${S("afficher_badges") ? `<div class="chips">${chips.join("")}</div>` : ""}
-        ${S("afficher_alertes") ? alerts : ""}
-        ${S("afficher_radiateurs") ? `<div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>` : ""}
-        ${S("afficher_graphique") && this._config.graphique !== false ? this._graph() : ""}
-        ${S("afficher_fenetres") && pileRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Détecteurs de fenêtre (état et pile)</div>${pileRows}</div>` : ""}
-        ${S("afficher_piles_sondes") && sondeRows ? `<div class="rows"><div class="muted" style="margin-top:6px">Piles des sondes de température</div>${sondeRows}</div>` : ""}
-        ${!S("afficher_conso") ? "" : (() => {
+    const blk = (titre, html) => html ? `<ha-card class="blk">${titre ? `<div class="bt">${_esc(titre)}</div>` : ""}${html}</ha-card>` : "";
+    const topHtml = [S("afficher_entete") ? head : "", S("afficher_badges") ? `<div class="chips">${chips.join("")}</div>` : "",
+      S("afficher_alertes") ? alerts : ""].join("");
+    const consoHtml = !S("afficher_conso") ? "" : (() => {
           const fmtH = (h) => { const m = Math.round((h || 0) * 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`; };
           let totH = 0, totK = 0, anyK = false;
           const lines = e.radiateurs.map((id) => {
@@ -665,11 +659,22 @@ class ElectricHeaterCard extends HTMLElement {
               <div class="t">${reel ? `🔌 ${k.toFixed(2)} kWh` : k !== null && k > 0 ? `≈ ${k.toFixed(2)} kWh` : "–"}</div></div>`;
           }).join("");
           if (!lines) return "";
-          return `<div class="rows"><div class="muted" style="margin-top:6px">Consommation du jour par radiateur <span style="font-size:11px">(🔌 compteur réel · ≈ estimation)</span></div>${lines}
+          return `<div class="rows"><div class="muted">🔌 compteur réel · ≈ estimation</div>${lines}
             <div class="row"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
               <span class="badge">${fmtH(totH)}</span><div class="t"><b>${anyK ? `${totK.toFixed(2)} kWh` : "–"}</b></div></div></div>`;
-        })()}
-      </ha-card>`;
+        })();
+    this._mainEl.innerHTML = `<style>${STYLES}
+      .eh-blocks{display:flex;flex-direction:column;gap:8px}
+      .bt{font-size:1.1em;font-weight:600;margin-bottom:6px}
+      .blk .rows{margin-top:0}</style>
+      <div class="eh-blocks">
+        ${blk("", topHtml)}
+        ${S("afficher_radiateurs") ? blk("Radiateurs", `<div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>`) : ""}
+        ${S("afficher_graphique") && this._config.graphique !== false ? blk("", this._graph()) : ""}
+        ${S("afficher_fenetres") && pileRows ? blk("Détecteurs de fenêtre (état et pile)", `<div class="rows">${pileRows}</div>`) : ""}
+        ${S("afficher_piles_sondes") && sondeRows ? blk("Piles des sondes de température", `<div class="rows">${sondeRows}</div>`) : ""}
+        ${blk("Consommation du jour par radiateur", consoHtml)}
+      </div>`;
     this._mainEl.querySelectorAll("[data-id]").forEach((el) =>
       el.addEventListener("click", () => this._more(el.getAttribute("data-id")))
     );

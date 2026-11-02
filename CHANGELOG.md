@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.51
+- Carte Lovelace : chaque section est maintenant dans son **propre bloc** (cadre séparé avec titre, espacement, comme une pile verticale) : en-tête/badges/alertes, Radiateurs, Températures des pièces, Détecteurs de fenêtre, Piles des sondes, Consommation du jour — en plus du thermostat et des courbes de puissance. Les options `afficher_*` fonctionnent comme avant.
+
 ## 3.1.50
 - Carte Lovelace « Chauffage Fil Pilote » : deux nouvelles sections réglables dans l'éditeur visuel (activées par défaut) :
   - `afficher_thermostat` : carte thermostat native HA (modes + presets en liste déroulante) ; entité via `thermostat_entite` (vide = thermostat central détecté).

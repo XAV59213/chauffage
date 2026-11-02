@@ -178,3 +178,5 @@ seuil_puissance: 5
 puissances_masquees:
   - sensor.radiateur_salon_power
 ```
+
+**3.1.51 :** la carte affiche chaque section dans un bloc séparé (thermostat, radiateurs, températures, fenêtres, piles, consommation, puissances) ; chaque bloc se masque avec son option `afficher_*`.
