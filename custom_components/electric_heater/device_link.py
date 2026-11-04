@@ -28,5 +28,11 @@ def via_central(hass: HomeAssistant | None) -> dict:
         return {"via_device": CENTRAL_IDENTIFIER}
     if hass is None:
         return {}
-    device = dr.async_get(hass).async_get_device(identifiers={CENTRAL_IDENTIFIER})
+    # Utilise async_get_devices pour éviter async_get_device (déprécié 2027.8)
+    registry = dr.async_get(hass)
+    devices = registry.async_get_devices()
+    device = next(
+        (d for d in devices if CENTRAL_IDENTIFIER in d.identifiers),
+        None,
+    )
     return {"via_device_id": device.id} if device else {}
