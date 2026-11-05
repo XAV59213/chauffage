@@ -567,14 +567,14 @@ class ElectricHeaterCard extends HTMLElement {
         <ha-icon icon="${nko ? "mdi:battery-alert-variant-outline" : "mdi:battery-check"}"></ha-icon>
         ${nko ? `${nko} sonde${nko > 1 ? "s" : ""} KO` : "Sondes OK"}</div>`);
     }
-    const calId = (this._config || {}).calendrier ||
-      Object.keys(hass.states).find((x) => x.startsWith("binary_sensor.") && x.includes("calendrier_chauffage_activ"));
-    const cal = calId && hass.states[calId];
-    if (cal) {
-      const on = cal.state === "on";
-      chips.push(`<div class="chip ${on ? "ok" : ""}" data-id="${_esc(calId)}">
+    // Badge aligné sur climate.calendar_active (pas le binary « calendrier_chauffage_activé »
+    // qui peut être faux si l'entity_id central a divergé).
+    const calCentral = st(e.central);
+    if (calCentral && calCentral.attributes.calendar !== undefined) {
+      const on = calCentral.state === "auto" && calCentral.attributes.calendar_active === true;
+      chips.push(`<div class="chip ${on ? "ok" : ""}" data-id="${_esc(e.central)}">
         <ha-icon icon="${on ? "mdi:calendar-check" : "mdi:calendar-remove"}"></ha-icon>
-        ${on ? "Calendrier chauffage actif" : "Calendrier chauffage inactif"}</div>`);
+        ${on ? "Créneau calendrier actif" : "Hors créneau calendrier"}</div>`);
     }
     const pres = st(e.presents);
     if (pres) {

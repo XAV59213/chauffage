@@ -69,6 +69,7 @@ from .const import (
 )
 from .stats import room_energy_sensor
 from .fil_pilote import (
+    central_entity_id,
     room_current_temp,
     any_window_open,
     apply_fil_pilote,
@@ -583,6 +584,8 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._season_info = info
         want_off = not info["in_season"]
         if want_off == self._hors_saison:
+            # Déjà aligné. Si hors saison mais quelqu'un a remis Auto, on ne re-coupe PAS
+            # ici toutes les 15 min (sinon combat avec l'utilisateur) — sauf si Off manuel faux.
             return
         before = self._hvac_mode
         if want_off:
@@ -799,15 +802,21 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._notify_rooms()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
+        who = await resolve_who(self.hass, self._context)
         await self._note_change("changement_mode", str(self._hvac_mode), str(hvac_mode))
         if hvac_mode == HVACMode.OFF:
-            who = self._last_changer or "?"
             # Off demandé hors intégration saison = Off manuel (pas de reprise auto).
             if "saison" not in str(who):
                 self._user_off = True
             _LOGGER.warning("Thermostat central passé en Arrêt (par %s)", who)
         else:
             self._user_off = False
+            # Reprise manuelle Auto : si encore hors saison, le prochain _season_tick
+            # recoupera ; on ne bloque pas l'utilisateur (flag hors_saison recalculé).
+            if self._hors_saison:
+                info = season_mod.get_season(self.hass).evaluate()
+                if info.get("in_season"):
+                    self._hors_saison = False
         self._hvac_mode = hvac_mode
         self._manual_hold = False
         if hvac_mode == HVACMode.OFF:
@@ -1282,8 +1291,9 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self.async_on_remove(
             self.hass.bus.async_listen(EVENT_CENTRAL_COMMAND, self._on_central_command)
         )
+        _central_eid = central_entity_id(self.hass) or CENTRAL_ENTITY_ID
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [CENTRAL_ENTITY_ID], self._sync_from_central)
+            async_track_state_change_event(self.hass, [_central_eid], self._sync_from_central)
         )
         if self._temp_sensor:
             self.async_on_remove(
@@ -1412,7 +1422,24 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     def _check_windows(self, event=None, apply: bool = True):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
-        self._window_sensors = windows_from_entry(self.entry, self.hass)
+        new_sensors = windows_from_entry(self.entry, self.hass)
+        if new_sensors != (self._window_sensors or []):
+            # IDs changés (renommage Zigbee…) : réabonnement
+            if self._unsub_windows:
+                self._unsub_windows()
+                self._unsub_windows = None
+            self._window_sensors = new_sensors
+            if self._window_sensors:
+                self._unsub_windows = async_track_state_change_event(
+                    self.hass, self._window_sensors, self._check_windows
+                )
+                self.async_on_remove(
+                    async_track_state_change_event(
+                        self.hass, self._window_sensors, self._on_window_raw
+                    )
+                )
+        else:
+            self._window_sensors = new_sensors
         live = entry_windows_open(self.hass, self.entry)
         if not live:
             self._cancel_window_delay()

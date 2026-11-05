@@ -195,7 +195,8 @@ async def resolve_who(hass: HomeAssistant, context) -> str:
     if context is None:
         return "système"
     own = hass.data.get(DOMAIN, {}).get("_own_contexts", set())
-    if context.id in own:
+    # HA enveloppe souvent l'appel de service : le parent est notre contexte.
+    if context.id in own or (context.parent_id and context.parent_id in own):
         return "intégration"
     if context.user_id:
         try:

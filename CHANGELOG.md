@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.60 (non publié)
+- Correctif : résolution du thermostat central via le registre d'entités (`climate.electric_heater_electric_heater_central` etc.) — `get_central_state` / écouteurs ne dépendent plus de l'id figé.
+- Correctif : `apply_fil_pilote` **refuse** d'envoyer `climate.set_hvac_mode` sur le thermostat virtuel central (évite un Off « par système » si un radiateur pointe par erreur sur le central).
+- Correctif : `resolve_who` reconnaît le contexte parent de l'intégration → « intégration » au lieu de « système ».
+- Carte : badge calendrier aligné sur `climate.calendar_active` (« Créneau calendrier actif / Hors créneau »).
+- Fenêtres : réabonnement automatique si les entity_id des détecteurs changent.
+
+
 ## 3.1.59
 - **Saison de chauffe automatique** (options du thermostat central) :
   - `saison_chauffe_active` (oui par défaut)

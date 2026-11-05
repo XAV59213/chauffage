@@ -63,19 +63,64 @@ def central_option(hass: HomeAssistant, key: str, default: Any = None) -> Any:
     return default
 
 
+def central_entity_id(hass: HomeAssistant | None) -> str | None:
+    """Entity_id réel du thermostat virtuel (registre), pas l'id figé du code."""
+    from .const import CENTRAL_ENTITY_ID, DOMAIN
+    if hass is None:
+        return CENTRAL_ENTITY_ID
+    try:
+        from homeassistant.helpers import entity_registry as er
+        reg = er.async_get(hass)
+        # unique_id fixe du CentralThermostat
+        ent = reg.async_get_entity_id("climate", DOMAIN, "electric_heater_central")
+        if ent:
+            return ent
+        # Repli : unique_id partiel / attribut virtual
+        for e in reg.entities.values():
+            if e.domain == "climate" and e.platform == DOMAIN and e.unique_id == "electric_heater_central":
+                return e.entity_id
+    except Exception:  # noqa: BLE001
+        pass
+    return CENTRAL_ENTITY_ID
+
+
 def get_central_state(hass: HomeAssistant) -> State | None:
-    for eid in (
+    eid = central_entity_id(hass)
+    if eid:
+        state = hass.states.get(eid)
+        if state is not None:
+            return state
+    for cand in (
         "climate.electric_heater_central",
+        "climate.electric_heater_electric_heater_central",
         "climate.chauffage_central",
         "climate.thermostat_virtuel",
     ):
-        state = hass.states.get(eid)
+        state = hass.states.get(cand)
         if state is not None:
             return state
     for state in hass.states.async_all("climate"):
         if state.attributes.get("virtual") is True:
             return state
     return None
+
+
+def is_central_climate(hass: HomeAssistant, entity_id: str | None) -> bool:
+    """True si entity_id désigne le thermostat virtuel central (ne jamais lui envoyer fil pilote)."""
+    if not entity_id or not entity_id.startswith("climate."):
+        return False
+    if entity_id == central_entity_id(hass):
+        return True
+    try:
+        from homeassistant.helpers import entity_registry as er
+        from .const import DOMAIN
+        ent = er.async_get(hass).async_get(entity_id)
+        if ent and ent.platform == DOMAIN and ent.unique_id == "electric_heater_central":
+            return True
+    except Exception:  # noqa: BLE001
+        pass
+    st = hass.states.get(entity_id)
+    return bool(st and st.attributes.get("virtual") is True)
 
 
 _ENTITY_ID_RE = re.compile(r"^(binary_sensor|sensor|input_boolean|cover)\.[a-z0-9_]+$")
@@ -357,6 +402,15 @@ async def apply_fil_pilote(
     """
     if not entity_id:
         _LOGGER.warning("Aucun relais fil pilote configuré pour l'ordre %s", preset)
+        return False
+
+    if is_central_climate(hass, entity_id):
+        _LOGGER.error(
+            "Refus d'envoyer l'ordre fil pilote %s sur le thermostat central %s "
+            "(ce n'est pas un relais — configurez le select fil pilote de la pièce)",
+            preset,
+            entity_id,
+        )
         return False
 
     state = hass.states.get(entity_id)
