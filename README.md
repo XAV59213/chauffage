@@ -193,3 +193,5 @@ Options du thermostat central : **Consigne maximale de sécurité** (23 °C), **
 **3.1.56 :** correctif de la carte qui faisait remonter la page en haut sur mobile.
 
 **3.1.57 :** correctif du thermostat qui passait en Off tout seul (délai fenêtre exécuté hors boucle HA) + API appareils à jour.
+
+**3.1.58 :** hors calendrier → Eco (réglable), plus jamais Arrêt / Off du thermostat central.

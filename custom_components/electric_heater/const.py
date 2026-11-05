@@ -140,7 +140,15 @@ NOT_PERSON_HINTS = (
     "server", "voiture", "car", "koleos",
 )
 CONF_NOTIFY_SERVICE = "notify_service"
-DEFAULT_CALENDAR_OFF_MODE = PRESET_FROST_PROTECTION
+# Hors calendrier : Eco par défaut (jamais Arrêt / HVAC Off).
+DEFAULT_CALENDAR_OFF_MODE = PRESET_ECO
+CALENDAR_OFF_MODES = [
+    PRESET_ECO,
+    PRESET_FROST_PROTECTION,
+    PRESET_COMFORT,
+    PRESET_COMFORT_M1,
+    PRESET_COMFORT_M2,
+]
 
 # Consignes : leur modification ne recharge pas l'intégration
 SETPOINT_KEYS = (
@@ -168,7 +176,7 @@ EVENT_WINDOWS_CHANGED = f"{DOMAIN}_windows_changed"
 EVENT_CENTRAL_COMMAND = f"{DOMAIN}_central_command"
 SIGNAL_SETPOINTS_UPDATED = f"{DOMAIN}_setpoints_updated_{{}}"
 
-VERSION = "3.1.57"
+VERSION = "3.1.58"
 CONF_ENERGY_SENSOR = "energy_sensor"  # compteur kWh du radiateur (vide = auto)
 CONF_POWER = "power"  # puissance du radiateur (W) pour la conso estimée
 

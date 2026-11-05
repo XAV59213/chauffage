@@ -45,6 +45,7 @@ from .const import (
     CONF_WEATHER,
     CONF_WINDOW_MODE,
     CONF_WINDOW_SENSORS,
+    CALENDAR_OFF_MODES,
     DEFAULT_CALENDAR_OFF_MODE,
     DEFAULT_WINDOW_MODE,
     DOMAIN,
@@ -89,6 +90,12 @@ _WINDOW_MODE = selector.SelectSelector(
 _ABOVE_TARGET_MODE = selector.SelectSelector(
     selector.SelectSelectorConfig(
         options=[{"value": p, "label": PRESET_LABELS[p]} for p in ABOVE_TARGET_MODES],
+        mode="dropdown",
+    )
+)
+_CALENDAR_OFF_MODE = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=[{"value": p, "label": PRESET_LABELS[p]} for p in CALENDAR_OFF_MODES],
         mode="dropdown",
     )
 )
@@ -269,8 +276,12 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
             ): _PRESET,
             vol.Required(
                 CONF_CALENDAR_OFF_MODE,
-                default=d.get(CONF_CALENDAR_OFF_MODE, DEFAULT_CALENDAR_OFF_MODE),
-            ): _PRESET,
+                default=(
+                    d.get(CONF_CALENDAR_OFF_MODE)
+                    if d.get(CONF_CALENDAR_OFF_MODE) in CALENDAR_OFF_MODES
+                    else DEFAULT_CALENDAR_OFF_MODE
+                ),
+            ): _CALENDAR_OFF_MODE,
             vol.Required(
                 CONF_PRESENCE_AWAY_MODE,
                 default=d.get(CONF_PRESENCE_AWAY_MODE, PRESET_ECO),
@@ -411,8 +422,10 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_CALENDAR_ON_MODE: user_input.get(
                             CONF_CALENDAR_ON_MODE, PRESET_COMFORT
                         ),
-                        CONF_CALENDAR_OFF_MODE: user_input.get(
-                            CONF_CALENDAR_OFF_MODE, DEFAULT_CALENDAR_OFF_MODE
+                        CONF_CALENDAR_OFF_MODE: (
+                            user_input.get(CONF_CALENDAR_OFF_MODE)
+                            if user_input.get(CONF_CALENDAR_OFF_MODE) in CALENDAR_OFF_MODES
+                            else DEFAULT_CALENDAR_OFF_MODE
                         ),
                         CONF_WINDOW_MODE: user_input.get(
                             CONF_WINDOW_MODE, DEFAULT_WINDOW_MODE

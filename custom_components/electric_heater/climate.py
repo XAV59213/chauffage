@@ -42,6 +42,7 @@ from .const import (
     CONF_RESYNC_INTERVAL,
     CONF_WINDOW_MODE,
     CONF_WINDOW_OFF_DELAY,
+    CALENDAR_OFF_MODES,
     DEFAULT_CALENDAR_OFF_MODE,
     DEFAULT_WINDOW_MODE,
     DOMAIN,
@@ -242,7 +243,10 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         away_mode = data.get(CONF_PRESENCE_AWAY_MODE, PRESET_ECO)
         window_mode = data.get(CONF_WINDOW_MODE, DEFAULT_WINDOW_MODE)
         self._calendar_on_mode = on_mode if on_mode in PRESETS else PRESET_COMFORT
-        self._calendar_off_mode = off_mode if off_mode in PRESETS else DEFAULT_CALENDAR_OFF_MODE
+        # Ancien réglage « Arrêt » hors calendrier → Eco (ne jamais éteindre le HVAC).
+        if off_mode == PRESET_OFF or off_mode not in CALENDAR_OFF_MODES:
+            off_mode = DEFAULT_CALENDAR_OFF_MODE
+        self._calendar_off_mode = off_mode
         self._presence_away_mode = away_mode if away_mode in PRESETS else PRESET_ECO
         self._window_mode = window_mode if window_mode in WINDOW_MODES else DEFAULT_WINDOW_MODE
 
@@ -568,6 +572,8 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         active = self._calendar_state()
         if active is not None:
             self._calendar_active = active
+        before_preset, before_hvac = self._preset_mode, self._hvac_mode
+        reason_who = None
         if self._manual_hold:
             # Mode choisi à la main : gardé jusqu'au prochain changement du calendrier.
             pass
@@ -576,7 +582,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             if not self._have_mode:
                 self._preset_mode = PRESET_ECO
                 self._auto_eco_active = False
+                reason_who = "calendrier (indisponible → Eco)"
         elif self._calendar_active:
+            # Calendrier actif → régulation Confort (ou mode configuré), HVAC Auto.
+            if self._hvac_mode == HVACMode.OFF:
+                self._hvac_mode = HVACMode.AUTO
             preset = self._calendar_on_mode
             if self._last_manual_preset in COMFORT_PRESETS and preset in COMFORT_PRESETS:
                 preset = self._last_manual_preset
@@ -588,14 +598,38 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             else:
                 self._auto_eco_active = False
             self._preset_mode = preset
+            reason_who = "calendrier (actif)"
         else:
-            # Mode calendrier inactif (souvent Eco) : jamais le HVAC du central en Off.
-            self._preset_mode = self._calendar_off_mode
-            if self._preset_mode == PRESET_OFF:
-                # Off fil pilote ≠ éteindre le thermostat virtuel.
-                pass
+            # Hors calendrier : mode configurable (Eco par défaut), JAMAIS HVAC Off / preset Arrêt.
+            # Cause du « thermostat s'éteint » : climate.py — self._preset_mode = self._calendar_off_mode
+            # quand calendar_off_mode=off → preset Arrêt → _update_hvac_action → hvac_action=Off.
+            off = self._calendar_off_mode
+            if off not in CALENDAR_OFF_MODES or off == PRESET_OFF:
+                off = DEFAULT_CALENDAR_OFF_MODE
+            self._preset_mode = off
+            if self._hvac_mode == HVACMode.OFF:
+                self._hvac_mode = HVACMode.AUTO
             self._auto_eco_active = False
+            reason_who = f"calendrier (inactif → {PRESET_LABELS.get(off, off)})"
         self._have_mode = True
+        if reason_who and (before_preset != self._preset_mode or before_hvac != self._hvac_mode):
+            self._last_changer = reason_who
+            self._last_change = {
+                "type": "changement_preset",
+                "ancien": before_preset,
+                "nouveau": self._preset_mode,
+                "par": reason_who,
+                "heure": dt_util.now().isoformat(timespec="seconds"),
+            }
+            self._central_history.add(
+                reason="changement_preset",
+                par=reason_who,
+                ancien=before_preset,
+                nouveau=self._preset_mode,
+                current_temp=self._current_temp,
+                target=self._target_temp,
+            )
+            _LOGGER.info("Calendrier : preset %s → %s (%s)", before_preset, self._preset_mode, reason_who)
         self._update_target_temp()
         self._update_hvac_action()
         self.async_write_ha_state()

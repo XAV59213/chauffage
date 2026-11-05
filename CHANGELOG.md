@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.58
+- **Correctif : thermostat qui « s'éteint » hors calendrier.** Cause : quand le calendrier est inactif, le code faisait `self._preset_mode = self._calendar_off_mode` ; si ce mode était « Arrêt » (choix possible avant), le preset passait à Off puis `_update_hvac_action` affichait le thermostat comme éteint (`hvac_action=off`). Comportement attendu : hors calendrier → **Eco** (réglable), jamais HVAC Off du central ; calendrier actif → régulation Confort.
+- Option **« Mode hors calendrier »** (`calendar_off_mode`) : Eco par défaut ; choix Eco / Hors-gel / Confort / Confort-1 / Confort-2 (Arrêt retiré). Un ancien réglage Arrêt est migré automatiquement en Eco.
+- Historique : changements dus au calendrier notés « par calendrier (inactif → Eco) » / « par calendrier (actif) ».
+- Si le HVAC était passé en Off à cause de l'ancien comportement, le retour du calendrier (ou un passage hors calendrier) le remet en Auto.
+
 ## 3.1.57
 - **Correctif critique (thread-safety)** : le délai « fenêtre ouverte » des radiateurs n'était pas marqué `@callback`. Home Assistant l'exécutait hors de la boucle d'événements → avertissement `async_write_ha_state from a thread` et **corruption possible de l'état** (thermostat central qui passe en Off tout seul). Les deux délais fenêtre (central + radiateurs) sont maintenant `@callback`.
 - **Cause probable du Off spontané** : cette course critique. Les sécurités (surchauffe) n'éteignent **jamais** le HVAC du central — seulement l'ordre fil pilote de la pièce. Le calendrier / présence changent le preset, pas le mode Off du thermostat.
