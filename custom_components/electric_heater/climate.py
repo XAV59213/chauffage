@@ -145,6 +145,17 @@ class _TunablesMixin:
 
     hass: HomeAssistant
 
+    def _safe_write_ha_state(self) -> None:
+        """Écrit l'état uniquement depuis la boucle d'événements."""
+        try:
+            self.hass.verify_event_loop_thread("electric_heater.write_state")
+        except AttributeError:
+            pass
+        except RuntimeError:
+            self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
+            return
+        self.async_write_ha_state()
+
     @property
     def max_temp(self) -> float:
         base = getattr(self, "_attr_max_temp", None) or 35.0
@@ -390,7 +401,27 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if last_state := await self.async_get_last_state():
             attrs = last_state.attributes
             if last_state.state in ("heat", "off", "auto"):
-                self._hvac_mode = HVACMode(last_state.state)
+                restored = HVACMode(last_state.state)
+                if restored != self._hvac_mode:
+                    self._hvac_mode = restored
+                    who = f"intégration (restauration au démarrage → {restored})"
+                    self._last_changer = who
+                    self._last_change = {
+                        "type": "changement_mode",
+                        "ancien": "auto",
+                        "nouveau": str(restored),
+                        "par": who,
+                        "heure": dt_util.now().isoformat(timespec="seconds"),
+                    }
+                    self._central_history.add(
+                        reason="changement_mode",
+                        par=who,
+                        ancien="auto",
+                        nouveau=str(restored),
+                        current_temp=None,
+                        target=None,
+                    )
+                    _LOGGER.info("Thermostat central restauré en mode %s", restored)
             preset = attrs.get("base_preset", attrs.get("preset_mode"))
             if preset in PRESETS:
                 self._preset_mode = preset
@@ -558,7 +589,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                 self._auto_eco_active = False
             self._preset_mode = preset
         else:
+            # Mode calendrier inactif (souvent Eco) : jamais le HVAC du central en Off.
             self._preset_mode = self._calendar_off_mode
+            if self._preset_mode == PRESET_OFF:
+                # Off fil pilote ≠ éteindre le thermostat virtuel.
+                pass
             self._auto_eco_active = False
         self._have_mode = True
         self._update_target_temp()
@@ -667,6 +702,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
         await self._note_change("changement_mode", str(self._hvac_mode), str(hvac_mode))
+        if hvac_mode == HVACMode.OFF:
+            _LOGGER.warning(
+                "Thermostat central passé en Arrêt (par %s)",
+                self._last_changer or "?",
+            )
         self._hvac_mode = hvac_mode
         self._manual_hold = False
         if hvac_mode == HVACMode.OFF:
@@ -698,6 +738,10 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._last_manual_preset = preset_mode
         self._auto_eco_active = False
         if preset_mode == PRESET_OFF:
+            _LOGGER.warning(
+                "Thermostat central : preset Arrêt → mode HVAC Off (par %s)",
+                self._last_changer or "?",
+            )
             self._hvac_mode = HVACMode.OFF
             self._manual_hold = False
         elif self._hvac_mode == HVACMode.OFF:
@@ -880,6 +924,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                               {"type": reason, "piece": name, "entry_id": eid})
             if not self._safety_off:
                 self._safety_off = True
+                # Arrêt forcé = ordre fil pilote de la pièce uniquement, jamais le HVAC du central.
                 self._schedule_apply(force=True)
             elif dis_c:
                 self._schedule_apply(force=True)
@@ -971,6 +1016,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             return not opened
         return opened
 
+    @callback
     def _on_window_delay(self, _now=None):
         self._window_delay = None
         if entry_windows_open(self.hass, self.entry) and not self._window_open:

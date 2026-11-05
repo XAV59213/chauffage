@@ -18,6 +18,28 @@ except (TypeError, ValueError):  # pragma: no cover
     _HAS_VIA_ID = False
 
 
+def _central_device(registry: dr.DeviceRegistry):
+    """Retrouve l'appareil central (API HA récente, avec repli anciennes versions)."""
+    by_ident = getattr(registry, "async_get_device_by_identifier", None)
+    if callable(by_ident):
+        try:
+            return by_ident(CENTRAL_IDENTIFIER)
+        except TypeError:
+            # Certaines versions attendent (domain, ident) séparés
+            try:
+                return by_ident(*CENTRAL_IDENTIFIER)
+            except TypeError:
+                pass
+    devices_fn = getattr(registry, "async_get_devices", None)
+    if callable(devices_fn):
+        for device in devices_fn():
+            if CENTRAL_IDENTIFIER in device.identifiers:
+                return device
+        return None
+    # Très anciennes versions HA
+    return registry.async_get_device(identifiers={CENTRAL_IDENTIFIER})
+
+
 def via_central(hass: HomeAssistant | None) -> dict:
     """Clé de liaison vers l'appareil central, compatible anciennes/nouvelles versions HA.
 
@@ -28,11 +50,5 @@ def via_central(hass: HomeAssistant | None) -> dict:
         return {"via_device": CENTRAL_IDENTIFIER}
     if hass is None:
         return {}
-    # Utilise async_get_devices pour éviter async_get_device (déprécié 2027.8)
-    registry = dr.async_get(hass)
-    devices = registry.async_get_devices()
-    device = next(
-        (d for d in devices if CENTRAL_IDENTIFIER in d.identifiers),
-        None,
-    )
+    device = _central_device(dr.async_get(hass))
     return {"via_device_id": device.id} if device else {}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.57
+- **Correctif critique (thread-safety)** : le délai « fenêtre ouverte » des radiateurs n'était pas marqué `@callback`. Home Assistant l'exécutait hors de la boucle d'événements → avertissement `async_write_ha_state from a thread` et **corruption possible de l'état** (thermostat central qui passe en Off tout seul). Les deux délais fenêtre (central + radiateurs) sont maintenant `@callback`.
+- **Cause probable du Off spontané** : cette course critique. Les sécurités (surchauffe) n'éteignent **jamais** le HVAC du central — seulement l'ordre fil pilote de la pièce. Le calendrier / présence changent le preset, pas le mode Off du thermostat.
+- Journal : passage en Off du central (mode ou preset Arrêt) loggé en WARNING avec l'auteur ; restauration au démarrage historisée « intégration (restauration au démarrage → off/auto/heat) ».
+- `device_link.py` : `async_get_device` remplacé par `async_get_device_by_identifier` (repli `async_get_devices` / ancienne API).
+
 ## 3.1.56
 - Carte : corrige le retour en haut de page en faisant défiler (appli mobile). La carte réécrivait tout son contenu à chaque mise à jour d'une entité (graphique, listes…), ce qui faisait varier sa hauteur et réinitialisait le défilement. Désormais : structure construite une seule fois, seuls les blocs dont le contenu change sont mis à jour, graphique conservé pendant le rechargement de l'historique, rendu limité à une fois toutes les 3 s, cartes thermostat / tuiles conservées (seul `hass` est transmis), taille de carte fixe.
 
