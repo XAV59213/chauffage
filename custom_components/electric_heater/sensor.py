@@ -20,6 +20,8 @@ from .const import (
     EVENT_WINDOWS_CHANGED,
 )
 from .fil_pilote import (
+    central_entity_id,
+
     all_configured_windows,
     entry_windows_open,
     get_central_state,
@@ -83,7 +85,7 @@ class CentralTemperatureSensor(SensorEntity):
     async def async_added_to_hass(self):
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [CENTRAL_ENTITY_ID], self._update)
+            async_track_state_change_event(self.hass, [central_entity_id(self.hass) or CENTRAL_ENTITY_ID], self._update)
         )
         self._update()
 

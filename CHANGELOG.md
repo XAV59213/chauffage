@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.60 (non publié)
+## 3.1.60
 - Correctif : résolution du thermostat central via le registre d'entités (`climate.electric_heater_electric_heater_central` etc.) — `get_central_state` / écouteurs ne dépendent plus de l'id figé.
 - Correctif : `apply_fil_pilote` **refuse** d'envoyer `climate.set_hvac_mode` sur le thermostat virtuel central (évite un Off « par système » si un radiateur pointe par erreur sur le central).
 - Correctif : `resolve_who` reconnaît le contexte parent de l'intégration → « intégration » au lieu de « système ».

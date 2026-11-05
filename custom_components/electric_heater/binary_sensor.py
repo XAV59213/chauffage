@@ -78,7 +78,7 @@ class CentralHeatingActive(BinarySensorEntity):
     async def async_added_to_hass(self):
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [CENTRAL_ENTITY_ID], self._update)
+            async_track_state_change_event(self.hass, [central_entity_id(self.hass) or CENTRAL_ENTITY_ID], self._update)
         )
         self._update()
 
@@ -149,7 +149,7 @@ class CentralAutoEcoMode(BinarySensorEntity):
     async def async_added_to_hass(self):
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [CENTRAL_ENTITY_ID], self._update)
+            async_track_state_change_event(self.hass, [central_entity_id(self.hass) or CENTRAL_ENTITY_ID], self._update)
         )
         self._update()
 
@@ -425,14 +425,14 @@ class SeasonActive(BinarySensorEntity):
 
     def _info(self) -> dict:
         from . import season as season_mod
-        st = self.hass.states.get(CENTRAL_ENTITY_ID)
+        st = self.hass.states.get(central_entity_id(self.hass) or CENTRAL_ENTITY_ID)
         if st and isinstance(st.attributes.get("saison"), dict):
             return st.attributes["saison"]
         return season_mod.get_season(self.hass).evaluate()
 
     @property
     def is_on(self) -> bool:
-        st = self.hass.states.get(CENTRAL_ENTITY_ID)
+        st = self.hass.states.get(central_entity_id(self.hass) or CENTRAL_ENTITY_ID)
         if st is not None and "hors_saison" in st.attributes:
             return not bool(st.attributes.get("hors_saison"))
         return bool(self._info().get("in_season", True))
