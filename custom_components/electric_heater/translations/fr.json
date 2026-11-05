@@ -40,6 +40,11 @@
           "marge_surchauffe": "Marge de surchauffe au-dessus de la consigne avant Arret force (C)",
           "seuil_detecteur_instable": "Detecteur fenetre instable : nombre de passages Indisponible par heure",
           "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
+          "saison_chauffe_active": "Saison de chauffe automatique",
+          "debut_saison": "Debut de saison (MM-JJ, ex. 10-15)",
+          "fin_saison": "Fin de saison (MM-JJ, ex. 04-15)",
+          "capteur_temperature_exterieure": "Capteur / meteo exterieur (optionnel, coupe si trop chaud)",
+          "seuil_exterieur": "Seuil exterieur hors saison (C, moyenne 24 h, hyst. 1 C)",
           "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
           "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"
         }
@@ -106,7 +111,12 @@
           "seuil_detecteur_instable": "Detecteur fenetre instable : nombre de passages Indisponible par heure",
           "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
           "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
-          "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"
+          "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)",
+          "saison_chauffe_active": "Saison de chauffe automatique",
+          "debut_saison": "Debut de saison (MM-JJ, ex. 10-15)",
+          "fin_saison": "Fin de saison (MM-JJ, ex. 04-15)",
+          "capteur_temperature_exterieure": "Capteur / meteo exterieur (optionnel, coupe si trop chaud)",
+          "seuil_exterieur": "Seuil exterieur hors saison (C, moyenne 24 h, hyst. 1 C)"
         }
       },
       "room": {

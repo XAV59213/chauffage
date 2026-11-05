@@ -195,3 +195,6 @@ Options du thermostat central : **Consigne maximale de sécurité** (23 °C), **
 **3.1.57 :** correctif du thermostat qui passait en Off tout seul (délai fenêtre exécuté hors boucle HA) + API appareils à jour.
 
 **3.1.58 :** hors calendrier → Eco (réglable), plus jamais Arrêt / Off du thermostat central.
+
+### Saison de chauffe (3.1.59)
+Coupure automatique hors saison (15/10 → 15/04 par défaut) et/ou si la température extérieure (moyenne 24 h) dépasse le seuil (16 °C). Hors saison = Arrêt fil pilote, thermostat en Off (reprise Auto au retour, sauf Off manuel). Options : `saison_chauffe_active`, `debut_saison`, `fin_saison`, `capteur_temperature_exterieure`, `seuil_exterieur`.

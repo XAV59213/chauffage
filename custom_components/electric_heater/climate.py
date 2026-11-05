@@ -88,6 +88,7 @@ from .temps import round_temp
 from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
 from . import safety
+from . import season as season_mod
 from .history import ATTR_ENTRIES, find_power_sensor, get_history, own_context, read_power, resolve_who
 
 # HA >= 2026.x : API climate « native_* » (anciens noms retirés en 2027.11).
@@ -221,6 +222,9 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._last_changer: str | None = None
         self._last_change: dict | None = None
         self._central_history = get_history(hass, "central", "Thermostat central")
+        self._hors_saison = False
+        self._user_off = False  # Off manuel : ne pas reprendre auto en fin de hors-saison
+        self._season_info: dict = {}
         self._window_open = False
         self._window_delay = None
         self._unsub_temp = None
@@ -383,6 +387,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "rooms": [e.title for e in iter_room_entries(self.hass)],
             "dernier_changement_par": self._last_changer,
             "dernier_changement": self._last_change,
+            "hors_saison": self._hors_saison,
+            "raison_hors_saison": (self._season_info or {}).get("raison") if self._hors_saison else None,
+            "saison_chauffe": not self._hors_saison,
+            "saison": self._season_info,
+            "user_off": self._user_off,
         }
 
     async def _note_change(self, kind: str, old, new) -> None:
@@ -439,6 +448,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._last_manual_preset = (
                 self._preset_mode if self._preset_mode in COMFORT_PRESETS else PRESET_COMFORT
             )
+            self._hors_saison = bool(attrs.get("hors_saison", False))
+            self._user_off = bool(attrs.get("user_off", False))
+            # Off restauré hors saison / hors flag user → considérer Off manuel
+            if self._hvac_mode == HVACMode.OFF and not self._hors_saison and not self._user_off:
+                self._user_off = True
         self._subscribe_sensors()
         self.async_on_remove(
             self.hass.bus.async_listen(EVENT_ROOMS_CHANGED, self._on_rooms_changed)
@@ -463,7 +477,8 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._manual_hold = False
         self._calendar_active = now_calendar if now_calendar is not None else previous_calendar
         self._handle_windows()
-        if self._hvac_mode == HVACMode.AUTO and not self._window_open:
+        self._apply_season(push=False)
+        if self._hvac_mode == HVACMode.AUTO and not self._window_open and not self._hors_saison:
             self._apply_auto_from_calendar(push=False)
         self._handle_presence_change()
         self._update_central_temperature()
@@ -471,6 +486,9 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._update_hvac_action()
         self.async_write_ha_state()
         self._notify_rooms()
+        self.async_on_remove(
+            async_track_time_interval(self.hass, self._season_tick, timedelta(minutes=15))
+        )
 
     def _unsubscribe_sensors(self) -> None:
         for name in ("_unsub_temp", "_unsub_presence", "_unsub_calendar", "_unsub_windows"):
@@ -559,7 +577,53 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             return None
         return state.state.lower() in ACTIVE_CALENDAR_STATES
 
+    def _apply_season(self, push: bool = True) -> None:
+        """Hors saison → Arrêt (flag interne) ; reprise Auto sauf Off manuel."""
+        info = season_mod.get_season(self.hass).evaluate()
+        self._season_info = info
+        want_off = not info["in_season"]
+        if want_off == self._hors_saison:
+            return
+        before = self._hvac_mode
+        if want_off:
+            self._hors_saison = True
+            self._hvac_mode = HVACMode.OFF
+            self._preset_mode = PRESET_OFF
+            who = f"saison ({info.get('raison', 'hors_saison')})"
+            self._last_changer = who
+            self._central_history.add(
+                reason="changement_mode", par=who, ancien=str(before), nouveau="off",
+                current_temp=self._current_temp, target=self._target_temp,
+            )
+            _LOGGER.info("Hors saison de chauffe → Arrêt (%s)", info.get("raison"))
+        else:
+            self._hors_saison = False
+            if self._user_off:
+                _LOGGER.info("Retour en saison : Off manuel conservé")
+            else:
+                self._hvac_mode = HVACMode.AUTO
+                self._preset_mode = self._last_manual_preset or PRESET_COMFORT
+                who = "saison (reprise)"
+                self._last_changer = who
+                self._central_history.add(
+                    reason="changement_mode", par=who, ancien=str(before), nouveau="auto",
+                    current_temp=self._current_temp, target=self._target_temp,
+                )
+                _LOGGER.info("Saison de chauffe → Auto")
+                self._apply_auto_from_calendar(push=False)
+        self._update_target_temp()
+        self._update_hvac_action()
+        self.async_write_ha_state()
+        if push:
+            self._notify_rooms(command=True)
+
+    @callback
+    def _season_tick(self, _now=None) -> None:
+        self._apply_season(push=True)
+
     def _apply_auto_from_calendar(self, push: bool = True) -> None:
+        if self._hors_saison:
+            return  # calendrier ignoré hors saison
         if self._hvac_mode != HVACMode.AUTO:
             return
         if self._window_open:
@@ -667,7 +731,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     @callback
     def _handle_presence_change(self, event=None):
-        if self._window_open or self._hvac_mode != HVACMode.AUTO or self._manual_hold:
+        if self._hors_saison or self._window_open or self._hvac_mode != HVACMode.AUTO or self._manual_hold:
             return
         if not self._has_occupancy_source():
             return
@@ -737,10 +801,13 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
         await self._note_change("changement_mode", str(self._hvac_mode), str(hvac_mode))
         if hvac_mode == HVACMode.OFF:
-            _LOGGER.warning(
-                "Thermostat central passé en Arrêt (par %s)",
-                self._last_changer or "?",
-            )
+            who = self._last_changer or "?"
+            # Off demandé hors intégration saison = Off manuel (pas de reprise auto).
+            if "saison" not in str(who):
+                self._user_off = True
+            _LOGGER.warning("Thermostat central passé en Arrêt (par %s)", who)
+        else:
+            self._user_off = False
         self._hvac_mode = hvac_mode
         self._manual_hold = False
         if hvac_mode == HVACMode.OFF:
@@ -772,9 +839,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._last_manual_preset = preset_mode
         self._auto_eco_active = False
         if preset_mode == PRESET_OFF:
+            who = self._last_changer or "?"
+            if "saison" not in str(who):
+                self._user_off = True
             _LOGGER.warning(
-                "Thermostat central : preset Arrêt → mode HVAC Off (par %s)",
-                self._last_changer or "?",
+                "Thermostat central : preset Arrêt → mode HVAC Off (par %s)", who
             )
             self._hvac_mode = HVACMode.OFF
             self._manual_hold = False
@@ -871,6 +940,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._last_reason = reason
 
     def _decision_reason(self, base: str, target, preset: str) -> str:
+        if self._central_hors_saison() and base in (PRESET_OFF, PRESET_FROST_PROTECTION):
+            return "hors_saison_hors_gel" if base == PRESET_FROST_PROTECTION else "hors_saison"
         if base == PRESET_OFF:
             return "off_mode"
         if self._any_window_open():
@@ -1114,10 +1185,19 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     def _order_base(self) -> str:
         if self._hvac_mode == HVACMode.OFF or self._preset_mode == PRESET_OFF:
+            # Hors saison : Hors-gel si pièce < 7 °C, sinon Arrêt.
+            if self._central_hors_saison():
+                cur = room_current_temp(self.hass, self._temp_sensor)
+                if isinstance(cur, (int, float)) and cur < season_mod.FROST_FLOOR:
+                    return PRESET_FROST_PROTECTION
             return PRESET_OFF
         if self._any_window_open():
             return window_preset(self._preset_mode, self._window_mode)
         return self._preset_mode
+
+    def _central_hors_saison(self) -> bool:
+        central = self._central_state()
+        return bool(central and central.attributes.get("hors_saison"))
 
     def _order_target(self, base: str) -> float | None:
         if base == PRESET_OFF:
@@ -1287,6 +1367,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self._hysteresis = hysteresis_for(self._preset_mode, self._comfort_hyst())
             if apply and self._history.entries:
                 who = attrs.get("dernier_changement_par")
+                if attrs.get("hors_saison"):
+                    who = who or "saison"
                 who = f"thermostat central ({who})" if who else "thermostat central"
                 after = (self._target_temp, self._preset_mode, str(self._hvac_mode))
                 for kind, old, new in zip(

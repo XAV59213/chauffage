@@ -45,6 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 BatteryAlert(hass),
                 SafetyAlert(hass, entry, "surchauffe", central=True),
                 SafetyAlert(hass, entry, "instable", central=True),
+                SeasonActive(hass, entry),
             ]
         )
     else:
@@ -398,3 +399,61 @@ class SafetyAlert(BinarySensorEntity):
         self.async_on_remove(
             async_dispatcher_connect(self.hass, safety.SIGNAL_ALERTS, self.async_write_ha_state)
         )
+
+
+
+class SeasonActive(BinarySensorEntity):
+    """Saison de chauffe en cours (central)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Saison de chauffe"
+    _attr_icon = "mdi:sun-snowflake-variant"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_unique_id = "electric_heater_central_saison_chauffe"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        self.hass = hass
+        self.entry = entry
+
+    @property
+    def device_info(self):
+        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
+
+    def _info(self) -> dict:
+        from . import season as season_mod
+        st = self.hass.states.get(CENTRAL_ENTITY_ID)
+        if st and isinstance(st.attributes.get("saison"), dict):
+            return st.attributes["saison"]
+        return season_mod.get_season(self.hass).evaluate()
+
+    @property
+    def is_on(self) -> bool:
+        st = self.hass.states.get(CENTRAL_ENTITY_ID)
+        if st is not None and "hors_saison" in st.attributes:
+            return not bool(st.attributes.get("hors_saison"))
+        return bool(self._info().get("in_season", True))
+
+    @property
+    def extra_state_attributes(self):
+        info = self._info()
+        return {
+            "hors_saison": not self.is_on,
+            "raison": info.get("raison"),
+            "debut": info.get("debut"),
+            "fin": info.get("fin"),
+            "exterieur": info.get("outdoor"),
+            "exterieur_moyenne_24h": info.get("outdoor_avg"),
+            "seuil": info.get("seuil"),
+        }
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(
+            async_track_state_change_event(self.hass, [CENTRAL_ENTITY_ID], self._upd)
+        )
+        self.async_on_remove(
+            async_track_time_interval(self.hass, self._upd, timedelta(minutes=15))
+        )
+
+    @callback
+    def _upd(self, *args, **kwargs):
+        self.async_write_ha_state()

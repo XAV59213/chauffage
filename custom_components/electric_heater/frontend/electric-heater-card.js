@@ -416,7 +416,7 @@ class ElectricHeaterCard extends HTMLElement {
       this._ents.presents, ...this._ents.radiateurs];
     const sig = ids.map((id) => {
       const s = hass.states[id];
-      return s ? `${id}|${s.last_updated}` : id;
+      return s ? `${id}|${s.last_updated}|${s.attributes.hors_saison || ""}` : id;
     }).join(";") + "#" + Object.keys(hass.states)
       .filter((id) => id.startsWith("person.") && hass.states[id].state === "home").join(",");
     this._loadHistory();
@@ -588,6 +588,10 @@ class ElectricHeaterCard extends HTMLElement {
     }
 
     let alerts = "";
+    const centralSt = st(e.central);
+    if (centralSt && centralSt.attributes.hors_saison) {
+      chips.push(`<div class="chip warn" data-id="${_esc(e.central)}" title="${_esc((centralSt.attributes.raison_hors_saison || "") + "")}">🍂 Hors saison</div>`);
+    }
     if (fen && Number(fen.state) > 0) {
       const l = fen.attributes.fenetres || [];
       alerts += `<div class="alert" style="background:rgba(255,152,0,.15);color:var(--warning-color,#ff9800)">

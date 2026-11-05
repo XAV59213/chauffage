@@ -40,6 +40,11 @@
           "marge_surchauffe": "Overheat margin above setpoint before forced Off (C)",
           "seuil_detecteur_instable": "Unstable window sensor: unavailable transitions per hour",
           "notifications": "Notifications (battery / sensor failure, window open)",
+          "saison_chauffe_active": "Automatic heating season",
+          "debut_saison": "Season start (MM-DD, e.g. 10-15)",
+          "fin_saison": "Season end (MM-DD, e.g. 04-15)",
+          "capteur_temperature_exterieure": "Outdoor sensor / weather (optional, stops if too warm)",
+          "seuil_exterieur": "Outdoor threshold for off-season (C, 24h avg, 1 C hyst.)",
           "notify_service": "Extra notify services (several allowed, e.g. mum's and dad's mobile apps)",
           "persons": "People tracked for “Present” (empty = automatic, devices excluded)"
         }
@@ -106,7 +111,12 @@
           "seuil_detecteur_instable": "Unstable window sensor: unavailable transitions per hour",
           "notifications": "Notifications (battery / sensor failure, window open)",
           "notify_service": "Extra notify services (several allowed, e.g. mum's and dad's mobile apps)",
-          "persons": "People tracked for “Present” (empty = automatic, devices excluded)"
+          "persons": "People tracked for “Present” (empty = automatic, devices excluded)",
+          "saison_chauffe_active": "Automatic heating season",
+          "debut_saison": "Season start (MM-DD, e.g. 10-15)",
+          "fin_saison": "Season end (MM-DD, e.g. 04-15)",
+          "capteur_temperature_exterieure": "Outdoor sensor / weather (optional, stops if too warm)",
+          "seuil_exterieur": "Outdoor threshold for off-season (C, 24h avg, 1 C hyst.)"
         }
       },
       "room": {

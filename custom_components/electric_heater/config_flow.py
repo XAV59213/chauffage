@@ -8,7 +8,18 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .temps import round_temp
+from .season import (
+    CONF_SAISON_ACTIVE,
+    CONF_DEBUT_SAISON,
+    CONF_FIN_SAISON,
+    CONF_CAPTEUR_EXT,
+    CONF_SEUIL_EXT,
+    DEFAULT_DEBUT,
+    DEFAULT_FIN,
+    DEFAULT_SEUIL,
+)
 from .safety import (
+
     CONF_MAX_SAFE_TEMP,
     CONF_OVERHEAT_MARGIN,
     CONF_UNSTABLE_COUNT,
@@ -323,6 +334,24 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
                 CONF_UNSTABLE_COUNT, default=d.get(CONF_UNSTABLE_COUNT, DEFAULT_UNSTABLE_COUNT)
             ): _int_number(2, 50, "fois/h"),
             vol.Required(
+                CONF_SAISON_ACTIVE, default=d.get(CONF_SAISON_ACTIVE, True)
+            ): selector.BooleanSelector(),
+            vol.Required(
+                CONF_DEBUT_SAISON, default=d.get(CONF_DEBUT_SAISON, DEFAULT_DEBUT)
+            ): selector.TextSelector(),
+            vol.Required(
+                CONF_FIN_SAISON, default=d.get(CONF_FIN_SAISON, DEFAULT_FIN)
+            ): selector.TextSelector(),
+            vol.Optional(
+                CONF_CAPTEUR_EXT,
+                description={"suggested_value": d.get(CONF_CAPTEUR_EXT) or None},
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor", "weather"])
+            ),
+            vol.Required(
+                CONF_SEUIL_EXT, default=d.get(CONF_SEUIL_EXT, DEFAULT_SEUIL)
+            ): _number(5, 25),
+            vol.Required(
                 CONF_NOTIFICATIONS, default=d.get(CONF_NOTIFICATIONS, True)
             ): selector.BooleanSelector(),
             vol.Optional(
@@ -444,6 +473,11 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_MAX_SAFE_TEMP: user_input.get(CONF_MAX_SAFE_TEMP, DEFAULT_MAX_SAFE_TEMP),
                         CONF_OVERHEAT_MARGIN: user_input.get(CONF_OVERHEAT_MARGIN, DEFAULT_OVERHEAT_MARGIN),
                         CONF_UNSTABLE_COUNT: user_input.get(CONF_UNSTABLE_COUNT, DEFAULT_UNSTABLE_COUNT),
+                        CONF_SAISON_ACTIVE: user_input.get(CONF_SAISON_ACTIVE, True),
+                        CONF_DEBUT_SAISON: user_input.get(CONF_DEBUT_SAISON, DEFAULT_DEBUT),
+                        CONF_FIN_SAISON: user_input.get(CONF_FIN_SAISON, DEFAULT_FIN),
+                        CONF_CAPTEUR_EXT: user_input.get(CONF_CAPTEUR_EXT),
+                        CONF_SEUIL_EXT: user_input.get(CONF_SEUIL_EXT, DEFAULT_SEUIL),
                         CONF_WINDOW_SENSORS: _normalize_windows(
                             user_input.get(CONF_WINDOW_SENSORS)
                         ),

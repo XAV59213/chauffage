@@ -140,6 +140,8 @@ REASON_LABELS = {
     "surchauffe_terminee": "fin de surchauffe",
     "detecteur_instable": "détecteur fenêtre instable",
     "detecteur_stable": "détecteur fenêtre redevenu stable",
+    "hors_saison": "hors saison → Arrêt",
+    "hors_saison_hors_gel": "hors saison → Hors-gel (pièce froide)",
 }
 ORDER_LABELS = {
     "comfort": "Confort", "comfort_m1": "Confort -1", "comfort_m2": "Confort -2",

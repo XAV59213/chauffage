@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.59
+- **Saison de chauffe automatique** (options du thermostat central) :
+  - `saison_chauffe_active` (oui par défaut)
+  - `debut_saison` / `fin_saison` (MM-JJ, défaut **10-15** → **04-15**)
+  - `capteur_temperature_exterieure` (sensor ou weather, optionnel) + `seuil_exterieur` (16 °C) : moyenne 24 h, hystérésis 1 °C, confirmation 6 h (anti-flap)
+- **Hors saison** (hors période ou extérieur trop chaud) : fil pilote de toutes les pièces → **Arrêt** ; le central passe en Off avec attributs `hors_saison` / `raison_hors_saison` (flag interne, pas un Off manuel). Le calendrier est ignoré. Reprise **Auto** au retour en saison.
+- **Off manuel** (utilisateur / automatisation) : conservé, pas de reprise auto.
+- Sécurité hors saison : si une pièce < 7 °C → **Hors-gel** au lieu d'Arrêt.
+- Historique « par saison (…) » ; binary_sensor **« Saison de chauffe »** sur le central ; badge **🍂 Hors saison** sur la carte.
+
 ## 3.1.58
 - **Correctif : thermostat qui « s'éteint » hors calendrier.** Cause : quand le calendrier est inactif, le code faisait `self._preset_mode = self._calendar_off_mode` ; si ce mode était « Arrêt » (choix possible avant), le preset passait à Off puis `_update_hvac_action` affichait le thermostat comme éteint (`hvac_action=off`). Comportement attendu : hors calendrier → **Eco** (réglable), jamais HVAC Off du central ; calendrier actif → régulation Confort.
 - Option **« Mode hors calendrier »** (`calendar_off_mode`) : Eco par défaut ; choix Eco / Hors-gel / Confort / Confort-1 / Confort-2 (Arrêt retiré). Un ancien réglage Arrêt est migré automatiquement en Eco.
