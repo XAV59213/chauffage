@@ -190,25 +190,36 @@ def entry_summary(e: dict | None) -> str:
             f"{_num(e.get('current_temp'))}/{_num(e.get('target'))} °C · {power}")[:255]
 
 
-def describe_callers(limit: int = 12) -> str:
-    """Pile d'appels utile (intégration + Home Assistant) pour un log diagnostic."""
+def describe_callers(limit: int = 40) -> str:
+    """Pile d'appels utile pour un log diagnostic (appelant du service inclus)."""
     import traceback
 
     frames = traceback.extract_stack()
     bits: list[str] = []
+    skip_needles = (
+        "/logging/",
+        "/asyncio/",
+        "/concurrent/futures",
+        "/uvloop/",
+        "/threading.py",
+        "/inspect.py",
+        "/traceback.py",
+    )
     for frame in frames[:-1]:
-        path = frame.filename.replace("\\", "/")
+        path = frame.filename.replace("\", "/")
         if path.endswith("history.py") and frame.name in {"describe_callers", "format_context"}:
             continue
-        if "electric_heater" not in path and "homeassistant" not in path:
+        if any(s in path for s in skip_needles):
             continue
+        display = path
         if "site-packages/" in path:
-            path = path.split("site-packages/", 1)[1]
+            display = path.split("site-packages/", 1)[1]
         elif "custom_components/" in path:
-            path = path.split("custom_components/", 1)[1]
-        bits.append(f"{path}:{frame.lineno}:{frame.name}")
+            display = path.split("custom_components/", 1)[1]
+        elif "/homeassistant/" in path:
+            display = "homeassistant/" + path.rsplit("/homeassistant/", 1)[-1]
+        bits.append(f"{display}:{frame.lineno}:{frame.name}")
     return " <- ".join(bits[-limit:]) if bits else "?"
-
 
 async def format_context(hass: HomeAssistant, context) -> str:
     """Détail du contexte HA (id, utilisateur, parent, origine reconnue)."""
