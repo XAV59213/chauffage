@@ -1,6 +1,9 @@
 {
   "domain": "electric_heater",
   "name": "Chauffage Électrique Fil Pilote FR",
+  "categories": [
+    "climate.thermostats_heating"
+  ],
   "codeowners": [
     "@XAV59213"
   ],
