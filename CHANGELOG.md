@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.61
+- Manifeste : catégorie HACS `climate.thermostats_heating` (avertissement « no categories »).
+- Diagnostic : journal WARNING enrichi quand le thermostat central passe en Arrêt (`async_set_hvac_mode`) — contexte Home Assistant (id, parent, utilisateur), correspondance automatisation/script, pile d'appels. Aucun changement de régulation.
+
+
 ## 3.1.60
 - Correctif : résolution du thermostat central via le registre d'entités (`climate.electric_heater_electric_heater_central` etc.) — `get_central_state` / écouteurs ne dépendent plus de l'id figé.
 - Correctif : `apply_fil_pilote` **refuse** d'envoyer `climate.set_hvac_mode` sur le thermostat virtuel central (évite un Off « par système » si un radiateur pointe par erreur sur le central).
