@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.62
+- Diagnostic : pile d'appels d'un Arrêt allongée (40 cadres) et élargie aux autres `custom_components` / scripts — le journal 3.1.61 s'arrêtait dans le moteur de services HA et masquait l'appelant.
+
 ## 3.1.61
 - Manifeste : catégorie HACS `climate.thermostats_heating` (avertissement « no categories »).
 - Diagnostic : journal WARNING enrichi quand le thermostat central passe en Arrêt (`async_set_hvac_mode`) — contexte Home Assistant (id, parent, utilisateur), correspondance automatisation/script, pile d'appels. Aucun changement de régulation.
