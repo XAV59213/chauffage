@@ -190,6 +190,66 @@ def entry_summary(e: dict | None) -> str:
             f"{_num(e.get('current_temp'))}/{_num(e.get('target'))} °C · {power}")[:255]
 
 
+def describe_callers(limit: int = 12) -> str:
+    """Pile d'appels utile (intégration + Home Assistant) pour un log diagnostic."""
+    import traceback
+
+    frames = traceback.extract_stack()
+    bits: list[str] = []
+    for frame in frames[:-1]:
+        path = frame.filename.replace("\\", "/")
+        if path.endswith("history.py") and frame.name in {"describe_callers", "format_context"}:
+            continue
+        if "electric_heater" not in path and "homeassistant" not in path:
+            continue
+        if "site-packages/" in path:
+            path = path.split("site-packages/", 1)[1]
+        elif "custom_components/" in path:
+            path = path.split("custom_components/", 1)[1]
+        bits.append(f"{path}:{frame.lineno}:{frame.name}")
+    return " <- ".join(bits[-limit:]) if bits else "?"
+
+
+async def format_context(hass: HomeAssistant, context) -> str:
+    """Détail du contexte HA (id, utilisateur, parent, origine reconnue)."""
+    if context is None:
+        return "context=None"
+    own = hass.data.get(DOMAIN, {}).get("_own_contexts", set())
+    in_own = context.id in own
+    parent_own = bool(context.parent_id and context.parent_id in own)
+    extra = ""
+    if context.user_id:
+        try:
+            user = await hass.auth.async_get_user(context.user_id)
+        except Exception:  # noqa: BLE001
+            user = None
+        if user:
+            flags = []
+            if getattr(user, "system_generated", False):
+                flags.append("system_generated")
+            if getattr(user, "is_admin", False):
+                flags.append("admin")
+            if getattr(user, "is_active", True) is False:
+                flags.append("inactive")
+            extra = f" user_name={user.name!r}"
+            if flags:
+                extra += f" user_flags={','.join(flags)}"
+        else:
+            extra = " user_name=?"
+    matched = ""
+    for domain, label in (("automation", "automation"), ("script", "script")):
+        for st in hass.states.async_all(domain):
+            if st.context and st.context.id in (context.id, context.parent_id):
+                matched = f" matched={label}:{st.entity_id}"
+                break
+        if matched:
+            break
+    return (
+        f"ctx_id={context.id} parent_id={context.parent_id} user_id={context.user_id}"
+        f"{extra} own={in_own} parent_own={parent_own}{matched}"
+    )
+
+
 async def resolve_who(hass: HomeAssistant, context) -> str:
     """Nom de l'auteur d'un changement à partir du contexte HA."""
     if context is None:

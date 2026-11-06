@@ -90,7 +90,7 @@ from .hysteresis import hysteresis_for, order_heats, should_heat
 from .occupancy import occupancy_count
 from . import safety
 from . import season as season_mod
-from .history import ATTR_ENTRIES, find_power_sensor, get_history, own_context, read_power, resolve_who
+from .history import ATTR_ENTRIES, describe_callers, find_power_sensor, format_context, get_history, own_context, read_power, resolve_who
 
 # HA >= 2026.x : API climate « native_* » (anciens noms retirés en 2027.11).
 _NATIVE_CLIMATE = hasattr(ClimateEntity, "native_temperature_unit")
@@ -808,7 +808,13 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             # Off demandé hors intégration saison = Off manuel (pas de reprise auto).
             if "saison" not in str(who):
                 self._user_off = True
-            _LOGGER.warning("Thermostat central passé en Arrêt (par %s)", who)
+            ctx_info = await format_context(self.hass, self._context)
+            _LOGGER.warning(
+                "Thermostat central passé en Arrêt (par %s) %s callers=%s",
+                who,
+                ctx_info,
+                describe_callers(),
+            )
         else:
             self._user_off = False
             # Reprise manuelle Auto : si encore hors saison, le prochain _season_tick
