@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.63
+- Correctif : SyntaxError dans `history.py` (`replace` d'un antislash mal échappé) qui empêchait le chargement de toutes les entrées après la 3.1.62.
+
 ## 3.1.62
 - Diagnostic : pile d'appels d'un Arrêt allongée (40 cadres) et élargie aux autres `custom_components` / scripts — le journal 3.1.61 s'arrêtait dans le moteur de services HA et masquait l'appelant.
 

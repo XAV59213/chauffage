@@ -206,7 +206,7 @@ def describe_callers(limit: int = 40) -> str:
         "/traceback.py",
     )
     for frame in frames[:-1]:
-        path = frame.filename.replace("\", "/")
+        path = frame.filename.replace("\\", "/")
         if path.endswith("history.py") and frame.name in {"describe_callers", "format_context"}:
             continue
         if any(s in path for s in skip_needles):
