@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.64
+- Journal d'Arrêt du central allégé : contexte (ctx/utilisateur/parent) + 3-5 appelants `custom_components` externes, en DEBUG ; WARNING court seulement si l'appelant est inconnu (fin de la pile de 40 cadres).
+- Démarrage : délai de grâce de 120 s — une sonde ou un relais fil pilote encore `unknown`/indisponible ne fait plus passer les radiateurs en Hors-gel ; l'ordre est différé puis la sécurité s'applique seulement si l'indisponibilité persiste.
+
 ## 3.1.63
 - Correctif : SyntaxError dans `history.py` (`replace` d'un antislash mal échappé) qui empêchait le chargement de toutes les entrées après la 3.1.62.
 
