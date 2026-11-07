@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.67
+- Réparations : alerte « Entité introuvable » si la sonde ou le select fil pilote configuré n'existe plus.
+- Suppression manuelle des appareils obsolètes (le central actif reste protégé).
+- Quality Scale : 29 faites, 12 à faire, 13 exemptées. Aucun changement de régulation.
+
 ## 3.1.66
 - Diagnostics téléchargeables (configuration + états, service de notification masqué).
 - `PARALLEL_UPDATES = 0` sur climate, sensor et binary_sensor.
