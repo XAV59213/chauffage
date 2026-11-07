@@ -6,7 +6,6 @@ from .const import (
     PRESET_COMFORT,
     PRESET_COMFORT_M1,
     PRESET_COMFORT_M2,
-    PRESET_ECO,
     PRESET_FROST_PROTECTION,
     PRESET_OFF,
 )

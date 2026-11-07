@@ -1,7 +1,7 @@
 """Saison de chauffe automatique (dates + température extérieure)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 import re
 import time
