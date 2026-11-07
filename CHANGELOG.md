@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.66
+- Diagnostics téléchargeables (configuration + états, service de notification masqué).
+- `PARALLEL_UPDATES = 0` sur climate, sensor et binary_sensor.
+- Wiki : page Référence (mise à jour des données, appareils compatibles, cas d'usage, limitations, suppression).
+- Quality Scale : 27 règles faites, 14 à faire, 13 exemptées. Aucun changement de régulation.
+
 ## 3.1.65
 - Ajout de `quality_scale.yaml` (54 règles Quality Scale : 20 faites, 21 à faire, 13 exemptées, chacune commentée) ; aucun niveau officiel revendiqué.
 - Nettoyage : imports inutilisés retirés (`hysteresis.py`, `season.py`). Aucun changement de régulation.
