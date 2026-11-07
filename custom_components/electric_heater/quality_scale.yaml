@@ -154,11 +154,11 @@ rules:
     status: todo
     comment: Options flow présent mais pas de async_step_reconfigure.
   repair-issues:
-    status: todo
-    comment: Pas de repair issues (ex. capteur fenêtre configuré introuvable).
+    status: done
+    comment: Repair « entité introuvable » si la sonde ou le select fil pilote configuré n'existe plus (__init__.py).
   stale-devices:
-    status: todo
-    comment: Pas de nettoyage automatique des appareils obsolètes.
+    status: done
+    comment: async_remove_config_entry_device : suppression d'un appareil sans entité de l'entrée (le central actif est protégé).
 
   # Platinum
   async-dependency:
