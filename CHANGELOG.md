@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.65
+- Ajout de `quality_scale.yaml` (54 règles Quality Scale : 20 faites, 21 à faire, 13 exemptées, chacune commentée) ; aucun niveau officiel revendiqué.
+- Nettoyage : imports inutilisés retirés (`hysteresis.py`, `season.py`). Aucun changement de régulation.
+
 ## 3.1.64
 - Journal d'Arrêt du central allégé : contexte (ctx/utilisateur/parent) + 3-5 appelants `custom_components` externes, en DEBUG ; WARNING court seulement si l'appelant est inconnu (fin de la pile de 40 cadres).
 - Démarrage : délai de grâce de 120 s — une sonde ou un relais fil pilote encore `unknown`/indisponible ne fait plus passer les radiateurs en Hors-gel ; l'ordre est différé puis la sécurité s'applique seulement si l'indisponibilité persiste.
