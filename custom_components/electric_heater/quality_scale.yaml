@@ -1,0 +1,172 @@
+# Auto-évaluation Integration Quality Scale (custom HACS, aucun niveau officiel revendiqué).
+# "done" uniquement avec preuve dans le code ; sinon todo/exempt justifié.
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: L'intégration n'enregistre aucune action (service) propre.
+  appropriate-polling:
+    status: done
+    comment: iot_class local_push ; entités pilotées par événements d'état, pas de should_poll.
+  brands:
+    status: done
+    comment: Icônes et logos dans custom_components/electric_heater/brand/.
+  common-modules:
+    status: todo
+    comment: Pas de coordinator.py / entity.py communs ; logique répartie (fil_pilote.py, history.py).
+  config-flow:
+    status: done
+    comment: config_flow.py avec sélecteurs et options flow ; manifest config_flow true.
+  config-flow-test-coverage:
+    status: todo
+    comment: Aucun dossier tests/ dans le dépôt.
+  dependency-transparency:
+    status: done
+    comment: requirements vide dans manifest.json.
+  docs-actions:
+    status: exempt
+    comment: Aucune action propre exposée.
+  docs-conditions:
+    status: exempt
+    comment: Aucune condition d'automatisation propre.
+  docs-high-level-description:
+    status: done
+    comment: README.md / wiki/Home.md.
+  docs-installation-instructions:
+    status: done
+    comment: README.md section Installation (HACS et manuelle).
+  docs-removal-instructions:
+    status: todo
+    comment: Pas de section de suppression/désinstallation dans README ou wiki.
+  docs-triggers:
+    status: exempt
+    comment: Aucun déclencheur d'automatisation propre.
+  entity-event-setup:
+    status: done
+    comment: Abonnements dans async_added_to_hass et désabonnement via async_on_remove (climate.py, sensor.py).
+  entity-unique-id:
+    status: done
+    comment: _attr_unique_id sur toutes les entités (climate.py, sensor.py, binary_sensor.py, stats.py).
+  has-entity-name:
+    status: done
+    comment: _attr_has_entity_name = True sur toutes les entités.
+  runtime-data:
+    status: todo
+    comment: Données stockées dans hass.data[DOMAIN] au lieu de entry.runtime_data (__init__.py).
+  test-before-configure:
+    status: exempt
+    comment: Aucun appareil ni service distant à joindre ; seules des entités HA existantes sont sélectionnées.
+  test-before-setup:
+    status: exempt
+    comment: Aucune connexion externe à tester au démarrage.
+  unique-config-entry:
+    status: done
+    comment: async_set_unique_id + _abort_if_unique_id_configured (config_flow.py, central et pièces).
+
+  # Silver
+  action-exceptions:
+    status: exempt
+    comment: Aucune action propre.
+  config-entry-unloading:
+    status: done
+    comment: async_unload_entry avec async_unload_platforms et entry.async_on_unload (__init__.py).
+  docs-configuration-parameters:
+    status: done
+    comment: wiki/Configuration.md.
+  docs-installation-parameters:
+    status: done
+    comment: wiki/Configuration.md.
+  entity-unavailable:
+    status: todo
+    comment: available implémenté seulement pour certaines entités (binary_sensor.py, stats.py), pas de façon systématique.
+  integration-owner:
+    status: done
+    comment: codeowners @XAV59213 dans manifest.json.
+  log-when-unavailable:
+    status: todo
+    comment: Pas de journalisation unique indisponible/rétabli systématique pour les capteurs sources.
+  parallel-updates:
+    status: todo
+    comment: PARALLEL_UPDATES non défini dans les plateformes.
+  reauthentication-flow:
+    status: exempt
+    comment: Aucune authentification.
+  test-coverage:
+    status: todo
+    comment: Aucun test automatisé.
+
+  # Gold
+  devices:
+    status: done
+    comment: Device central créé dans __init__.py et device_info sur les entités.
+  diagnostics:
+    status: todo
+    comment: Pas de diagnostics.py.
+  discovery:
+    status: exempt
+    comment: Thermostat virtuel basé sur des entités HA existantes, rien à découvrir.
+  discovery-update-info:
+    status: exempt
+    comment: Pas de découverte.
+  docs-data-update:
+    status: todo
+    comment: Fonctionnement décrit dans wiki/Fonctionnement.md, mais pas la fréquence de mise à jour des données de façon dédiée.
+  docs-examples:
+    status: done
+    comment: examples/lovelace et examples/lovelace-statut-chauffage.yaml.
+  docs-known-limitations:
+    status: todo
+    comment: Pas de section dédiée aux limitations connues.
+  docs-supported-devices:
+    status: todo
+    comment: Radiateurs fil pilote compatibles non listés de façon dédiée.
+  docs-supported-functions:
+    status: done
+    comment: wiki/Fonctionnement.md et README.
+  docs-troubleshooting:
+    status: done
+    comment: wiki/Depannage.md.
+  docs-use-cases:
+    status: todo
+    comment: Pas de section cas d'usage dédiée.
+  dynamic-devices:
+    status: exempt
+    comment: Les pièces sont ajoutées par l'utilisateur via config flow (une entrée par radiateur).
+  entity-category:
+    status: done
+    comment: EntityCategory.DIAGNOSTIC sur les capteurs de diagnostic.
+  entity-device-class:
+    status: done
+    comment: device_class sur capteurs température, énergie, durée et binaires.
+  entity-disabled-by-default:
+    status: todo
+    comment: Aucune entité moins utile désactivée par défaut.
+  entity-translations:
+    status: todo
+    comment: translation_key utilisé sur une partie des entités seulement.
+  exception-translations:
+    status: todo
+    comment: Pas d'exceptions traduites.
+  icon-translations:
+    status: todo
+    comment: Pas de icons.json.
+  reconfiguration-flow:
+    status: todo
+    comment: Options flow présent mais pas de async_step_reconfigure.
+  repair-issues:
+    status: todo
+    comment: Pas de repair issues (ex. capteur fenêtre configuré introuvable).
+  stale-devices:
+    status: todo
+    comment: Pas de nettoyage automatique des appareils obsolètes.
+
+  # Platinum
+  async-dependency:
+    status: exempt
+    comment: Aucune dépendance externe.
+  inject-websession:
+    status: exempt
+    comment: Aucune requête HTTP sortante.
+  strict-typing:
+    status: todo
+    comment: Typage partiel, pas de py.typed ni mypy strict.
