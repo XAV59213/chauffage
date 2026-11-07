@@ -31,6 +31,9 @@ from .fil_pilote import (
     windows_from_entry,
 )
 
+# Ordres envoyés via les services HA ; pas de limite de parallélisme nécessaire.
+PARALLEL_UPDATES = 0
+
 ACTIVE_CALENDAR_STATES = {"on", "active", "true", "home"}
 
 

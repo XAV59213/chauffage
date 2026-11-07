@@ -92,6 +92,9 @@ from . import safety
 from . import season as season_mod
 from .history import ATTR_ENTRIES, describe_callers, find_power_sensor, format_context, get_history, own_context, read_power, resolve_who
 
+# Ordres envoyés via les services HA ; pas de limite de parallélisme nécessaire.
+PARALLEL_UPDATES = 0
+
 # HA >= 2026.x : API climate « native_* » (anciens noms retirés en 2027.11).
 _NATIVE_CLIMATE = hasattr(ClimateEntity, "native_temperature_unit")
 

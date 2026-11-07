@@ -37,6 +37,9 @@ from .occupancy import occupancy_count, present_names
 from .stats import CentralMeterDailySensor, CentralMeteredEnergySensor, RoomMeterDailySensor, CentralStatSensor, RoomHeatingTimeSensor
 from .weather import outdoor_temperature, weather_condition
 
+# Ordres envoyés via les services HA ; pas de limite de parallélisme nécessaire.
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     entities = []
