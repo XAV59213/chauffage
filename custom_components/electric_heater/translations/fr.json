@@ -179,5 +179,11 @@
         "name": "Alerte pile sonde"
       }
     }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "Entité introuvable",
+      "description": "L'entité `{entity_id}` configurée pour « {name} » n'existe plus. Ouvrez les options de cette entrée et choisissez une entité valide."
+    }
   }
 }

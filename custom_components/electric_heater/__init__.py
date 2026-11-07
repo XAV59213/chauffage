@@ -1,7 +1,7 @@
 """Chauffage Électrique Fil Pilote FR - Intégration complète."""
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er, issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from datetime import timedelta
@@ -58,6 +58,46 @@ def _track_windows(hass: HomeAssistant, entry: ConfigEntry) -> None:
     entry.async_on_unload(async_track_time_interval(hass, _resync, timedelta(seconds=60)))
 
 
+_CHECKED_SOURCES = ("temperature_sensor", "fil_pilote_select")
+
+
+def _check_sources(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Crée/supprime un repair si une entité source configurée n'existe plus."""
+    registry = er.async_get(hass)
+    conf = {**entry.data, **(entry.options or {})}
+    for key in _CHECKED_SOURCES:
+        entity_id = conf.get(key)
+        issue_id = f"missing_{key}_{entry.entry_id}"
+        if not entity_id or not isinstance(entity_id, str):
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+            continue
+        if registry.async_get(entity_id) is None and hass.states.get(entity_id) is None:
+            ir.async_create_issue(
+                hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="missing_entity",
+                translation_placeholders={"entity_id": entity_id, "name": entry.title},
+            )
+        else:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, entry: ConfigEntry, device_entry: dr.DeviceEntry
+) -> bool:
+    """Autorise la suppression manuelle d'un appareil obsolète (pas le central actif)."""
+    if (DOMAIN, "electric_heater_central") in device_entry.identifiers and entry.data.get("type") == CENTRAL:
+        return False
+    registry = er.async_get(hass)
+    return not any(
+        ent.config_entry_id == entry.entry_id
+        for ent in er.async_entries_for_device(registry, device_entry.id)
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Nettoie les consignes déjà enregistrées (ex. 20.199999999999998 -> 20.2).
     if (cleaned := clean_setpoints(dict(entry.data))) is not None:
@@ -67,6 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await async_register_card(hass)
         hass.data[DOMAIN]["_card_registered"] = True
     _track_windows(hass, entry)
+    _check_sources(hass, entry)
     if entry.data.get("type") == CENTRAL:
         device_registry = dr.async_get(hass)
         device_registry.async_get_or_create(
@@ -90,6 +131,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        for key in _CHECKED_SOURCES:
+            ir.async_delete_issue(hass, DOMAIN, f"missing_{key}_{entry.entry_id}")
         hass.data.get(DOMAIN, {}).get("snapshots", {}).pop(entry.entry_id, None)
     return unloaded
 

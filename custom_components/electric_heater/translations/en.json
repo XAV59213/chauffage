@@ -179,5 +179,11 @@
         "name": "Sensor battery alert"
       }
     }
+  },
+  "issues": {
+    "missing_entity": {
+      "title": "Entity not found",
+      "description": "The entity `{entity_id}` configured for \"{name}\" no longer exists. Open this entry's options and pick a valid entity."
+    }
   }
 }
