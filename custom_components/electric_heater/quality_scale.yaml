@@ -36,8 +36,8 @@ rules:
     status: done
     comment: README.md section Installation (HACS et manuelle).
   docs-removal-instructions:
-    status: todo
-    comment: Pas de section de suppression/désinstallation dans README ou wiki.
+    status: done
+    comment: Section Suppression dans wiki/Reference.md.
   docs-triggers:
     status: exempt
     comment: Aucun déclencheur d'automatisation propre.
@@ -86,8 +86,8 @@ rules:
     status: todo
     comment: Pas de journalisation unique indisponible/rétabli systématique pour les capteurs sources.
   parallel-updates:
-    status: todo
-    comment: PARALLEL_UPDATES non défini dans les plateformes.
+    status: done
+    comment: PARALLEL_UPDATES = 0 dans climate, sensor et binary_sensor.
   reauthentication-flow:
     status: exempt
     comment: Aucune authentification.
@@ -100,8 +100,8 @@ rules:
     status: done
     comment: Device central créé dans __init__.py et device_info sur les entités.
   diagnostics:
-    status: todo
-    comment: Pas de diagnostics.py.
+    status: done
+    comment: diagnostics.py (configuration + états, service de notification masqué).
   discovery:
     status: exempt
     comment: Thermostat virtuel basé sur des entités HA existantes, rien à découvrir.
@@ -109,17 +109,17 @@ rules:
     status: exempt
     comment: Pas de découverte.
   docs-data-update:
-    status: todo
-    comment: Fonctionnement décrit dans wiki/Fonctionnement.md, mais pas la fréquence de mise à jour des données de façon dédiée.
+    status: done
+    comment: Section Mise à jour des données dans wiki/Reference.md.
   docs-examples:
     status: done
     comment: examples/lovelace et examples/lovelace-statut-chauffage.yaml.
   docs-known-limitations:
-    status: todo
-    comment: Pas de section dédiée aux limitations connues.
+    status: done
+    comment: Section Limitations connues dans wiki/Reference.md.
   docs-supported-devices:
-    status: todo
-    comment: Radiateurs fil pilote compatibles non listés de façon dédiée.
+    status: done
+    comment: Section Appareils compatibles dans wiki/Reference.md.
   docs-supported-functions:
     status: done
     comment: wiki/Fonctionnement.md et README.
@@ -127,8 +127,8 @@ rules:
     status: done
     comment: wiki/Depannage.md.
   docs-use-cases:
-    status: todo
-    comment: Pas de section cas d'usage dédiée.
+    status: done
+    comment: Section Cas d'usage dans wiki/Reference.md.
   dynamic-devices:
     status: exempt
     comment: Les pièces sont ajoutées par l'utilisateur via config flow (une entrée par radiateur).

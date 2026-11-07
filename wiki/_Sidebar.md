@@ -5,6 +5,7 @@
 - [Carte](Carte)
 - [Notifications](Notifications)
 - [Dépannage](Depannage)
+- [Référence](Reference)
 
 **🇬🇧 English**
 - [Home](Home-EN)
@@ -13,3 +14,4 @@
 - [Card](Carte-EN)
 - [Notifications](Notifications-EN)
 - [Troubleshooting](Depannage-EN)
+- [Reference](Reference-EN)
