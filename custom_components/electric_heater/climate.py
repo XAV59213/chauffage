@@ -97,6 +97,9 @@ _NATIVE_CLIMATE = hasattr(ClimateEntity, "native_temperature_unit")
 
 _LOGGER = logging.getLogger(__name__)
 
+# Délai de grâce au démarrage avant la sécurité sonde/relais indisponible.
+STARTUP_GRACE_SECONDS = 120
+
 SUPPORTED_FEATURES = (
     ClimateEntityFeature.TARGET_TEMPERATURE
     | ClimateEntityFeature.PRESET_MODE
@@ -809,12 +812,17 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             if "saison" not in str(who):
                 self._user_off = True
             ctx_info = await format_context(self.hass, self._context)
-            _LOGGER.warning(
-                "Thermostat central passé en Arrêt (par %s) %s callers=%s",
-                who,
-                ctx_info,
-                describe_callers(),
-            )
+            callers = describe_callers()
+            if callers or "système" not in str(who):
+                _LOGGER.debug(
+                    "Thermostat central passé en Arrêt (par %s) %s callers=%s",
+                    who, ctx_info, callers or "-",
+                )
+            else:
+                _LOGGER.warning(
+                    "Thermostat central passé en Arrêt par un appelant inconnu (par %s) %s",
+                    who, ctx_info,
+                )
         else:
             self._user_off = False
             # Reprise manuelle Auto : si encore hors saison, le prochain _season_tick
@@ -1395,6 +1403,29 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             self.async_write_ha_state()
             self._schedule_apply()
 
+    def _in_startup_grace(self) -> bool:
+        return time.monotonic() - self._started_at < STARTUP_GRACE_SECONDS
+
+    @callback
+    def _schedule_grace_recheck(self) -> None:
+        if getattr(self, "_grace_unsub", None):
+            return
+        delay = max(1.0, STARTUP_GRACE_SECONDS - (time.monotonic() - self._started_at) + 1)
+
+        @callback
+        def _recheck(_now=None):
+            self._grace_unsub = None
+            self._update_room_temp()
+
+        self._grace_unsub = async_call_later(self.hass, delay, _recheck)
+        self.async_on_remove(self._cancel_grace_recheck)
+
+    @callback
+    def _cancel_grace_recheck(self) -> None:
+        if getattr(self, "_grace_unsub", None):
+            self._grace_unsub()
+            self._grace_unsub = None
+
     @callback
     def _update_room_temp(self, event=None, apply: bool = True):
         if not self._temp_sensor:
@@ -1410,6 +1441,10 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             except (ValueError, TypeError):
                 self._current_temp = None
         ko = bool(self._temp_sensor) and self._current_temp is None
+        if ko and not self._sensor_ko and self._in_startup_grace():
+            # Sonde pas encore remontée après le démarrage : pas d'alerte ni de Hors-gel.
+            self._schedule_grace_recheck()
+            ko = False
         if ko and not self._sensor_ko:
             _LOGGER.warning(
                 "Sonde %s indisponible pour %s : radiateur en Hors-gel par sécurité. %s",
@@ -1547,16 +1582,30 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             reason = self._decision_reason(base, target, preset)
             if self._safety_off:
                 preset, reason = PRESET_OFF, "surchauffe"
-            if time.monotonic() - self._started_at < 120 and preset not in (
+            if not self._safety_off and self._in_startup_grace():
+                relay_state = (
+                    self.hass.states.get(self._fil_pilote_select) if self._fil_pilote_select else None
+                )
+                relay_down = bool(self._fil_pilote_select) and not relay_available(relay_state)
+                sensor_down = bool(self._temp_sensor) and (
+                    room_current_temp(self.hass, self._temp_sensor) is None
+                )
+                if sensor_down or relay_down:
+                    # Délai de grâce au démarrage : sonde/relais encore « unknown » ou
+                    # indisponibles. On ne bascule pas en Hors-gel ; nouvel essai à la fin.
+                    _LOGGER.debug(
+                        "Démarrage %s : sonde/relais pas encore prêts, ordre différé",
+                        self.entry.data.get("name"),
+                    )
+                    self._schedule_grace_recheck()
+                    return
+            if self._in_startup_grace() and preset not in (
                 PRESET_OFF, PRESET_FROST_PROTECTION
             ) and order_heats(preset):
                 cur = room_current_temp(self.hass, self._temp_sensor)
                 if (self._temp_sensor and cur is None) or not isinstance(target, (int, float)) or target <= 0:
                     preset = PRESET_OFF
                     reason = "startup_wait_valid_data"
-            elif time.monotonic() - self._started_at < 120 and reason == "sensor_ko":
-                preset = PRESET_OFF
-                reason = "startup_wait_valid_data"
             if not self._startup_logged:
                 self._startup_logged = True
                 reason = f"startup:{reason}"
