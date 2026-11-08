@@ -994,6 +994,26 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._safety_off = False
         self._unavail_times: list[float] = []
         self._unstable = False
+        self._power_seen: tuple[float, datetime] | None = None
+        self._power_frozen = False
+
+    def _power_stale(self, power: float | None) -> bool:
+        """Vrai si la puissance est revenue d'une coupure avec la même valeur (valeur figée)."""
+        sensor = self._cached_value(
+            "power", lambda: find_power_sensor(self.hass, self._fil_pilote_select), ttl=300
+        )
+        st = self.hass.states.get(sensor) if sensor else None
+        if power is None or st is None:
+            self._power_seen = None
+            return False
+        seen = self._power_seen
+        if seen is not None:
+            if power != seen[0]:
+                self._power_frozen = False
+            elif st.last_changed != seen[1]:
+                self._power_frozen = True
+        self._power_seen = (power, st.last_changed)
+        return self._power_frozen
 
     def _power_w(self) -> float | None:
         sensor = self._cached_value(
@@ -1086,7 +1106,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         hot = (isinstance(current, (int, float)) and isinstance(target, (int, float))
                and target > 0 and current > target + margin
                and (order_heats(self._expected_preset) or self._safety_off))
-        disobey = (power is not None and power > safety.DISOBEY_POWER_W
+        stale = self._power_stale(power)
+        disobey = (power is not None and not stale and power > safety.DISOBEY_POWER_W
                    and self._expected_preset in (PRESET_OFF, PRESET_FROST_PROTECTION)
                    and now > self._sending_until)
         self._overheat_since = (self._overheat_since or now) if hot else None
