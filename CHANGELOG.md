@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.1.71
 
 - Calendrier : suppression de deux branches mortes (« Off → Auto ») dans le calcul auto. Le calendrier ne pilote que le preset en mode Auto ; un Off manuel reste Off (nouveau test). Aucun changement de comportement.
 - Quality Scale Platinum : typage strict (py.typed, mypy --strict sans erreur, étape mypy en CI) et badge Quality Scale dans le README et le wiki. Modifications de typage uniquement, aucun changement de régulation.
