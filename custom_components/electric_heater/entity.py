@@ -1,5 +1,6 @@
 """Base commune des entités : appareil central / appareil radiateur, nom d'entité."""
 from __future__ import annotations
+from typing import Any, cast
 
 import logging
 
@@ -16,17 +17,16 @@ _LOGGER = logging.getLogger("custom_components.electric_heater")
 CENTRAL_DEVICE_ID = "electric_heater_central"
 
 
-def central_device_info(**extra) -> DeviceInfo:
+def central_device_info(**extra: Any) -> DeviceInfo:
     """Appareil du thermostat virtuel central."""
-    return DeviceInfo(identifiers={(DOMAIN, CENTRAL_DEVICE_ID)}, **extra)
+    return cast(DeviceInfo, {"identifiers": {(DOMAIN, CENTRAL_DEVICE_ID)}, **extra})
 
 
-def room_device_info(hass: HomeAssistant | None, entry: ConfigEntry, **extra) -> DeviceInfo:
+def room_device_info(hass: HomeAssistant | None, entry: ConfigEntry, **extra: Any) -> DeviceInfo:
     """Appareil d'un radiateur, rattaché au central (via_device)."""
-    return DeviceInfo(
-        identifiers={(DOMAIN, f"room_{entry.entry_id}")},
-        **extra,
-        **via_central(hass),
+    return cast(
+        DeviceInfo,
+        {"identifiers": {(DOMAIN, f"room_{entry.entry_id}")}, **extra, **via_central(hass)},
     )
 
 
@@ -53,6 +53,8 @@ class RoomEntity(Entity):
 
 class SourceAvailabilityMixin:
     """Entité qui recopie une source : indisponible avec elle, journalisé une seule fois."""
+
+    _attr_available: bool
 
     def _set_source_available(self, ok: bool, source: str | None) -> None:
         if ok == self._attr_available:

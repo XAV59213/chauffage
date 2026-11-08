@@ -1,14 +1,18 @@
 """Application des ordres fil pilote sur un select ou un climate HA."""
 from __future__ import annotations
+from homeassistant.core import Context
+
+from collections.abc import Mapping
 
 import logging
 import re
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, State
 
 from .const import (
+    NO_OPTIONS,
     CENTRAL,
     CONF_ABOVE_TARGET_MODE,
     CONF_HYSTERESIS,
@@ -24,6 +28,9 @@ from .const import (
 )
 from .hysteresis import regulate_preset
 
+if TYPE_CHECKING:
+    from typing_extensions import TypeIs
+
 _LOGGER = logging.getLogger(__name__)
 
 _OFF_HINTS = ("off", "stop", "arret", "arrêt")
@@ -37,11 +44,11 @@ _CLOSED_STATES = {
 }
 
 
-def room_fil_pilote_id(data: dict) -> str | None:
+def room_fil_pilote_id(data: Mapping[str, Any]) -> str | None:
     for key in FIL_PILOTE_DATA_KEYS:
         val = data.get(key)
         if val:
-            return val
+            return str(val)
     return None
 
 
@@ -58,7 +65,7 @@ def central_option(hass: HomeAssistant, key: str, default: Any = None) -> Any:
     """Réglage du thermostat central (options puis données), sinon la valeur par défaut."""
     for entry in hass.config_entries.async_entries(DOMAIN):
         if entry.data.get("type") == CENTRAL:
-            value = (entry.options or {}).get(key, entry.data.get(key))
+            value = (entry.options or NO_OPTIONS).get(key, entry.data.get(key))
             return default if value is None else value
     return default
 
@@ -127,7 +134,7 @@ _ENTITY_ID_RE = re.compile(r"^(binary_sensor|sensor|input_boolean|cover)\.[a-z0-
 _ID_IN_TEXT_RE = re.compile(r"\b(binary_sensor|sensor|input_boolean|cover)\.[a-z0-9_]+")
 
 
-def _collect_ids(raw, out: list[str]) -> None:
+def _collect_ids(raw: Any, out: list[str]) -> None:
     if not raw:
         return
     if isinstance(raw, dict):
@@ -151,7 +158,7 @@ def _collect_ids(raw, out: list[str]) -> None:
             out.append(part)
 
 
-def parse_window_sensors(data: dict | None) -> list[str]:
+def parse_window_sensors(data: Mapping[str, Any] | None) -> list[str]:
     """Vrais entity_id de détecteurs de fenêtre, sans doublon (ignore les dicts / config brute)."""
     if not data:
         return []
@@ -180,7 +187,7 @@ def area_windows(hass: HomeAssistant | None, entry: ConfigEntry) -> list[str]:
     except Exception:  # noqa: BLE001
         return []
 
-    def _area(ent) -> str | None:
+    def _area(ent: er.RegistryEntry) -> str | None:
         if ent.area_id:
             return ent.area_id
         if ent.device_id:
@@ -214,7 +221,7 @@ def area_windows(hass: HomeAssistant | None, entry: ConfigEntry) -> list[str]:
 
 def windows_from_entry(entry: ConfigEntry, hass: HomeAssistant | None = None) -> list[str]:
     """Fenêtres configurées + (radiateur) détecteurs de la même pièce HA."""
-    merged = {**dict(entry.data), **dict(entry.options or {})}
+    merged = {**dict(entry.data), **dict(entry.options or NO_OPTIONS)}
     result = parse_window_sensors(merged)
     for eid in area_windows(hass, entry):
         if eid not in result:
@@ -253,7 +260,7 @@ def _window_open_cached(hass: HomeAssistant, eid: str) -> bool:
     """État ouvert du détecteur ; si indisponible, dernier état connu (≤ 15 min)."""
     import time
 
-    cache = hass.data.setdefault(DOMAIN, {}).setdefault("window_last", {})
+    cache: dict[str, tuple[bool, float]] = hass.data.setdefault(DOMAIN, {}).setdefault("window_last", {})
     state = hass.states.get(eid)
     if state is not None and state.state not in ("unknown", "unavailable"):
         opened = is_window_open_state(state)
@@ -269,13 +276,13 @@ def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
     return any(_window_open_cached(hass, eid) for eid in sensors or [])
 
 
-def open_windows(hass: HomeAssistant) -> list[dict]:
+def open_windows(hass: HomeAssistant) -> list[dict[str, Any]]:
     """Fenêtres ouvertes (toutes entrées), en tenant compte de l'inversion par entrée."""
-    result: list[dict] = []
+    result: list[dict[str, Any]] = []
     seen: set[str] = set()
     for entry in hass.config_entries.async_entries(DOMAIN):
         invert = bool(
-            entry.data.get(CONF_WINDOW_INVERT) or (entry.options or {}).get(CONF_WINDOW_INVERT)
+            entry.data.get(CONF_WINDOW_INVERT) or (entry.options or NO_OPTIONS).get(CONF_WINDOW_INVERT)
         )
         for eid in windows_from_entry(entry, hass):
             if eid in seen:
@@ -290,9 +297,9 @@ def open_windows(hass: HomeAssistant) -> list[dict]:
     return result
 
 
-def rooms_sensor_ko(hass: HomeAssistant) -> list[dict]:
+def rooms_sensor_ko(hass: HomeAssistant) -> list[dict[str, Any]]:
     """Pièces dont la sonde de température configurée est indisponible ou invalide."""
-    result: list[dict] = []
+    result: list[dict[str, Any]] = []
     for entry in iter_room_entries(hass):
         sensor = entry.data.get(CONF_TEMPERATURE_SENSOR)
         if sensor and room_current_temp(hass, sensor) is None:
@@ -305,7 +312,7 @@ def entry_windows_open(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not sensors:
         return False
     opened = any_window_open(hass, sensors)
-    if entry.data.get(CONF_WINDOW_INVERT) or (entry.options or {}).get(CONF_WINDOW_INVERT):
+    if entry.data.get(CONF_WINDOW_INVERT) or (entry.options or NO_OPTIONS).get(CONF_WINDOW_INVERT):
         return not opened
     return opened
 
@@ -360,7 +367,7 @@ def room_current_temp(hass: HomeAssistant, sensor_id: str | None) -> float | Non
         return None
 
 
-def relay_available(state: State | None) -> bool:
+def relay_available(state: State | None) -> TypeIs[State]:
     return state is not None and state.state != "unavailable"
 
 
@@ -394,7 +401,7 @@ async def apply_fil_pilote(
     preset: str,
     temperature: float | None = None,
     force: bool = False,
-    context=None,
+    context: Context | None = None,
 ) -> bool:
     """Envoie l'ordre au relais. Sans force, rien n'est envoyé s'il y est déjà.
 

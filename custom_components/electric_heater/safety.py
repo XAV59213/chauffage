@@ -1,5 +1,6 @@
 """Sécurités : consigne max, surchauffe / radiateur désobéissant, détecteur instable."""
 from __future__ import annotations
+from typing import Any
 
 import logging
 import time
@@ -50,18 +51,19 @@ def unstable_count(hass: HomeAssistant) -> int:
         return DEFAULT_UNSTABLE_COUNT
 
 
-def clamp_target(hass: HomeAssistant, value):
+def clamp_target(hass: HomeAssistant, value: Any) -> Any:
     if not isinstance(value, (int, float)):
         return value
     return min(float(value), max_safe_temp(hass))
 
 
-def alerts(hass: HomeAssistant) -> dict:
+def alerts(hass: HomeAssistant) -> dict[str, dict[str, Any]]:
     """{entry_id: {"piece", "surchauffe", "surchauffe_detail", "instable", "instable_detail"}}"""
-    return hass.data.setdefault(DOMAIN, {}).setdefault("_alerts", {})
+    result: dict[str, dict[str, Any]] = hass.data.setdefault(DOMAIN, {}).setdefault("_alerts", {})
+    return result
 
 
-def set_alert(hass: HomeAssistant, entry_id: str, piece: str, kind: str, on: bool, detail=None) -> bool:
+def set_alert(hass: HomeAssistant, entry_id: str, piece: str, kind: str, on: bool, detail: Any = None) -> bool:
     room = alerts(hass).setdefault(entry_id, {"piece": piece})
     room["piece"] = piece
     changed = bool(room.get(kind)) != on
@@ -72,7 +74,7 @@ def set_alert(hass: HomeAssistant, entry_id: str, piece: str, kind: str, on: boo
     return changed
 
 
-def send_alert(hass: HomeAssistant, key: str, message: str, rate: float, data: dict) -> None:
+def send_alert(hass: HomeAssistant, key: str, message: str, rate: float, data: dict[str, Any]) -> None:
     """Événement + notification persistante + services notify (limité dans le temps)."""
     hass.bus.async_fire(EVENT_ALERT, {**data, "message": message})
     _LOGGER.warning("Alerte chauffage : %s", message)

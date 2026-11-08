@@ -1,6 +1,11 @@
 """Statistiques : temps de chauffe par radiateur (statistiques long terme HA)."""
 from __future__ import annotations
 
+from collections.abc import Callable
+from homeassistant.core import Event, State
+from datetime import datetime
+from typing import Any
+
 import time
 from datetime import timedelta
 
@@ -22,7 +27,7 @@ from homeassistant.helpers.event import (
 from homeassistant.util import dt as dt_util
 
 from .entity import CentralEntity, RoomEntity
-from .const import CONF_POWER, DOMAIN
+from .const import NO_OPTIONS, CONF_POWER, DOMAIN
 from .fil_pilote import iter_room_entries
 
 _TICK = timedelta(minutes=1)
@@ -40,15 +45,15 @@ def room_energy_sensor(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
     Ordre : option « energy_sensor » > même appareil que le relais fil pilote >
     même pièce HA que le radiateur (nom contenant radiateur / chauffage / nom de la pièce).
     """
-    data = {**dict(entry.data), **dict(entry.options or {})}
+    data = {**dict(entry.data), **dict(entry.options or NO_OPTIONS)}
     if data.get("energy_sensor"):
-        return data["energy_sensor"]
+        return str(data["energy_sensor"])
     from homeassistant.helpers import device_registry as dr
 
     ent_reg = er.async_get(hass)
     dev_reg = dr.async_get(hass)
 
-    def _is_energy(ent) -> bool:
+    def _is_energy(ent: er.RegistryEntry) -> bool:
         if ent.domain != "sensor" or ent.platform == DOMAIN or ent.disabled_by:
             return False
         st = hass.states.get(ent.entity_id)
@@ -56,13 +61,13 @@ def room_energy_sensor(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
         unit = (st and st.attributes.get("unit_of_measurement")) or ent.unit_of_measurement
         return dclass == "energy" or unit in ("kWh", "Wh")
 
-    def _area(ent):
+    def _area(ent: er.RegistryEntry) -> str | None:
         if ent.area_id:
             return ent.area_id
         dev = dev_reg.async_get(ent.device_id) if ent.device_id else None
         return dev.area_id if dev else None
 
-    def _best(cands):
+    def _best(cands: list[er.RegistryEntry]) -> str | None:
         cands = sorted(cands, key=lambda e: (not e.entity_id.endswith("_energy"), e.entity_id))
         return cands[0].entity_id if cands else None
 
@@ -92,7 +97,7 @@ def _heating(hass: HomeAssistant, eid: str | None) -> bool:
 
 def _power(entry: ConfigEntry) -> float:
     try:
-        return float((entry.options or {}).get(CONF_POWER, entry.data.get(CONF_POWER)) or 0)
+        return float((entry.options or NO_OPTIONS).get(CONF_POWER, entry.data.get(CONF_POWER)) or 0)
     except (TypeError, ValueError):
         return 0.0
 
@@ -158,7 +163,7 @@ class RoomHeatingTimeSensor(RoomEntity, RestoreSensor):
         last_state = await self.async_get_last_state()
         if last and last.native_value is not None:
             try:
-                value = float(last.native_value)
+                value = float(last.native_value)  # type: ignore[arg-type]  # levée attrapée volontairement
             except (TypeError, ValueError):
                 value = 0.0
             same_day = (
@@ -185,7 +190,7 @@ class RoomHeatingTimeSensor(RoomEntity, RestoreSensor):
             )
 
     @callback
-    def _on_change(self, _event=None) -> None:
+    def _on_change(self, _event: Event[Any] | datetime | None = None) -> None:
         self._link_climate()
         heating = _heating(self.hass, self._climate)
         if heating and self._since is None:
@@ -196,14 +201,14 @@ class RoomHeatingTimeSensor(RoomEntity, RestoreSensor):
         self.async_write_ha_state()
 
     @callback
-    def _tick(self, _now=None) -> None:
+    def _tick(self, _now: datetime | None = None) -> None:
         if not self._climate:
             self._on_change()
         self._flush()
         self.async_write_ha_state()
 
     @callback
-    def _midnight(self, _now=None) -> None:
+    def _midnight(self, _now: datetime | None = None) -> None:
         self._hours = 0.0
         if self._since is not None:
             self._since = time.monotonic()
@@ -211,7 +216,7 @@ class RoomHeatingTimeSensor(RoomEntity, RestoreSensor):
         self.async_write_ha_state()
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         return {"en_chauffe": self._since is not None, "radiateur": self._climate}
 
 
@@ -252,12 +257,12 @@ class CentralStatSensor(CentralEntity, SensorEntity):
         self._update()
 
     @callback
-    def _update(self, _now=None) -> None:
+    def _update(self, _now: datetime | None = None) -> None:
         detail: dict[str, float] = {}
         for eid, name in self._sources().items():
             st = self.hass.states.get(eid)
             try:
-                detail[name] = round(float(st.state), 3)
+                detail[name] = round(float(st.state), 3)  # type: ignore[union-attr]  # levée attrapée volontairement
             except (AttributeError, TypeError, ValueError):
                 continue
         self._detail = detail
@@ -267,7 +272,7 @@ class CentralStatSensor(CentralEntity, SensorEntity):
         self.async_write_ha_state()
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         return {"par_radiateur": self._detail}
 
 
@@ -292,7 +297,7 @@ class CentralMeteredEnergySensor(CentralEntity, SensorEntity):
         self._update()
 
     @callback
-    def _update(self, _now=None) -> None:
+    def _update(self, _now: datetime | None = None) -> None:
         detail: dict[str, float] = {}
         links: dict[str, str] = {}
         for entry in iter_room_entries(self.hass):
@@ -303,10 +308,10 @@ class CentralMeteredEnergySensor(CentralEntity, SensorEntity):
             links[name] = eid
             st = self.hass.states.get(eid)
             try:
-                value = float(st.state)
+                value = float(st.state)  # type: ignore[union-attr]  # levée attrapée volontairement
             except (AttributeError, TypeError, ValueError):
                 continue
-            if (st.attributes.get("unit_of_measurement") or "") == "Wh":
+            if (st.attributes.get("unit_of_measurement") or "") == "Wh":  # type: ignore[union-attr]  # levée attrapée volontairement
                 value /= 1000
             detail[name] = round(value, 3)
         self._detail, self._links = detail, links
@@ -314,11 +319,11 @@ class CentralMeteredEnergySensor(CentralEntity, SensorEntity):
         self.async_write_ha_state()
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         return {"par_radiateur": self._detail, "compteurs": self._links}
 
 
-def _kwh(state) -> float | None:
+def _kwh(state: State | None) -> float | None:
     if state is None or state.state in ("unknown", "unavailable"):
         return None
     try:
@@ -343,10 +348,10 @@ class RoomMeterDailySensor(RoomEntity, RestoreSensor):
         self.entry = entry
         self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_compteur_jour"
         self._meter: str | None = None
+        self._unsub: Callable[[], None] | None = None
         self._base: float | None = None
         self._acc = 0.0
         self._value: float | None = None
-        self._unsub = None
         self._attr_last_reset = dt_util.start_of_local_day()
 
     @property
@@ -354,11 +359,11 @@ class RoomMeterDailySensor(RoomEntity, RestoreSensor):
         return self._meter is not None
 
     @property
-    def native_value(self):
+    def native_value(self) -> Any:
         return None if self._value is None else round(self._value, 3)
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         return {
             "compteur": self._meter,
             "index_minuit": self._base,
@@ -370,7 +375,7 @@ class RoomMeterDailySensor(RoomEntity, RestoreSensor):
         last = await self.async_get_last_state()
         if last and last.attributes.get("jour") == dt_util.now().date().isoformat():
             try:
-                self._base = float(last.attributes.get("index_minuit"))
+                self._base = float(last.attributes.get("index_minuit"))  # type: ignore[arg-type]  # levée attrapée volontairement
                 self._acc = float(last.attributes.get("cumul_avant_remise") or 0)
             except (TypeError, ValueError):
                 self._base = None
@@ -382,7 +387,7 @@ class RoomMeterDailySensor(RoomEntity, RestoreSensor):
         self._relink()
 
     @callback
-    def _relink(self, _now=None) -> None:
+    def _relink(self, _now: datetime | None = None) -> None:
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id) or self.entry
         meter = room_energy_sensor(self.hass, current)
         if meter != self._meter:
@@ -397,7 +402,7 @@ class RoomMeterDailySensor(RoomEntity, RestoreSensor):
         self._on_meter()
 
     @callback
-    def _on_meter(self, _event=None) -> None:
+    def _on_meter(self, _event: Event[Any] | datetime | None = None) -> None:
         cur = _kwh(self.hass.states.get(self._meter)) if self._meter else None
         if cur is not None:
             if self._base is None:
@@ -410,7 +415,7 @@ class RoomMeterDailySensor(RoomEntity, RestoreSensor):
         self.async_write_ha_state()
 
     @callback
-    def _midnight(self, _now=None) -> None:
+    def _midnight(self, _now: datetime | None = None) -> None:
         cur = _kwh(self.hass.states.get(self._meter)) if self._meter else None
         self._base = cur
         self._acc = 0.0
@@ -440,14 +445,14 @@ class CentralMeterDailySensor(CentralEntity, SensorEntity):
         self._update()
 
     @callback
-    def _update(self, _now=None) -> None:
+    def _update(self, _now: datetime | None = None) -> None:
         reg = er.async_get(self.hass)
         detail: dict[str, float] = {}
         for entry in iter_room_entries(self.hass):
             eid = reg.async_get_entity_id("sensor", DOMAIN, f"electric_heater_room_{entry.entry_id}_compteur_jour")
             st = self.hass.states.get(eid) if eid else None
             try:
-                detail[entry.data.get("name") or entry.title] = round(float(st.state), 3)
+                detail[entry.data.get("name") or entry.title] = round(float(st.state), 3)  # type: ignore[union-attr]  # levée attrapée volontairement
             except (AttributeError, TypeError, ValueError):
                 continue
         self._detail = detail
@@ -456,5 +461,5 @@ class CentralMeterDailySensor(CentralEntity, SensorEntity):
         self.async_write_ha_state()
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         return {"par_radiateur": self._detail}

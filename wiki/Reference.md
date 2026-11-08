@@ -1,5 +1,8 @@
 # Référence
 
+[![Quality Scale](https://img.shields.io/badge/Quality%20Scale-Platinum-E5E4E2.svg)](https://developers.home-assistant.io/docs/core/integration-quality-scale/)
+
+
 ## Mise à jour des données
 L'intégration est locale (`calculated`) : aucune interrogation d'un cloud.
 - Réaction immédiate à chaque changement d'état des sondes, capteurs de fenêtre/présence et sélecteurs fil pilote.

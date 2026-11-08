@@ -168,5 +168,5 @@ rules:
     status: exempt
     comment: Aucune requête HTTP sortante.
   strict-typing:
-    status: todo
-    comment: Typage partiel, pas de py.typed ni mypy strict.
+    status: done
+    comment: py.typed présent, mypy --strict (mypy.ini) sans erreur, vérifié en CI.

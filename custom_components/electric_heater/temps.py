@@ -1,5 +1,6 @@
 """Arrondi fiable des consignes à 0,1 °C (évite 20.199999999999998)."""
 from __future__ import annotations
+from typing import Any
 
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
@@ -14,7 +15,7 @@ SETPOINT_DATA_KEYS = (
 )
 
 
-def round_temp(value) -> float | None:
+def round_temp(value: Any) -> float | None:
     """Arrondi décimal à 0,1 : 20.199999999999998 -> 20.2, 11.600000000000001 -> 11.6."""
     if value is None or isinstance(value, bool):
         return None
@@ -25,7 +26,7 @@ def round_temp(value) -> float | None:
     return float(dec)
 
 
-def clean_setpoints(data: dict) -> dict | None:
+def clean_setpoints(data: dict[str, Any]) -> dict[str, Any] | None:
     """Données avec consignes arrondies, ou None si rien à corriger."""
     changed = False
     new = dict(data)

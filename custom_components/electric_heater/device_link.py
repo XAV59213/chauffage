@@ -1,5 +1,6 @@
 """Lien appareil radiateur → thermostat central (via_device / via_device_id)."""
 from __future__ import annotations
+from typing import Any, cast
 
 import inspect
 
@@ -18,29 +19,29 @@ except (TypeError, ValueError):  # pragma: no cover
     _HAS_VIA_ID = False
 
 
-def _central_device(registry: dr.DeviceRegistry):
+def _central_device(registry: dr.DeviceRegistry) -> dr.DeviceEntry | None:
     """Retrouve l'appareil central (API HA récente, avec repli anciennes versions)."""
     by_ident = getattr(registry, "async_get_device_by_identifier", None)
     if callable(by_ident):
         try:
-            return by_ident(CENTRAL_IDENTIFIER)
+            return cast("dr.DeviceEntry | None", by_ident(CENTRAL_IDENTIFIER))
         except TypeError:
             # Certaines versions attendent (domain, ident) séparés
             try:
-                return by_ident(*CENTRAL_IDENTIFIER)
+                return cast("dr.DeviceEntry | None", by_ident(*CENTRAL_IDENTIFIER))
             except TypeError:
                 pass
     devices_fn = getattr(registry, "async_get_devices", None)
     if callable(devices_fn):
         for device in devices_fn():
             if CENTRAL_IDENTIFIER in device.identifiers:
-                return device
+                return cast(dr.DeviceEntry, device)
         return None
     # Très anciennes versions HA
     return registry.async_get_device(identifiers={CENTRAL_IDENTIFIER})
 
 
-def via_central(hass: HomeAssistant | None) -> dict:
+def via_central(hass: HomeAssistant | None) -> dict[str, Any]:
     """Clé de liaison vers l'appareil central, compatible anciennes/nouvelles versions HA.
 
     HA récent : ``via_device_id`` (id du registre) ; ``via_device`` est déprécié (2027.8).

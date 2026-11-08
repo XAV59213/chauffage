@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from homeassistant.components.frontend import add_extra_js_url
-from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.http import StaticPathConfig  # type: ignore[attr-defined]  # réexport HA non déclaré
 from homeassistant.core import HomeAssistant
 
 from ..const import CARD_FILENAME, CARD_URL_BASE, VERSION
