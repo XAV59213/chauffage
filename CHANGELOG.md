@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.1.73
 
 - Thermostat central : affiche « Chauffe » dès qu’un radiateur de pièce chauffe (au lieu de « Inactif »).
 
