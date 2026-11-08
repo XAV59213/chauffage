@@ -35,3 +35,10 @@ async def test_defaults() -> None:
     assert cf._temp_default({"t": 40}, "t", 20.0, 7, 25) == 25.0
     assert list(cf._with_default("k", str, {"k": "v"}, required=True))[0].default() == "v"
     assert cf._parse_windows("binary_sensor.a, binary_sensor.b") == ["binary_sensor.a", "binary_sensor.b"]
+
+
+async def test_room_schema_with_energy_sensor(hass: HomeAssistant) -> None:
+    schema = cf._room_schema({"name": "Chambre", "energy_sensor": "sensor.rad_energy", "power": 1500}, hass)
+    keys = {str(k): k for k in schema.schema}
+    assert keys["energy_sensor"].description == {"suggested_value": "sensor.rad_energy"}
+    assert keys["name"].default() == "Chambre" and keys["power"].default() == 1500

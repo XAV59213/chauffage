@@ -18,8 +18,8 @@ rules:
     status: done
     comment: config_flow.py avec sélecteurs et options flow ; manifest config_flow true.
   config-flow-test-coverage:
-    status: todo
-    comment: tests/test_config_flow.py couvre création central/pièce, erreur sonde requise, doublon (abort) et options ; config_flow.py couvert à 99 %, 100 % pas encore atteint.
+    status: done
+    comment: tests/test_config_flow.py et tests/test_config_helpers.py couvrent création central/pièce, erreurs, doublon (abort), options et sélecteurs ; config_flow.py couvert à 100 %.
   dependency-transparency:
     status: done
     comment: requirements vide dans manifest.json.
@@ -93,7 +93,7 @@ rules:
     comment: Aucune authentification.
   test-coverage:
     status: done
-    comment: 76 tests pytest (tests/) lancés en CI ; couverture globale 95 %.
+    comment: 77 tests pytest (tests/) lancés en CI ; couverture globale 95 %.
 
   # Gold
   devices:
