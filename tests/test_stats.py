@@ -153,3 +153,20 @@ async def test_sensor_started_before_climate(hass: HomeAssistant) -> None:
     hass.states.async_set("sensor.chambre_temp", "25.0")
     await hass.async_block_till_done()
     assert not t.extra_state_attributes["en_chauffe"]
+
+
+async def test_house_energy_uses_real_meters(hass: HomeAssistant) -> None:
+    _relay_device(hass)
+    hass.states.async_set("sensor.radiateur_energy", "100.0", {"unit_of_measurement": "kWh"})
+    await _house(hass, "16.0")
+    hass.states.async_set("sensor.radiateur_energy", "102.5", {"unit_of_measurement": "kWh"})
+    await hass.async_block_till_done()
+    day = _sensor(hass, "electric_heater_central_conso_jour")
+    total = _sensor(hass, "electric_heater_central_conso_total")
+    day._update()
+    total._update()
+    assert day.native_value == 2.5
+    assert total.native_value == 102.5
+    hours = _sensor(hass, "electric_heater_central_chauffe_jour")
+    hours._update()
+    assert hours._metered("sensor.x") is None

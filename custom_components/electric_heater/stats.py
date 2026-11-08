@@ -252,6 +252,25 @@ class CentralStatSensor(CentralEntity, SensorEntity):
                 out[eid] = entry.data.get("name") or entry.title
         return out
 
+    def _metered(self, est_eid: str) -> float | None:
+        """Consommation lue sur le compteur réel de la pièce (prioritaire sur l'estimation)."""
+        if self._kind == "time":
+            return None
+        reg = er.async_get(self.hass)
+        est = reg.async_get(est_eid)
+        if not est or not est.config_entry_id:
+            return None
+        day_eid = reg.async_get_entity_id(
+            "sensor", DOMAIN, f"electric_heater_room_{est.config_entry_id}_compteur_jour"
+        )
+        day = self.hass.states.get(day_eid) if day_eid else None
+        if day is None:
+            return None
+        if self._daily:
+            return _kwh(day)
+        meter = day.attributes.get("compteur")
+        return _kwh(self.hass.states.get(meter)) if meter else None
+
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(async_track_time_interval(self.hass, self._update, _TICK))
         self._update()
@@ -260,6 +279,10 @@ class CentralStatSensor(CentralEntity, SensorEntity):
     def _update(self, _now: datetime | None = None) -> None:
         detail: dict[str, float] = {}
         for eid, name in self._sources().items():
+            real = self._metered(eid)
+            if real is not None:
+                detail[name] = round(real, 3)
+                continue
             st = self.hass.states.get(eid)
             try:
                 detail[name] = round(float(st.state), 3)  # type: ignore[union-attr]  # levée attrapée volontairement
