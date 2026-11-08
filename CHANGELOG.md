@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.1.76
 
 - Alerte « radiateur n’obéit pas » : ignore une puissance revenue d’une coupure avec la même valeur (valeur figée), qui déclenchait de fausses surchauffes.
 
