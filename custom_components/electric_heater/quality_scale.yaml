@@ -77,14 +77,14 @@ rules:
     status: done
     comment: wiki/Configuration.md.
   entity-unavailable:
-    status: todo
-    comment: available implémenté seulement pour certaines entités (binary_sensor.py, stats.py), pas de façon systématique.
+    status: done
+    comment: Les capteurs qui recopient une source (température pièce, température centrale, compteur du jour, calendrier) passent indisponibles avec elle (entity.py SourceAvailabilityMixin). Les thermostats restent volontairement disponibles quand la sonde ou le relais tombe, pour appliquer la sécurité Hors-gel et signaler sonde_ko ; ce sont eux qui pilotent, pas des recopies.
   integration-owner:
     status: done
     comment: codeowners @XAV59213 dans manifest.json.
   log-when-unavailable:
-    status: todo
-    comment: Pas de journalisation unique indisponible/rétabli systématique pour les capteurs sources.
+    status: done
+    comment: Une seule ligne de journal à la perte et au retour de la source (entity.py) ; climate journalise une fois la sonde KO / rétablie et le relais indisponible / revenu.
   parallel-updates:
     status: done
     comment: PARALLEL_UPDATES = 0 dans climate, sensor et binary_sensor.
@@ -93,7 +93,7 @@ rules:
     comment: Aucune authentification.
   test-coverage:
     status: done
-    comment: 78 tests pytest (tests/) lancés en CI ; couverture globale 95 %.
+    comment: 80 tests pytest (tests/) lancés en CI ; couverture globale 95 %.
 
   # Gold
   devices:
