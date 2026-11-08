@@ -702,7 +702,7 @@ class ElectricHeaterCard extends HTMLElement {
           }).join("");
           if (!lines) return "";
           return `<div class="rows"><div class="muted">🔌 compteur réel · ≈ estimation</div>${lines}
-            <div class="row"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
+            <div class="row" data-id="${_esc((() => { const all = Object.keys(hass.states).filter((x) => x.startsWith("sensor.")); return all.find((x) => x.endsWith("consommation_compteurs_aujourd_hui")) || all.find((x) => x.endsWith("consommation_maison_aujourd_hui")) || ""; })())}"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
               <span class="badge">${fmtH(totH)}</span><div class="t"><b>${anyK ? `${totK.toFixed(2)} kWh` : "–"}</b></div></div></div>`;
         })();
     if (S("afficher_graphique") && this._config.graphique !== false) {

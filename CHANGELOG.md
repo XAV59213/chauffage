@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Carte : clic sur la ligne « Total » de la consommation du jour → historique de la consommation totale.
+
 ## 3.1.74
 
 - Carte : fond rouge sur le bloc Chauffage Central quand un radiateur chauffe.
