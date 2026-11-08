@@ -1039,7 +1039,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     def _safety_tick(self, _now: datetime | None = None) -> None:
         """Toutes les 60 s : surchauffe, radiateur désobéissant, détecteur instable."""
         now = time.monotonic()
-        name = self.entry.data.get("name", "")
+        name = str(self.entry.data.get("name", "")).strip()
         eid = self.entry.entry_id
         current = room_current_temp(self.hass, self._temp_sensor)
         target = self._effective_target()
@@ -1106,9 +1106,10 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._unavail_times = [t for t in self._unavail_times if now - t < safety.UNSTABLE_WINDOW]
         n = len(self._unavail_times)
         if n >= safety.unstable_count(self.hass):
-            name = self.entry.data.get("name", "")
+            name = str(self.entry.data.get("name", "")).strip()
             eid = self.entry.entry_id
-            msg = (f"{name} : le détecteur {new.entity_id} est passé {n} fois en Indisponible "
+            det = str(new.attributes.get("friendly_name") or new.entity_id).strip()
+            msg = (f"{name} : le détecteur « {det} » est passé {n} fois en Indisponible "
                    f"en 1 h (pile ou portée radio ?)")
             if not self._unstable:
                 self._unstable = True
