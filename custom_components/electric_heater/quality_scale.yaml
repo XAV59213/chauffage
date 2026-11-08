@@ -19,7 +19,7 @@ rules:
     comment: config_flow.py avec sélecteurs et options flow ; manifest config_flow true.
   config-flow-test-coverage:
     status: todo
-    comment: Aucun dossier tests/ dans le dépôt.
+    comment: tests/test_config_flow.py couvre création central/pièce, erreur sonde requise, doublon (abort) et options ; config_flow.py couvert à 84 %, 100 % pas encore atteint.
   dependency-transparency:
     status: done
     comment: requirements vide dans manifest.json.
@@ -93,7 +93,7 @@ rules:
     comment: Aucune authentification.
   test-coverage:
     status: todo
-    comment: Aucun test automatisé.
+    comment: 27 tests pytest (tests/) lancés en CI ; couverture globale 69 %, loin des 95 % demandés.
 
   # Gold
   devices:
