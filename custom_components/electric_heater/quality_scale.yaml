@@ -158,7 +158,7 @@ rules:
     comment: Repair « entité introuvable » si la sonde ou le select fil pilote configuré n'existe plus (__init__.py).
   stale-devices:
     status: done
-    comment: async_remove_config_entry_device : suppression d'un appareil sans entité de l'entrée (le central actif est protégé).
+    comment: async_remove_config_entry_device, suppression d'un appareil sans entité de l'entrée (le central actif est protégé).
 
   # Platinum
   async-dependency:
