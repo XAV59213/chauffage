@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.68
+- Tests automatisés pytest (27) lancés à chaque PR : config flow et options, régulation (hystérésis, sonde KO), central + pièce avec ordres fil pilote, diagnostics, réparations.
+- Aucun changement de régulation.
+
 ## 3.1.67
 - Réparations : alerte « Entité introuvable » si la sonde ou le select fil pilote configuré n'existe plus.
 - Suppression manuelle des appareils obsolètes (le central actif reste protégé).
