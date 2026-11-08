@@ -644,7 +644,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if self._hors_saison:
             return  # calendrier ignoré hors saison
         if self._hvac_mode != HVACMode.AUTO:
-            return
+            return  # Off/Heat manuels : le calendrier ne change jamais le mode HVAC
         if self._window_open:
             self._update_target_temp()
             self._update_hvac_action()
@@ -668,8 +668,6 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                 reason_who = "calendrier (indisponible → Eco)"
         elif self._calendar_active:
             # Calendrier actif → régulation Confort (ou mode configuré), HVAC Auto.
-            if self._hvac_mode == HVACMode.OFF:  # type: ignore[comparison-overlap]  # code mort (déjà en AUTO), conservé
-                self._hvac_mode = HVACMode.AUTO  # type: ignore[unreachable]
             preset = self._calendar_on_mode
             if self._last_manual_preset in COMFORT_PRESETS and preset in COMFORT_PRESETS:
                 preset = self._last_manual_preset
@@ -690,8 +688,6 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             if off not in CALENDAR_OFF_MODES or off == PRESET_OFF:
                 off = DEFAULT_CALENDAR_OFF_MODE
             self._preset_mode = off
-            if self._hvac_mode == HVACMode.OFF:  # type: ignore[comparison-overlap]  # code mort (déjà en AUTO), conservé
-                self._hvac_mode = HVACMode.AUTO  # type: ignore[unreachable]
             self._auto_eco_active = False
             reason_who = f"calendrier (inactif → {PRESET_LABELS.get(off, off)})"
         self._have_mode = True

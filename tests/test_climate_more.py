@@ -65,6 +65,27 @@ async def test_calendar_inactive_eco_then_active(hass: HomeAssistant) -> None:
     assert _ent(hass, central)._calendar_active is True
 
 
+async def test_calendar_never_wakes_manual_off(hass: HomeAssistant) -> None:
+    hass.states.async_set("calendar.chauffage", "on")
+    calls, central = await _house(hass, "16.0", central_extra={"heating_calendar": "calendar.chauffage"})
+    await _set(hass, central, HVACMode.AUTO)
+    assert hass.states.get(central).attributes["preset_mode"] == "comfort"
+    await _set(hass, central, HVACMode.OFF)
+    for cal in ("off", "on", "off", "on"):
+        hass.states.async_set("calendar.chauffage", cal)
+        await hass.async_block_till_done()
+        await _later(hass, 600)
+        assert hass.states.get(central).state == HVACMode.OFF
+    assert _ent(hass, central)._calendar_active is True
+    # Retour en Auto : le calendrier reprend la main (actif → Confort, inactif → Eco)
+    await _set(hass, central, HVACMode.AUTO)
+    assert hass.states.get(central).attributes["preset_mode"] == "comfort"
+    hass.states.async_set("calendar.chauffage", "off")
+    await hass.async_block_till_done()
+    assert hass.states.get(central).attributes["preset_mode"] == "eco"
+    assert hass.states.get(central).state == HVACMode.AUTO
+
+
 async def test_central_services(hass: HomeAssistant) -> None:
     calls, central = await _house(hass, "16.0")
     await _set(hass, central, HVACMode.HEAT, "comfort")
