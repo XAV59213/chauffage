@@ -1,4 +1,8 @@
 """Chauffage Électrique Fil Pilote FR - Intégration complète."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er, issue_registry as ir
@@ -20,6 +24,25 @@ from .temps import clean_setpoints
 from .notifications import HeaterNotifier
 
 PLATFORMS = ["climate", "sensor", "binary_sensor"]
+
+
+@dataclass
+class ElectricHeaterData:
+    """Données d'exécution d'une entrée (entry.runtime_data)."""
+
+    snapshot: tuple
+    notifier: HeaterNotifier | None = None
+
+
+type ElectricHeaterConfigEntry = ConfigEntry[ElectricHeaterData]
+
+
+def central_runtime(hass: HomeAssistant) -> ElectricHeaterData | None:
+    """Données du thermostat central chargé (recherche inter-entrées)."""
+    for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+        if entry.data.get("type") == CENTRAL:
+            return entry.runtime_data
+    return None
 
 
 def _snapshot(entry: ConfigEntry) -> tuple:
@@ -98,14 +121,16 @@ async def async_remove_config_entry_device(
     )
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEntry) -> bool:
     # Nettoie les consignes déjà enregistrées (ex. 20.199999999999998 -> 20.2).
     if (cleaned := clean_setpoints(dict(entry.data))) is not None:
         hass.config_entries.async_update_entry(entry, data=cleaned)
-    hass.data.setdefault(DOMAIN, {}).setdefault("snapshots", {})[entry.entry_id] = _snapshot(entry)
-    if not hass.data[DOMAIN].get("_card_registered"):
+    entry.runtime_data = ElectricHeaterData(snapshot=_snapshot(entry))
+    # Carte Lovelace : ressource globale au domaine, enregistrée une seule fois.
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if not domain_data.get("_card_registered"):
         await async_register_card(hass)
-        hass.data[DOMAIN]["_card_registered"] = True
+        domain_data["_card_registered"] = True
     _track_windows(hass, entry)
     _check_sources(hass, entry)
     if entry.data.get("type") == CENTRAL:
@@ -121,25 +146,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     if entry.data.get("type") == CENTRAL:
         notifier = HeaterNotifier(hass, entry)
-        hass.data[DOMAIN]["notifier"] = notifier
+        entry.runtime_data.notifier = notifier
         entry.async_on_unload(notifier.async_stop)
         await notifier.async_start()
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         for key in _CHECKED_SOURCES:
             ir.async_delete_issue(hass, DOMAIN, f"missing_{key}_{entry.entry_id}")
-        hass.data.get(DOMAIN, {}).get("snapshots", {}).pop(entry.entry_id, None)
     return unloaded
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    snapshots = hass.data.setdefault(DOMAIN, {}).setdefault("snapshots", {})
-    if snapshots.get(entry.entry_id) == _snapshot(entry):
+async def async_reload_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEntry) -> None:
+    data = getattr(entry, "runtime_data", None)
+    if isinstance(data, ElectricHeaterData) and data.snapshot == _snapshot(entry):
         # Seules les consignes ont changé : pas de rechargement, le thermostat les relit.
         async_dispatcher_send(hass, SIGNAL_SETPOINTS_UPDATED.format(entry.entry_id))
         return

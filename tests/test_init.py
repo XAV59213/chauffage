@@ -69,3 +69,24 @@ async def test_repair_missing_sensor(hass: HomeAssistant) -> None:
     assert issues.async_get_issue(DOMAIN, f"missing_fil_pilote_select_{entry.entry_id}")
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert not issues.async_get_issue(DOMAIN, f"missing_temperature_sensor_{entry.entry_id}")
+
+
+async def test_runtime_data_and_reload(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    from custom_components.electric_heater import ElectricHeaterData, central_runtime
+
+    assert central_runtime(hass) is None
+    hass.states.async_set("sensor.salon_temp", "19.5")
+    entry = await _setup(hass, CENTRAL_DATA, "electric_heater_central")
+    data = central_runtime(hass)
+    assert isinstance(data, ElectricHeaterData) and data is entry.runtime_data
+    assert data.notifier is not None
+    # Consignes seules : pas de rechargement
+    with patch.object(hass.config_entries, "async_reload") as reload:
+        hass.config_entries.async_update_entry(entry, data={**entry.data, "comfort_temp": 21.0})
+        await hass.async_block_till_done()
+        reload.assert_not_called()
+        hass.config_entries.async_update_entry(entry, options={"window_off_delay": 120})
+        await hass.async_block_till_done()
+        reload.assert_called_once_with(entry.entry_id)
