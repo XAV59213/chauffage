@@ -70,7 +70,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 class CentralTemperatureSensor(SourceAvailabilityMixin, CentralEntity, SensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Temperature Centrale"
+    _attr_translation_key = "temperature_centrale"
+    # Doublon de current_temperature du thermostat central : désactivé par défaut.
+    _attr_entity_registry_enabled_default = False
     _attr_unique_id = "electric_heater_central_temperature"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -106,12 +108,13 @@ class CentralTemperatureSensor(SourceAvailabilityMixin, CentralEntity, SensorEnt
 
 class OutdoorWeatherSensor(CentralEntity, SensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Temperature exterieure"
+    _attr_translation_key = "temperature_exterieure"
+    # Doublon de l'entité météo choisie : désactivé par défaut.
+    _attr_entity_registry_enabled_default = False
     _attr_unique_id = "electric_heater_central_exterieur"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_icon = "mdi:weather-partly-cloudy"
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
@@ -149,7 +152,7 @@ class WhoIsHomeSensor(CentralEntity, SensorEntity):
     """Un seul capteur : suit Nombre famille home."""
 
     _attr_has_entity_name = True
-    _attr_name = "Presents"
+    _attr_translation_key = "presents"
     _attr_unique_id = "electric_heater_central_presents"
     _attr_icon = "mdi:account-group"
 
@@ -214,7 +217,7 @@ class WhoIsHomeSensor(CentralEntity, SensorEntity):
 
 class RoomTemperatureSensor(SourceAvailabilityMixin, RoomEntity, SensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Temperature Piece"
+    _attr_translation_key = "temperature_piece"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
@@ -251,8 +254,7 @@ class WindowStateSensor(SensorEntity):
     """on = Ouverte, off = Fermee."""
 
     _attr_has_entity_name = True
-    _attr_name = "Etat fenetre"
-    _attr_icon = "mdi:window-closed-variant"
+    _attr_translation_key = "etat_fenetre"
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, central: bool):
         self.hass = hass
@@ -427,8 +429,7 @@ class LastDecisionSensor(SensorEntity):
     """Dernière décision de régulation du radiateur (visible dans Activité)."""
 
     _attr_has_entity_name = True
-    _attr_name = "Dernière décision"
-    _attr_icon = "mdi:history"
+    _attr_translation_key = "derniere_decision"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
@@ -488,8 +489,7 @@ class LastChangeSensor(CentralEntity, SensorEntity):
     """Dernier changement de consigne / mode / preset du thermostat central (Activité)."""
 
     _attr_has_entity_name = True
-    _attr_name = "Dernier changement"
-    _attr_icon = "mdi:account-edit"
+    _attr_translation_key = "dernier_changement"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_unique_id = "electric_heater_central_dernier_changement"
 
@@ -534,8 +534,7 @@ class CentralLastDecisionSensor(CentralEntity, SensorEntity):
     """Dernière décision toutes pièces confondues (appareil central)."""
 
     _attr_has_entity_name = True
-    _attr_name = "Dernière décision"
-    _attr_icon = "mdi:history"
+    _attr_translation_key = "derniere_decision"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_unique_id = "electric_heater_central_derniere_decision"
 

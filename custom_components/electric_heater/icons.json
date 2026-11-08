@@ -1,0 +1,94 @@
+{
+  "entity": {
+    "sensor": {
+      "temperature_exterieure": {
+        "default": "mdi:weather-partly-cloudy"
+      },
+      "presents": {
+        "default": "mdi:account-group"
+      },
+      "etat_fenetre": {
+        "default": "mdi:window-closed-variant"
+      },
+      "derniere_decision": {
+        "default": "mdi:history"
+      },
+      "dernier_changement": {
+        "default": "mdi:account-edit"
+      },
+      "chauffe_jour": {
+        "default": "mdi:radiator"
+      },
+      "chauffe_total": {
+        "default": "mdi:radiator"
+      },
+      "conso_jour": {
+        "default": "mdi:lightning-bolt"
+      },
+      "conso_total": {
+        "default": "mdi:lightning-bolt"
+      },
+      "maison_chauffe_jour": {
+        "default": "mdi:radiator"
+      },
+      "maison_chauffe_total": {
+        "default": "mdi:radiator"
+      },
+      "maison_conso_jour": {
+        "default": "mdi:lightning-bolt"
+      },
+      "maison_conso_total": {
+        "default": "mdi:lightning-bolt"
+      },
+      "conso_compteurs": {
+        "default": "mdi:meter-electric"
+      },
+      "conso_compteur_jour": {
+        "default": "mdi:meter-electric"
+      },
+      "conso_compteurs_jour": {
+        "default": "mdi:meter-electric"
+      },
+      "fenetres_ouvertes": {
+        "default": "mdi:window-closed-variant"
+      },
+      "sondes_ko": {
+        "default": "mdi:battery-check"
+      }
+    },
+    "binary_sensor": {
+      "calendrier_active": {
+        "default": "mdi:calendar-clock"
+      },
+      "saison_chauffe": {
+        "default": "mdi:sun-snowflake-variant"
+      },
+      "alerte_surchauffe": {
+        "default": "mdi:thermometer-alert"
+      },
+      "detecteur_instable": {
+        "default": "mdi:wifi-alert"
+      },
+      "chauffage_actif": {
+        "default": "mdi:radiator-off",
+        "state": {
+          "on": "mdi:radiator"
+        }
+      },
+      "alerte_pile": {
+        "default": "mdi:battery-check",
+        "state": {
+          "on": "mdi:battery-alert"
+        }
+      }
+    },
+    "climate": {
+      "central": {
+        "default": "mdi:home-thermometer"
+      },
+      "room": {
+        "default": "mdi:radiator"
+      }
+    }
+  }
+}

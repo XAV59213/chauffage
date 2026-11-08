@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 from homeassistant.components.climate import DATA_COMPONENT, HVACMode
 from homeassistant.core import HomeAssistant, State
+from homeassistant.exceptions import ServiceValidationError
 from pytest_homeassistant_custom_component.common import mock_restore_cache
 
 from custom_components.electric_heater import climate as climate_mod
@@ -176,8 +177,10 @@ async def test_room_manual_then_auto(hass: HomeAssistant) -> None:
     assert _last(calls) == "comfort"
     await _svc(hass, "turn_on", room)  # Auto : suit de nouveau le central
     assert _ent(hass, room)._follow_central
-    await _ent(hass, room).async_set_preset_mode("nope")  # ignoré
-    await _ent(hass, central).async_set_preset_mode("nope")
+    for eid in (room, central):
+        with pytest.raises(ServiceValidationError) as err:
+            await _ent(hass, eid).async_set_preset_mode("nope")
+        assert err.value.translation_key == "invalid_preset"
 
 
 async def test_relay_changed_externally(hass: HomeAssistant) -> None:

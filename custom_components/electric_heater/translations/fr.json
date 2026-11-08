@@ -60,6 +60,56 @@
           "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)",
           "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)"
         }
+      },
+      "reconfigure_central": {
+        "title": "Reconfigurer le thermostat virtuel",
+        "data": {
+          "name": "Nom du thermostat virtuel",
+          "temp_method": "Source de la temperature",
+          "temperature_sensor": "Sonde de temperature",
+          "weather": "Meteo locale",
+          "heating_calendar": "Calendrier de chauffage (mode Auto)",
+          "calendar_on_mode": "Mode si calendrier actif",
+          "calendar_off_mode": "Mode hors calendrier (Eco conseille, jamais Arret)",
+          "presence_away_mode": "Mode si personne a la maison",
+          "presence_sensor": "Capteur de presence / nombre de personnes (optionnel)",
+          "window_sensors": "Capteurs fenetre / ouverture (coupure globale)",
+          "comfort_temp": "Temperature Confort",
+          "comfort_m1_temp": "Temperature Confort -1 C",
+          "comfort_m2_temp": "Temperature Confort -2 C",
+          "eco_temp": "Temperature Eco",
+          "frost_temp": "Temperature Hors-gel",
+          "min_temp": "Temperature minimale",
+          "max_temp": "Temperature maximale",
+          "temp_step": "Pas de reglages",
+          "window_mode": "Mode si une fenetre est ouverte (Hors-gel conseille)",
+          "above_target_mode": "Ordre quand la piece depasse la consigne (Arret par defaut ; Eco = absence ou fenetre ouverte)",
+          "hysteresis": "Hysteresis Confort (C)",
+          "window_off_delay": "Delai avant coupure fenetre ouverte (s)",
+          "resync_interval": "Renvoi periodique de l'ordre fil pilote (min, effectif apres redemarrage)",
+          "consigne_max_securite": "Consigne maximale de securite (C, 15-30)",
+          "marge_surchauffe": "Marge de surchauffe au-dessus de la consigne avant Arret force (C)",
+          "seuil_detecteur_instable": "Detecteur fenetre instable : nombre de passages Indisponible par heure",
+          "notifications": "Notifications (pile / sonde KO, fenetre ouverte)",
+          "saison_chauffe_active": "Saison de chauffe automatique",
+          "debut_saison": "Debut de saison (MM-JJ, ex. 10-15)",
+          "fin_saison": "Fin de saison (MM-JJ, ex. 04-15)",
+          "capteur_temperature_exterieure": "Capteur / meteo exterieur (optionnel, coupe si trop chaud)",
+          "seuil_exterieur": "Seuil exterieur hors saison (C, moyenne 24 h, hyst. 1 C)",
+          "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
+          "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"
+        }
+      },
+      "reconfigure_room": {
+        "title": "Reconfigurer le radiateur",
+        "data": {
+          "name": "Nom de la piece / du radiateur",
+          "fil_pilote_select": "Relais fil pilote (select ou climate)",
+          "temperature_sensor": "Sonde de temperature de la piece",
+          "window_sensors": "Capteurs fenetre de la piece (optionnel)",
+          "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)",
+          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)"
+        }
       }
     },
     "error": {
@@ -68,7 +118,8 @@
       "unknown": "Erreur inconnue"
     },
     "abort": {
-      "already_configured": "Cet equipement est deja configure"
+      "already_configured": "Cet equipement est deja configure",
+      "reconfigure_successful": "Configuration mise à jour."
     }
   },
   "options": {
@@ -163,7 +214,8 @@
               "pile_sonde": "Remplacer la pile de la sonde"
             }
           }
-        }
+        },
+        "name": "Chauffage {name}"
       }
     },
     "sensor": {
@@ -172,11 +224,92 @@
       },
       "sondes_ko": {
         "name": "Sondes KO"
+      },
+      "temperature_centrale": {
+        "name": "Temperature Centrale"
+      },
+      "temperature_exterieure": {
+        "name": "Temperature exterieure"
+      },
+      "presents": {
+        "name": "Presents"
+      },
+      "temperature_piece": {
+        "name": "Temperature Piece"
+      },
+      "etat_fenetre": {
+        "name": "Etat fenetre"
+      },
+      "derniere_decision": {
+        "name": "Dernière décision"
+      },
+      "dernier_changement": {
+        "name": "Dernier changement"
+      },
+      "chauffe_jour": {
+        "name": "Temps de chauffe aujourd'hui"
+      },
+      "chauffe_total": {
+        "name": "Temps de chauffe total"
+      },
+      "conso_jour": {
+        "name": "Consommation aujourd'hui"
+      },
+      "conso_total": {
+        "name": "Consommation totale"
+      },
+      "maison_chauffe_jour": {
+        "name": "Temps de chauffe maison aujourd'hui"
+      },
+      "maison_chauffe_total": {
+        "name": "Temps de chauffe maison total"
+      },
+      "maison_conso_jour": {
+        "name": "Consommation maison aujourd'hui"
+      },
+      "maison_conso_total": {
+        "name": "Consommation maison totale"
+      },
+      "conso_compteurs": {
+        "name": "Consommation radiateurs (compteurs)"
+      },
+      "conso_compteur_jour": {
+        "name": "Consommation compteur aujourd'hui"
+      },
+      "conso_compteurs_jour": {
+        "name": "Consommation compteurs aujourd'hui"
       }
     },
     "binary_sensor": {
       "alerte_pile": {
         "name": "Alerte pile sonde"
+      },
+      "chauffage_actif": {
+        "name": "Chauffage Actif"
+      },
+      "presence": {
+        "name": "Presence"
+      },
+      "mode_eco_auto": {
+        "name": "Mode Eco Auto"
+      },
+      "calendrier_active": {
+        "name": "Calendrier chauffage activé"
+      },
+      "calendrier": {
+        "name": "Calendrier chauffage"
+      },
+      "securite_fenetre": {
+        "name": "Securite Fenetre"
+      },
+      "alerte_surchauffe": {
+        "name": "Alerte surchauffe"
+      },
+      "detecteur_instable": {
+        "name": "Détecteur fenêtre instable"
+      },
+      "saison_chauffe": {
+        "name": "Saison de chauffe"
       }
     }
   },
@@ -184,6 +317,11 @@
     "missing_entity": {
       "title": "Entité introuvable",
       "description": "L'entité `{entity_id}` configurée pour « {name} » n'existe plus. Ouvrez les options de cette entrée et choisissez une entité valide."
+    }
+  },
+  "exceptions": {
+    "invalid_preset": {
+      "message": "Mode « {preset} » inconnu. Modes disponibles : {presets}."
     }
   }
 }

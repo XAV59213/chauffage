@@ -498,6 +498,68 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(self, user_input=None):
+        """Reconfiguration : mêmes formulaires que la création, pré-remplis."""
+        entry = self._get_reconfigure_entry()
+        if entry.data.get("type") == CENTRAL:
+            return await self.async_step_reconfigure_central()
+        return await self.async_step_reconfigure_room()
+
+    async def async_step_reconfigure_central(self, user_input=None):
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            for _key in ("comfort_temp", "comfort_m1_temp", "comfort_m2_temp", "eco_temp",
+                         "frost_temp", "min_temp", "max_temp", "hysteresis"):
+                if isinstance(user_input.get(_key), (int, float)):
+                    user_input[_key] = round_temp(user_input[_key])
+            if user_input[CONF_TEMP_METHOD] == CONF_TEMP_METHOD_REFERENCE and not user_input.get(
+                CONF_TEMPERATURE_SENSOR
+            ):
+                errors[CONF_TEMPERATURE_SENSOR] = "sensor_required"
+            else:
+                updates = {
+                    **user_input,
+                    CONF_NOTIFY_SERVICE: notify_list(user_input.get(CONF_NOTIFY_SERVICE)),
+                    CONF_PERSONS: user_input.get(CONF_PERSONS) or [],
+                    CONF_WINDOW_SENSORS: _normalize_windows(user_input.get(CONF_WINDOW_SENSORS)),
+                }
+                return self.async_update_reload_and_abort(
+                    entry,
+                    title=user_input.get(CONF_NAME, entry.title),
+                    data_updates=updates,
+                )
+        return self.async_show_form(
+            step_id="reconfigure_central",
+            data_schema=_central_schema(dict(entry.data), self.hass),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure_room(self, user_input=None):
+        entry = self._get_reconfigure_entry()
+        if user_input is not None:
+            fil_id = user_input[CONF_FIL_PILOTE_SELECT]
+            unique_id = f"electric_heater_room_{fil_id}"
+            if unique_id != entry.unique_id:
+                # Autre relais : refusé s'il pilote déjà une autre pièce.
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
+            return self.async_update_reload_and_abort(
+                entry,
+                unique_id=unique_id,
+                title=user_input[CONF_NAME],
+                data_updates={
+                    **user_input,
+                    CONF_WINDOW_SENSORS: _normalize_windows(user_input.get(CONF_WINDOW_SENSORS)),
+                    CONF_POWER: int(user_input.get(CONF_POWER) or 0),
+                    CONF_ENERGY_SENSOR: user_input.get(CONF_ENERGY_SENSOR) or "",
+                },
+            )
+        return self.async_show_form(
+            step_id="reconfigure_room",
+            data_schema=_room_schema(dict(entry.data), self.hass),
+        )
+
     async def async_step_room(self, user_input=None):
         errors: dict[str, str] = {}
         if user_input is not None:

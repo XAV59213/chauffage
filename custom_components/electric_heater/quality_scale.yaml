@@ -93,7 +93,7 @@ rules:
     comment: Aucune authentification.
   test-coverage:
     status: done
-    comment: 80 tests pytest (tests/) lancés en CI ; couverture globale 95 %.
+    comment: 83 tests pytest (tests/) lancés en CI ; couverture globale 95 %.
 
   # Gold
   devices:
@@ -139,20 +139,20 @@ rules:
     status: done
     comment: device_class sur capteurs température, énergie, durée et binaires.
   entity-disabled-by-default:
-    status: todo
-    comment: Aucune entité moins utile désactivée par défaut.
+    status: done
+    comment: « Temperature Centrale » (doublon de current_temperature du central) et « Temperature exterieure » (doublon de l'entité météo) désactivées par défaut pour les nouvelles installations ; les entités déjà enregistrées ne changent pas.
   entity-translations:
-    status: todo
-    comment: translation_key utilisé sur une partie des entités seulement.
+    status: done
+    comment: translation_key sur toutes les entités (strings.json, fr.json, en.json) ; le thermostat central garde le nom de l'appareil. Noms anglais identiques aux noms actuels pour ne changer ni entity_id ni nom visible (vérifié par tests/test_entity_names.py).
   exception-translations:
-    status: todo
-    comment: Pas d'exceptions traduites.
+    status: done
+    comment: ServiceValidationError traduite (invalid_preset) dans climate.py ; aucune autre exception levée par l'intégration.
   icon-translations:
-    status: todo
-    comment: Pas de icons.json.
+    status: done
+    comment: icons.json pour toutes les entités ; icônes dynamiques conservées seulement quand l'état est un texte libre (Presents, Etat fenetre, Fenêtres ouvertes, Sondes KO).
   reconfiguration-flow:
-    status: todo
-    comment: Options flow présent mais pas de async_step_reconfigure.
+    status: done
+    comment: async_step_reconfigure (central et radiateur) réutilise les formulaires de création ; changement de relais refusé s'il pilote déjà une autre pièce.
   repair-issues:
     status: done
     comment: Repair « entité introuvable » si la sonde ou le select fil pilote configuré n'existe plus (__init__.py).

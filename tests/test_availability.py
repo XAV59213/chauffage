@@ -44,6 +44,13 @@ async def test_room_temperature_follows_source(hass: HomeAssistant, caplog) -> N
 
 
 async def test_central_temperature_follows_central(hass: HomeAssistant) -> None:
+    from homeassistant.helpers import entity_registry as er
+
+    # Désactivé par défaut : activé par l'utilisateur (entrée de registre existante)
+    er.async_get(hass).async_get_or_create(
+        "sensor", "electric_heater", "electric_heater_central_temperature",
+        suggested_object_id="thermostat_virtuel_temperature_centrale",
+    )
     calls, central = await _house(hass, "16.0")
     temp = "sensor.thermostat_virtuel_temperature_centrale"
     assert hass.states.get(temp).state == "19.0"
