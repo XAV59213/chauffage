@@ -175,3 +175,39 @@ async def test_climate_relay(hass: HomeAssistant) -> None:
     hass.states.async_set("select.r", "eco", {"options": ["comfort", "eco"]})
     assert not await apply_fil_pilote(hass, "select.r", PRESET_COMFORT)  # pas de service select
     assert not relay_matches(hass.states.get("switch.r"), PRESET_COMFORT, None)
+
+
+async def test_central_lookup_fallbacks(hass: HomeAssistant) -> None:
+    from custom_components.electric_heater.fil_pilote import get_central_state, is_central_climate
+
+    assert get_central_state(hass) is None
+    hass.states.async_set("climate.maison", "auto", {"virtual": True})
+    assert get_central_state(hass).entity_id == "climate.maison"
+    assert is_central_climate(hass, "climate.maison")
+    assert not is_central_climate(hass, "select.x")
+    assert not await apply_fil_pilote(hass, "climate.maison", PRESET_COMFORT)  # jamais d'ordre au central
+    hass.states.async_set("climate.thermostat_virtuel", "heat")
+    assert get_central_state(hass).entity_id == "climate.thermostat_virtuel"
+
+
+async def test_area_windows(hass: HomeAssistant) -> None:
+    from homeassistant.helpers import area_registry as ar, entity_registry as er
+
+    from custom_components.electric_heater.fil_pilote import area_windows, windows_from_entry
+
+    room = MockConfigEntry(domain=DOMAIN, data={"type": "room", "name": "Chambre"})
+    room.add_to_hass(hass)
+    assert area_windows(None, room) == []
+    reg = er.async_get(hass)
+    area = ar.async_get(hass).async_create("Chambre")
+    assert area_windows(hass, room) == []
+    c = reg.async_get_or_create("climate", DOMAIN, "r1", config_entry=room, suggested_object_id="chambre")
+    reg.async_update_entity(c.entity_id, area_id=area.id)
+    for uid, dc in (("fen", "window"), ("pile", "window"), ("mvt", "motion"), ("nodc", None)):
+        e = reg.async_get_or_create("binary_sensor", "zha", uid, suggested_object_id=f"chambre_{uid}",
+                                    original_device_class=dc)
+        reg.async_update_entity(e.entity_id, area_id=area.id)
+    reg.async_get_or_create("binary_sensor", "zha", "ailleurs", suggested_object_id="salon_fen",
+                            original_device_class="window")
+    assert area_windows(hass, room) == ["binary_sensor.chambre_fen"]
+    assert windows_from_entry(room, hass) == ["binary_sensor.chambre_fen"]
