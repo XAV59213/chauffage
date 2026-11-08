@@ -64,7 +64,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 class CentralHeatingActive(CentralEntity, BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Chauffage Actif"
+    _attr_translation_key = "chauffage_actif"
     _attr_unique_id = "electric_heater_central_chauffage_actif"
     _attr_device_class = BinarySensorDeviceClass.HEAT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -96,7 +96,7 @@ class CentralHeatingActive(CentralEntity, BinarySensorEntity):
 
 class CentralPresence(CentralEntity, BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Presence"
+    _attr_translation_key = "presence"
     _attr_unique_id = "electric_heater_central_presence"
     _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
     _attr_is_on = False
@@ -127,7 +127,7 @@ class CentralPresence(CentralEntity, BinarySensorEntity):
 
 class CentralAutoEcoMode(CentralEntity, BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Mode Eco Auto"
+    _attr_translation_key = "mode_eco_auto"
     _attr_unique_id = "electric_heater_central_mode_eco_auto"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -155,10 +155,9 @@ class CentralCalendarEnabled(CentralEntity, BinarySensorEntity):
     """Calendrier chauffage activé : thermostat en Auto ET calendrier actif."""
 
     _attr_has_entity_name = True
-    _attr_name = "Calendrier chauffage activé"
+    _attr_translation_key = "calendrier_active"
     _attr_unique_id = "electric_heater_central_calendrier_active"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
-    _attr_icon = "mdi:calendar-clock"
     _attr_is_on = False
 
     def __init__(self, hass: HomeAssistant):
@@ -188,7 +187,7 @@ class CentralCalendarEnabled(CentralEntity, BinarySensorEntity):
 
 class CentralCalendarActive(CentralEntity, BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Calendrier chauffage"
+    _attr_translation_key = "calendrier"
     _attr_unique_id = "electric_heater_central_calendrier"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
     _attr_is_on = False
@@ -256,7 +255,7 @@ class CentralCalendarActive(CentralEntity, BinarySensorEntity):
 
 class RoomWindowSecurity(RoomEntity, BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Securite Fenetre"
+    _attr_translation_key = "securite_fenetre"
     _attr_device_class = BinarySensorDeviceClass.SAFETY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_is_on = False
@@ -337,8 +336,7 @@ class SafetyAlert(BinarySensorEntity):
         self.entry = entry
         self._kind = kind
         self._central = central
-        self._attr_name = "Alerte surchauffe" if kind == "surchauffe" else "Détecteur fenêtre instable"
-        self._attr_icon = "mdi:thermometer-alert" if kind == "surchauffe" else "mdi:wifi-alert"
+        self._attr_translation_key = "alerte_surchauffe" if kind == "surchauffe" else "detecteur_instable"
         scope = "central" if central else f"room_{entry.entry_id}"
         self._attr_unique_id = f"electric_heater_{scope}_alerte_{kind}"
 
@@ -379,8 +377,7 @@ class SeasonActive(CentralEntity, BinarySensorEntity):
     """Saison de chauffe en cours (central)."""
 
     _attr_has_entity_name = True
-    _attr_name = "Saison de chauffe"
-    _attr_icon = "mdi:sun-snowflake-variant"
+    _attr_translation_key = "saison_chauffe"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_unique_id = "electric_heater_central_saison_chauffe"
 

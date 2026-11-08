@@ -18,6 +18,7 @@ from homeassistant.components.climate import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PRECISION_TENTHS, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import (
     async_call_later,
@@ -28,6 +29,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .entity import central_device_info, room_device_info
 from .const import (
+    DOMAIN,
     CONF_WINDOW_INVERT,
     CENTRAL_ENTITY_ID,
     CONF_CALENDAR_OFF_MODE,
@@ -855,7 +857,11 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     async def async_set_preset_mode(self, preset_mode: str):
         if preset_mode not in PRESETS:
-            return
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_preset",
+                translation_placeholders={"preset": str(preset_mode), "presets": ", ".join(PRESETS)},
+            )
         await self._note_change("changement_preset", self._preset_mode, preset_mode)
         self._preset_mode = preset_mode
         self._have_mode = True
@@ -894,7 +900,6 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     """Radiateur : suit le thermostat virtuel, ou garde un réglage manuel."""
 
     _attr_has_entity_name = True
-    _attr_name = None
     _attr_translation_key = "room"
     if _NATIVE_CLIMATE:
         _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
@@ -908,7 +913,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
-        self._attr_name = f"Chauffage {entry.data['name']}"
+        self._attr_translation_placeholders = {"name": entry.data["name"]}
         self._attr_unique_id = f"electric_heater_room_{entry.entry_id}"
         self._current_temp: float | None = None
         self._target_temp: float | None = None
@@ -1677,7 +1682,11 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     async def async_set_preset_mode(self, preset_mode: str):
         if preset_mode not in PRESETS:
-            return
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_preset",
+                translation_placeholders={"preset": str(preset_mode), "presets": ", ".join(PRESETS)},
+            )
         await self._record_user_change("changement_preset", self._preset_mode, preset_mode)
         self._follow_central = False
         self._preset_mode = preset_mode

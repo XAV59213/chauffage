@@ -60,6 +60,56 @@
           "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
           "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
         }
+      },
+      "reconfigure_central": {
+        "title": "Reconfigure the virtual thermostat",
+        "data": {
+          "name": "Virtual thermostat name",
+          "temp_method": "Temperature source",
+          "temperature_sensor": "Temperature sensor",
+          "heating_calendar": "Heating calendar (Auto mode)",
+          "presence_sensor": "Presence / occupancy sensor (optional)",
+          "comfort_temp": "Comfort temperature (C)",
+          "comfort_m1_temp": "Comfort -1 C",
+          "comfort_m2_temp": "Comfort -2 C",
+          "eco_temp": "Eco temperature (C)",
+          "frost_temp": "Frost-protection temperature (C)",
+          "min_temp": "Minimum temperature",
+          "max_temp": "Maximum temperature",
+          "temp_step": "Step",
+          "weather": "Local weather",
+          "calendar_on_mode": "Mode when the calendar is active",
+          "calendar_off_mode": "Mode when calendar inactive (Eco recommended, never Off)",
+          "presence_away_mode": "Mode when nobody is home",
+          "window_sensors": "Window / opening sensors (whole house)",
+          "window_mode": "Mode when a window is open (Frost protection recommended)",
+          "above_target_mode": "Order when the room is above the setpoint (Off by default; Eco is only for away / open window)",
+          "hysteresis": "Comfort hysteresis (C)",
+          "window_off_delay": "Delay before window-open cut (s)",
+          "resync_interval": "Periodic pilot wire order resend (min, applied after restart)",
+          "consigne_max_securite": "Safety maximum setpoint (C, 15-30)",
+          "marge_surchauffe": "Overheat margin above setpoint before forced Off (C)",
+          "seuil_detecteur_instable": "Unstable window sensor: unavailable transitions per hour",
+          "notifications": "Notifications (battery / sensor failure, window open)",
+          "saison_chauffe_active": "Automatic heating season",
+          "debut_saison": "Season start (MM-DD, e.g. 10-15)",
+          "fin_saison": "Season end (MM-DD, e.g. 04-15)",
+          "capteur_temperature_exterieure": "Outdoor sensor / weather (optional, stops if too warm)",
+          "seuil_exterieur": "Outdoor threshold for off-season (C, 24h avg, 1 C hyst.)",
+          "notify_service": "Extra notify services (several allowed, e.g. mum's and dad's mobile apps)",
+          "persons": "People tracked for “Present” (empty = automatic, devices excluded)"
+        }
+      },
+      "reconfigure_room": {
+        "title": "Reconfigure the radiator",
+        "data": {
+          "name": "Room / radiator name",
+          "fil_pilote_select": "Pilot-wire relay (select or climate)",
+          "temperature_sensor": "Room temperature sensor",
+          "window_sensors": "Window sensors (optional)",
+          "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
+        }
       }
     },
     "error": {
@@ -68,7 +118,8 @@
       "unknown": "Unknown error"
     },
     "abort": {
-      "already_configured": "This device is already configured"
+      "already_configured": "This device is already configured",
+      "reconfigure_successful": "Configuration updated."
     }
   },
   "options": {
@@ -163,7 +214,8 @@
               "pile_sonde": "Replace the sensor battery"
             }
           }
-        }
+        },
+        "name": "Chauffage {name}"
       }
     },
     "sensor": {
@@ -172,11 +224,92 @@
       },
       "sondes_ko": {
         "name": "Failed sensors"
+      },
+      "temperature_centrale": {
+        "name": "Temperature Centrale"
+      },
+      "temperature_exterieure": {
+        "name": "Temperature exterieure"
+      },
+      "presents": {
+        "name": "Presents"
+      },
+      "temperature_piece": {
+        "name": "Temperature Piece"
+      },
+      "etat_fenetre": {
+        "name": "Etat fenetre"
+      },
+      "derniere_decision": {
+        "name": "Dernière décision"
+      },
+      "dernier_changement": {
+        "name": "Dernier changement"
+      },
+      "chauffe_jour": {
+        "name": "Temps de chauffe aujourd'hui"
+      },
+      "chauffe_total": {
+        "name": "Temps de chauffe total"
+      },
+      "conso_jour": {
+        "name": "Consommation aujourd'hui"
+      },
+      "conso_total": {
+        "name": "Consommation totale"
+      },
+      "maison_chauffe_jour": {
+        "name": "Temps de chauffe maison aujourd'hui"
+      },
+      "maison_chauffe_total": {
+        "name": "Temps de chauffe maison total"
+      },
+      "maison_conso_jour": {
+        "name": "Consommation maison aujourd'hui"
+      },
+      "maison_conso_total": {
+        "name": "Consommation maison totale"
+      },
+      "conso_compteurs": {
+        "name": "Consommation radiateurs (compteurs)"
+      },
+      "conso_compteur_jour": {
+        "name": "Consommation compteur aujourd'hui"
+      },
+      "conso_compteurs_jour": {
+        "name": "Consommation compteurs aujourd'hui"
       }
     },
     "binary_sensor": {
       "alerte_pile": {
         "name": "Sensor battery alert"
+      },
+      "chauffage_actif": {
+        "name": "Chauffage Actif"
+      },
+      "presence": {
+        "name": "Presence"
+      },
+      "mode_eco_auto": {
+        "name": "Mode Eco Auto"
+      },
+      "calendrier_active": {
+        "name": "Calendrier chauffage activé"
+      },
+      "calendrier": {
+        "name": "Calendrier chauffage"
+      },
+      "securite_fenetre": {
+        "name": "Securite Fenetre"
+      },
+      "alerte_surchauffe": {
+        "name": "Alerte surchauffe"
+      },
+      "detecteur_instable": {
+        "name": "Détecteur fenêtre instable"
+      },
+      "saison_chauffe": {
+        "name": "Saison de chauffe"
       }
     }
   },
@@ -184,6 +317,11 @@
     "missing_entity": {
       "title": "Entity not found",
       "description": "The entity `{entity_id}` configured for \"{name}\" no longer exists. Open this entry's options and pick a valid entity."
+    }
+  },
+  "exceptions": {
+    "invalid_preset": {
+      "message": "Unknown mode « {preset} ». Available modes: {presets}."
     }
   }
 }

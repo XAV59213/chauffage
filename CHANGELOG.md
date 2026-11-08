@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.70
+
+- Quality Scale Silver : les capteurs « Température pièce » et « Température centrale » passent indisponibles avec leur source, avec une seule ligne de journal à la perte et au retour. Les thermostats restent disponibles pour garder la sécurité Hors-gel. Aucun changement de régulation.
+- .coverage n'est plus suivi par git.
+- Quality Scale Gold : noms et icônes traduits (translation_key, icons.json), exception traduite pour un mode inconnu, reconfiguration (Paramètres → Appareils → Reconfigurer) du thermostat et des radiateurs. Les entity_id et noms visibles ne changent pas.
+- Nouvelles installations : « Temperature Centrale » et « Temperature exterieure » désactivées par défaut (doublons) ; les installations existantes ne changent pas.
+
 ## 3.1.69
 
 - Quality Scale Bronze : données par entrée dans entry.runtime_data (ElectricHeaterConfigEntry), entity.py commun (appareil central / radiateur) ; aucun changement de régulation.

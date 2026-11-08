@@ -102,11 +102,11 @@ def stat_uid(entry_id: str, kind: str, daily: bool) -> str:
     return f"electric_heater_room_{entry_id}_{'chauffe' if kind == 'time' else 'conso'}_{suffix}"
 
 
-_NAMES = {
-    ("time", True): "Temps de chauffe aujourd'hui",
-    ("time", False): "Temps de chauffe total",
-    ("energy", True): "Consommation aujourd'hui",
-    ("energy", False): "Consommation totale",
+_KEYS = {
+    ("time", True): "chauffe_jour",
+    ("time", False): "chauffe_total",
+    ("energy", True): "conso_jour",
+    ("energy", False): "conso_total",
 }
 
 
@@ -121,16 +121,14 @@ class RoomHeatingTimeSensor(RoomEntity, RestoreSensor):
         self.entry = entry
         self._daily = daily
         self._kind = kind
-        self._attr_name = _NAMES[(kind, daily)]
+        self._attr_translation_key = _KEYS[(kind, daily)]
         self._attr_unique_id = stat_uid(entry.entry_id, kind, daily)
         if kind == "time":
             self._attr_device_class = SensorDeviceClass.DURATION
             self._attr_native_unit_of_measurement = UnitOfTime.HOURS
-            self._attr_icon = "mdi:radiator"
         else:
             self._attr_device_class = SensorDeviceClass.ENERGY
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-            self._attr_icon = "mdi:lightning-bolt"
         self._attr_state_class = SensorStateClass.TOTAL if daily else SensorStateClass.TOTAL_INCREASING
         self._hours = 0.0
         self._since: float | None = None
@@ -227,22 +225,15 @@ class CentralStatSensor(CentralEntity, SensorEntity):
         self.hass = hass
         self._daily = daily
         self._kind = kind
-        self._attr_name = {
-            ("time", True): "Temps de chauffe maison aujourd'hui",
-            ("time", False): "Temps de chauffe maison total",
-            ("energy", True): "Consommation maison aujourd'hui",
-            ("energy", False): "Consommation maison totale",
-        }[(kind, daily)]
+        self._attr_translation_key = f"maison_{_KEYS[(kind, daily)]}"
         self._attr_unique_id = f"electric_heater_central_{'chauffe' if kind == 'time' else 'conso'}_{'jour' if daily else 'total'}"
         self._attr_state_class = SensorStateClass.TOTAL if daily else SensorStateClass.TOTAL_INCREASING
         if kind == "time":
             self._attr_device_class = SensorDeviceClass.DURATION
             self._attr_native_unit_of_measurement = UnitOfTime.HOURS
-            self._attr_icon = "mdi:radiator"
         else:
             self._attr_device_class = SensorDeviceClass.ENERGY
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-            self._attr_icon = "mdi:lightning-bolt"
         if daily:
             self._attr_last_reset = dt_util.start_of_local_day()
         self._detail: dict[str, float] = {}
@@ -284,13 +275,12 @@ class CentralMeteredEnergySensor(CentralEntity, SensorEntity):
     """Somme des compteurs d'énergie réels liés aux radiateurs (kWh)."""
 
     _attr_has_entity_name = True
-    _attr_name = "Consommation radiateurs (compteurs)"
+    _attr_translation_key = "conso_compteurs"
     _attr_unique_id = "electric_heater_central_conso_compteurs"
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_suggested_display_precision = 2
-    _attr_icon = "mdi:meter-electric"
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
@@ -342,12 +332,11 @@ class RoomMeterDailySensor(RoomEntity, RestoreSensor):
     """Consommation du jour lue sur le compteur kWh réel du radiateur."""
 
     _attr_has_entity_name = True
-    _attr_name = "Consommation compteur aujourd'hui"
+    _attr_translation_key = "conso_compteur_jour"
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_suggested_display_precision = 2
-    _attr_icon = "mdi:meter-electric"
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
@@ -434,13 +423,12 @@ class CentralMeterDailySensor(CentralEntity, SensorEntity):
     """Somme des consommations du jour lues sur les compteurs réels."""
 
     _attr_has_entity_name = True
-    _attr_name = "Consommation compteurs aujourd'hui"
+    _attr_translation_key = "conso_compteurs_jour"
     _attr_unique_id = "electric_heater_central_compteurs_jour"
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_suggested_display_precision = 2
-    _attr_icon = "mdi:meter-electric"
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
