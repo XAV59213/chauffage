@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.1.72
 
 - Notification « détecteur instable » : affiche le nom du détecteur au lieu de son entity_id, et supprime l’espace en trop après le nom de la pièce.
 
