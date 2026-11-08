@@ -12,14 +12,14 @@ rules:
     status: done
     comment: Icônes et logos dans custom_components/electric_heater/brand/.
   common-modules:
-    status: todo
-    comment: Pas de coordinator.py / entity.py communs ; logique répartie (fil_pilote.py, history.py).
+    status: done
+    comment: entity.py (CentralEntity, RoomEntity, device_info communs) utilisé par climate, sensor, binary_sensor et stats ; pas de coordinator (intégration événementielle, aucune interrogation périodique d'API).
   config-flow:
     status: done
     comment: config_flow.py avec sélecteurs et options flow ; manifest config_flow true.
   config-flow-test-coverage:
-    status: todo
-    comment: tests/test_config_flow.py couvre création central/pièce, erreur sonde requise, doublon (abort) et options ; config_flow.py couvert à 84 %, 100 % pas encore atteint.
+    status: done
+    comment: tests/test_config_flow.py et tests/test_config_helpers.py couvrent création central/pièce, erreurs, doublon (abort), options et sélecteurs ; config_flow.py couvert à 100 %.
   dependency-transparency:
     status: done
     comment: requirements vide dans manifest.json.
@@ -51,8 +51,8 @@ rules:
     status: done
     comment: _attr_has_entity_name = True sur toutes les entités.
   runtime-data:
-    status: todo
-    comment: Données stockées dans hass.data[DOMAIN] au lieu de entry.runtime_data (__init__.py).
+    status: done
+    comment: Données par entrée dans entry.runtime_data (ElectricHeaterConfigEntry / ElectricHeaterData) ; hass.data[DOMAIN] garde seulement l'état global au domaine (carte Lovelace, caches, alertes).
   test-before-configure:
     status: exempt
     comment: Aucun appareil ni service distant à joindre ; seules des entités HA existantes sont sélectionnées.
@@ -92,8 +92,8 @@ rules:
     status: exempt
     comment: Aucune authentification.
   test-coverage:
-    status: todo
-    comment: 27 tests pytest (tests/) lancés en CI ; couverture globale 69 %, loin des 95 % demandés.
+    status: done
+    comment: 78 tests pytest (tests/) lancés en CI ; couverture globale 95 %.
 
   # Gold
   devices:
@@ -158,7 +158,7 @@ rules:
     comment: Repair « entité introuvable » si la sonde ou le select fil pilote configuré n'existe plus (__init__.py).
   stale-devices:
     status: done
-    comment: async_remove_config_entry_device : suppression d'un appareil sans entité de l'entrée (le central actif est protégé).
+    comment: async_remove_config_entry_device, suppression d'un appareil sans entité de l'entrée (le central actif est protégé).
 
   # Platinum
   async-dependency:

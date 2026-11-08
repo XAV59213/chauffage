@@ -21,7 +21,7 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.util import dt as dt_util
 
-from .device_link import via_central
+from .entity import CentralEntity, RoomEntity
 from .const import CONF_POWER, DOMAIN
 from .fil_pilote import iter_room_entries
 
@@ -110,7 +110,7 @@ _NAMES = {
 }
 
 
-class RoomHeatingTimeSensor(RestoreSensor):
+class RoomHeatingTimeSensor(RoomEntity, RestoreSensor):
     """Temps de chauffe (h) ou consommation estimée (kWh = h x puissance) d'un radiateur."""
 
     _attr_has_entity_name = True
@@ -137,13 +137,6 @@ class RoomHeatingTimeSensor(RestoreSensor):
         self._climate: str | None = None
         if daily:
             self._attr_last_reset = dt_util.start_of_local_day()
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            **via_central(getattr(self, "hass", None)),
-        }
 
     @property
     def native_value(self) -> float:
@@ -175,11 +168,7 @@ class RoomHeatingTimeSensor(RestoreSensor):
                 or (last_state and dt_util.as_local(last_state.last_updated).date() == dt_util.now().date())
             )
             self._hours = value if same_day else 0.0
-        self._climate = room_climate_id(self.hass, self.entry)
-        if self._climate:
-            self.async_on_remove(
-                async_track_state_change_event(self.hass, [self._climate], self._on_change)
-            )
+        self._link_climate()
         self.async_on_remove(async_track_time_interval(self.hass, self._tick, _TICK))
         if self._daily:
             self.async_on_remove(
@@ -187,8 +176,19 @@ class RoomHeatingTimeSensor(RestoreSensor):
             )
         self._on_change()
 
+    def _link_climate(self) -> None:
+        """Lie le radiateur ; réessayé tant qu'il n'est pas encore enregistré (ordre des plateformes)."""
+        if self._climate:
+            return
+        self._climate = room_climate_id(self.hass, self.entry)
+        if self._climate:
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, [self._climate], self._on_change)
+            )
+
     @callback
     def _on_change(self, _event=None) -> None:
+        self._link_climate()
         heating = _heating(self.hass, self._climate)
         if heating and self._since is None:
             self._since = time.monotonic()
@@ -199,6 +199,8 @@ class RoomHeatingTimeSensor(RestoreSensor):
 
     @callback
     def _tick(self, _now=None) -> None:
+        if not self._climate:
+            self._on_change()
         self._flush()
         self.async_write_ha_state()
 
@@ -215,7 +217,7 @@ class RoomHeatingTimeSensor(RestoreSensor):
         return {"en_chauffe": self._since is not None, "radiateur": self._climate}
 
 
-class CentralStatSensor(SensorEntity):
+class CentralStatSensor(CentralEntity, SensorEntity):
     """Somme de tous les radiateurs (temps de chauffe ou consommation)."""
 
     _attr_has_entity_name = True
@@ -244,10 +246,6 @@ class CentralStatSensor(SensorEntity):
         if daily:
             self._attr_last_reset = dt_util.start_of_local_day()
         self._detail: dict[str, float] = {}
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     def _sources(self) -> dict[str, str]:
         reg = er.async_get(self.hass)
@@ -282,7 +280,7 @@ class CentralStatSensor(SensorEntity):
         return {"par_radiateur": self._detail}
 
 
-class CentralMeteredEnergySensor(SensorEntity):
+class CentralMeteredEnergySensor(CentralEntity, SensorEntity):
     """Somme des compteurs d'énergie réels liés aux radiateurs (kWh)."""
 
     _attr_has_entity_name = True
@@ -298,10 +296,6 @@ class CentralMeteredEnergySensor(SensorEntity):
         self.hass = hass
         self._detail: dict[str, float] = {}
         self._links: dict[str, str] = {}
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(async_track_time_interval(self.hass, self._update, _TICK))
@@ -344,7 +338,7 @@ def _kwh(state) -> float | None:
     return value / 1000 if (state.attributes.get("unit_of_measurement") or "") == "Wh" else value
 
 
-class RoomMeterDailySensor(RestoreSensor):
+class RoomMeterDailySensor(RoomEntity, RestoreSensor):
     """Consommation du jour lue sur le compteur kWh réel du radiateur."""
 
     _attr_has_entity_name = True
@@ -365,13 +359,6 @@ class RoomMeterDailySensor(RestoreSensor):
         self._value: float | None = None
         self._unsub = None
         self._attr_last_reset = dt_util.start_of_local_day()
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            **via_central(getattr(self, "hass", None)),
-        }
 
     @property
     def available(self) -> bool:
@@ -443,7 +430,7 @@ class RoomMeterDailySensor(RestoreSensor):
         self.async_write_ha_state()
 
 
-class CentralMeterDailySensor(SensorEntity):
+class CentralMeterDailySensor(CentralEntity, SensorEntity):
     """Somme des consommations du jour lues sur les compteurs réels."""
 
     _attr_has_entity_name = True
@@ -459,10 +446,6 @@ class CentralMeterDailySensor(SensorEntity):
         self.hass = hass
         self._detail: dict[str, float] = {}
         self._attr_last_reset = dt_util.start_of_local_day()
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(async_track_time_interval(self.hass, self._update, _TICK))

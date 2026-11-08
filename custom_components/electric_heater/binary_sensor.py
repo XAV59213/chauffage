@@ -10,7 +10,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from . import safety
-from .device_link import via_central
+from .entity import CentralEntity, RoomEntity, central_device_info, room_device_info
 from .const import (
     CENTRAL,
     CENTRAL_ENTITY_ID,
@@ -62,7 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities(entities)
 
 
-class CentralHeatingActive(BinarySensorEntity):
+class CentralHeatingActive(CentralEntity, BinarySensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Chauffage Actif"
     _attr_unique_id = "electric_heater_central_chauffage_actif"
@@ -73,10 +73,6 @@ class CentralHeatingActive(BinarySensorEntity):
     def __init__(self, hass: HomeAssistant):
         self.hass = hass
         self._unsub = None
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     async def async_added_to_hass(self):
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
@@ -98,7 +94,7 @@ class CentralHeatingActive(BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class CentralPresence(BinarySensorEntity):
+class CentralPresence(CentralEntity, BinarySensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Presence"
     _attr_unique_id = "electric_heater_central_presence"
@@ -108,10 +104,6 @@ class CentralPresence(BinarySensorEntity):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self._sensor = entry.data.get(CONF_PRESENCE_SENSOR)
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     async def async_added_to_hass(self):
         if self._sensor:
@@ -133,7 +125,7 @@ class CentralPresence(BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class CentralAutoEcoMode(BinarySensorEntity):
+class CentralAutoEcoMode(CentralEntity, BinarySensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Mode Eco Auto"
     _attr_unique_id = "electric_heater_central_mode_eco_auto"
@@ -144,10 +136,6 @@ class CentralAutoEcoMode(BinarySensorEntity):
     def __init__(self, hass: HomeAssistant):
         self.hass = hass
         self._unsub = None
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     async def async_added_to_hass(self):
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
@@ -163,7 +151,7 @@ class CentralAutoEcoMode(BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class CentralCalendarEnabled(BinarySensorEntity):
+class CentralCalendarEnabled(CentralEntity, BinarySensorEntity):
     """Calendrier chauffage activé : thermostat en Auto ET calendrier actif."""
 
     _attr_has_entity_name = True
@@ -175,10 +163,6 @@ class CentralCalendarEnabled(BinarySensorEntity):
 
     def __init__(self, hass: HomeAssistant):
         self.hass = hass
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     async def async_added_to_hass(self):
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
@@ -202,7 +186,7 @@ class CentralCalendarEnabled(BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class CentralCalendarActive(BinarySensorEntity):
+class CentralCalendarActive(CentralEntity, BinarySensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Calendrier chauffage"
     _attr_unique_id = "electric_heater_central_calendrier"
@@ -217,10 +201,6 @@ class CentralCalendarActive(BinarySensorEntity):
         self._event = None
         self._start = None
         self._end = None
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     @property
     def available(self) -> bool:
@@ -274,7 +254,7 @@ class CentralCalendarActive(BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class RoomWindowSecurity(BinarySensorEntity):
+class RoomWindowSecurity(RoomEntity, BinarySensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Securite Fenetre"
     _attr_device_class = BinarySensorDeviceClass.SAFETY
@@ -286,13 +266,6 @@ class RoomWindowSecurity(BinarySensorEntity):
         self.entry = entry
         self._sensors = parse_window_sensors(entry.data)
         self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_securite_fenetre"
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            **via_central(getattr(self, "hass", None)),
-        }
 
     async def async_added_to_hass(self):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
@@ -310,7 +283,7 @@ class RoomWindowSecurity(BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class BatteryAlert(BinarySensorEntity):
+class BatteryAlert(CentralEntity, BinarySensorEntity):
     """Alerte : au moins une sonde de pièce KO (pile à remplacer)."""
 
     _attr_has_entity_name = True
@@ -322,10 +295,6 @@ class BatteryAlert(BinarySensorEntity):
     def __init__(self, hass: HomeAssistant):
         self.hass = hass
         self._ko: list[dict] = []
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     @property
     def extra_state_attributes(self):
@@ -376,11 +345,8 @@ class SafetyAlert(BinarySensorEntity):
     @property
     def device_info(self):
         if self._central:
-            return {"identifiers": {(DOMAIN, "electric_heater_central")}}
-        return {
-            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            **via_central(getattr(self, "hass", None)),
-        }
+            return central_device_info()
+        return room_device_info(getattr(self, "hass", None), self.entry)
 
     def _rooms(self):
         data = safety.alerts(self.hass)
@@ -409,7 +375,7 @@ class SafetyAlert(BinarySensorEntity):
 
 
 
-class SeasonActive(BinarySensorEntity):
+class SeasonActive(CentralEntity, BinarySensorEntity):
     """Saison de chauffe en cours (central)."""
 
     _attr_has_entity_name = True
@@ -421,10 +387,6 @@ class SeasonActive(BinarySensorEntity):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
-
-    @property
-    def device_info(self):
-        return {"identifiers": {(DOMAIN, "electric_heater_central")}}
 
     def _info(self) -> dict:
         from . import season as season_mod

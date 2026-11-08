@@ -26,7 +26,7 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .device_link import via_central
+from .entity import central_device_info, room_device_info
 from .const import (
     CONF_WINDOW_INVERT,
     CENTRAL_ENTITY_ID,
@@ -45,7 +45,6 @@ from .const import (
     CALENDAR_OFF_MODES,
     DEFAULT_CALENDAR_OFF_MODE,
     DEFAULT_WINDOW_MODE,
-    DOMAIN,
     EVENT_CENTRAL_CHANGED,
     EVENT_CENTRAL_COMMAND,
     EVENT_ROOMS_CHANGED,
@@ -327,13 +326,12 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, "electric_heater_central")},
-            "name": self.entry.data.get("name", "Thermostat virtuel"),
-            "manufacturer": "XAV59213",
-            "model": "Thermostat virtuel 6 ordres",
-            "sw_version": VERSION,
-        }
+        return central_device_info(
+            name=self.entry.data.get("name", "Thermostat virtuel"),
+            manufacturer="XAV59213",
+            model="Thermostat virtuel 6 ordres",
+            sw_version=VERSION,
+        )
 
     @property
     def native_current_temperature(self) -> float | None:
@@ -1157,13 +1155,10 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, f"room_{self.entry.entry_id}")},
-            "name": self.entry.data["name"],
-            "manufacturer": "XAV59213",
-            "model": "Radiateur fil pilote",
-            **via_central(getattr(self, "hass", None)),
-        }
+        return room_device_info(
+            getattr(self, "hass", None), self.entry,
+            name=self.entry.data["name"], manufacturer="XAV59213", model="Radiateur fil pilote",
+        )
 
     @property
     def native_current_temperature(self) -> float | None:
