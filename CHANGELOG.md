@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.1.69
 
 - Quality Scale Bronze : données par entrée dans entry.runtime_data (ElectricHeaterConfigEntry), entity.py commun (appareil central / radiateur) ; aucun changement de régulation.
 - Statistiques : les capteurs « Temps de chauffe » et « Consommation » (estimée) retrouvent leur radiateur même s'ils démarrent avant lui (le temps de chauffe n'était plus compté jusqu'au redémarrage).
