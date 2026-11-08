@@ -58,7 +58,10 @@ function _statsFor(hass, id) {
     const n = Number(ms.state);
     if (Number.isFinite(n)) meter = ms.attributes.unit_of_measurement === "Wh" ? n / 1000 : n;
   }
-  return { h: h ?? null, kwh: kwh ?? null, meter, meterDay: meterDay ?? null };
+  const dayId = ids.find((x) => x.includes("compteur") && x.includes("aujourd"))
+    || ids.find((x) => x.includes("consommation") && x.includes("aujourd") && !x.includes("compteur"))
+    || null;
+  return { h: h ?? null, kwh: kwh ?? null, meter, meterDay: meterDay ?? null, dayId };
 }
 
 function _fmtStats(st) {
@@ -269,6 +272,8 @@ const GRAPH_COLORS = ["#ff7043", "#42a5f5", "#66bb6a", "#ab47bc", "#ffca28", "#2
 const STYLES = `
   ha-card { padding: 16px; }
   .head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .head.heat { background: rgba(255,87,34,.2); border-radius: 12px; padding: 8px 10px; margin: -8px -10px; }
+  .head.heat .big { color: #ff5722; }
   .title { font-size: 1.2em; font-weight: 600; }
   .big { font-size: 2.2em; font-weight: 300; line-height: 1; }
   .muted { color: var(--secondary-text-color); font-size: .9em; }
@@ -469,6 +474,7 @@ class ElectricHeaterCard extends HTMLElement {
         series: series.map((x, i) => ({
           name: _name(hass, x.rid).replace(/^Radiateur\s*/i, "").replace(/\s*Chauffage.*$/i, ""),
           color: GRAPH_COLORS[i % GRAPH_COLORS.length],
+          sensor: x.sensor,
           pts: byId[x.sensor] || [],
         })),
       };
@@ -508,7 +514,7 @@ class ElectricHeaterCard extends HTMLElement {
       return `<text x="${x(t)}" y="${H - 3}" font-size="9" text-anchor="${f === 0 ? "start" : f === 1 ? "end" : "middle"}" fill="var(--secondary-text-color)">${lab}</text>`;
     }).join("");
     const legend = h.series.map((s) =>
-      `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span style="width:10px;height:3px;background:${s.color};display:inline-block"></span>${_esc(s.name)}</span>`
+      `<span data-id="${_esc(s.sensor || "")}" style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;cursor:pointer"><span style="width:10px;height:3px;background:${s.color};display:inline-block"></span>${_esc(s.name)}</span>`
     ).join("");
     return `<div class="rows"><div class="bt">Températures des pièces (${hrs} h)</div>
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${grid}${lines}${ticks}</svg>
@@ -535,7 +541,7 @@ class ElectricHeaterCard extends HTMLElement {
       const a = central.attributes;
       const action = a.hvac_action === "heating" ? "Chauffe" : a.hvac_action === "off" ? "Arrêt" : "Inactif";
       head = `
-        <div class="head" data-id="${_esc(e.central)}">
+        <div class="head${a.hvac_action === "heating" ? " heat" : ""}" data-id="${_esc(e.central)}">
           <div>
             <div class="title">${_esc(titre)}</div>
             <div class="muted">${_esc(HVAC[central.state] || central.state)} · ${_esc(ORDRES[a.preset_mode] || a.preset_mode || "")} · ${_esc(action)}</div>
@@ -690,7 +696,7 @@ class ElectricHeaterCard extends HTMLElement {
             const k = reel ? x.meterDay : x.kwh;
             if (k !== null) { totK += k; anyK = anyK || k > 0 || reel; }
             const nom = _name(hass, id).replace(/^Radiateur\s*/i, "").replace(/\s*Chauffage.*$/i, "");
-            return `<div class="row" data-id="${_esc(id)}"><ha-icon icon="mdi:lightning-bolt"></ha-icon>
+            return `<div class="row" data-id="${_esc(x.dayId || id)}"><ha-icon icon="mdi:lightning-bolt"></ha-icon>
               <div class="n">${_esc(nom)}</div><span class="badge">${fmtH(x.h)}</span>
               <div class="t">${reel ? `🔌 ${k.toFixed(2)} kWh` : k !== null && k > 0 ? `≈ ${k.toFixed(2)} kWh` : "–"}</div></div>`;
           }).join("");
