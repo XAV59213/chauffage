@@ -263,3 +263,19 @@ async def test_disobeying_radiator(hass: HomeAssistant) -> None:
         room._safety_tick()
         await hass.async_block_till_done()
     assert not room._safety_off
+
+
+async def test_frozen_power_after_outage_is_ignored(hass: HomeAssistant) -> None:
+    calls, central = await _house(hass, "16.0")
+    await _set(hass, central, HVACMode.OFF)
+    room = _ent(hass, _room_id(hass, central))
+    room._sending_until = 0
+    hass.states.async_set("sensor.p_test", "951.0")
+    with patch.object(room, "_cached_value", return_value="sensor.p_test"):
+        assert not room._power_stale(951.0)
+        hass.states.async_set("sensor.p_test", "unavailable")
+        hass.states.async_set("sensor.p_test", "951.0")
+        assert room._power_stale(951.0)
+        hass.states.async_set("sensor.p_test", "960.0")
+        assert not room._power_stale(960.0)
+        assert not room._power_stale(None)

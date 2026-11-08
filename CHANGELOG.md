@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Alerte « radiateur n’obéit pas » : ignore une puissance revenue d’une coupure avec la même valeur (valeur figée), qui déclenchait de fausses surchauffes.
+
 ## 3.1.75
 
 - Consommation maison (jour et totale) : utilise le compteur kWh réel de chaque radiateur quand il existe, au lieu de l’estimation (restait à 0 sans puissance renseignée).
