@@ -1,5 +1,8 @@
 """Chauffage Électrique Fil Pilote FR - Intégration complète."""
 from __future__ import annotations
+from homeassistant.core import EventStateChangedData
+from typing import cast
+from datetime import datetime
 
 from dataclasses import dataclass
 
@@ -11,6 +14,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from datetime import timedelta
 
 from .const import (
+    NO_OPTIONS,
     CENTRAL,
     DOMAIN,
     EVENT_WINDOWS_CHANGED,
@@ -30,7 +34,7 @@ PLATFORMS = ["climate", "sensor", "binary_sensor"]
 class ElectricHeaterData:
     """Données d'exécution d'une entrée (entry.runtime_data)."""
 
-    snapshot: tuple
+    snapshot: tuple[str, str]
     notifier: HeaterNotifier | None = None
 
 
@@ -41,14 +45,14 @@ def central_runtime(hass: HomeAssistant) -> ElectricHeaterData | None:
     """Données du thermostat central chargé (recherche inter-entrées)."""
     for entry in hass.config_entries.async_loaded_entries(DOMAIN):
         if entry.data.get("type") == CENTRAL:
-            return entry.runtime_data
+            return cast(ElectricHeaterData, entry.runtime_data)
     return None
 
 
-def _snapshot(entry: ConfigEntry) -> tuple:
+def _snapshot(entry: ConfigEntry) -> tuple[str, str]:
     """Configuration hors consignes : seule sa modification recharge l'entrée."""
     data = {k: v for k, v in entry.data.items() if k not in SETPOINT_KEYS}
-    return (repr(sorted(data.items())), repr(sorted((entry.options or {}).items())))
+    return (repr(sorted(data.items())), repr(sorted((entry.options or NO_OPTIONS).items())))
 
 
 def _track_windows(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -58,12 +62,12 @@ def _track_windows(hass: HomeAssistant, entry: ConfigEntry) -> None:
         return
 
     @callback
-    def _on_window(event: Event) -> None:
+    def _on_window(event: Event[EventStateChangedData]) -> None:
         hass.bus.async_fire(EVENT_WINDOWS_CHANGED, {"entity_id": event.data.get("entity_id")})
 
     entry.async_on_unload(async_track_state_change_event(hass, windows, _on_window))
 
-    async def _resync(_now=None) -> None:
+    async def _resync(_now: datetime | None = None) -> None:
         """Toutes les 60 s : relance les détecteurs indisponibles et réévalue les fenêtres."""
         stale = [
             eid for eid in windows
@@ -87,7 +91,7 @@ _CHECKED_SOURCES = ("temperature_sensor", "fil_pilote_select")
 def _check_sources(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Crée/supprime un repair si une entité source configurée n'existe plus."""
     registry = er.async_get(hass)
-    conf = {**entry.data, **(entry.options or {})}
+    conf = {**entry.data, **(entry.options or NO_OPTIONS)}
     for key in _CHECKED_SOURCES:
         entity_id = conf.get(key)
         issue_id = f"missing_{key}_{entry.entry_id}"

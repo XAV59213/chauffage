@@ -1,5 +1,6 @@
 """Presence : uniquement le capteur choisi sur le thermostat."""
 from __future__ import annotations
+from typing import Any
 
 import re
 
@@ -31,7 +32,7 @@ def is_real_person(state: State | None) -> bool:
     return not any(hint in flat for hint in _STRONG_HINTS)
 
 
-def tracked_persons(hass: HomeAssistant, data: dict | None) -> list[State]:
+def tracked_persons(hass: HomeAssistant, data: dict[str, Any] | None) -> list[State]:
     """Personnes suivies : celles choisies dans la config, sinon les vraies personnes détectées."""
     chosen = list((data or {}).get(CONF_PERSONS) or [])
     if chosen:
@@ -39,7 +40,7 @@ def tracked_persons(hass: HomeAssistant, data: dict | None) -> list[State]:
     return [st for st in hass.states.async_all("person") if is_real_person(st)]
 
 
-def present_names(hass: HomeAssistant, data: dict | None) -> list[str]:
+def present_names(hass: HomeAssistant, data: dict[str, Any] | None) -> list[str]:
     return sorted(
         str(st.attributes.get("friendly_name") or st.entity_id)
         for st in tracked_persons(hass, data)

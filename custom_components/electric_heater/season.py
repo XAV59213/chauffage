@@ -166,7 +166,7 @@ class SeasonController:
 
 
 def get_season(hass: HomeAssistant) -> SeasonController:
-    store = hass.data.setdefault("electric_heater", {}).setdefault("_season", {})
+    store: dict[str, SeasonController] = hass.data.setdefault("electric_heater", {}).setdefault("_season", {})
     if "ctrl" not in store:
         store["ctrl"] = SeasonController(hass)
     return store["ctrl"]

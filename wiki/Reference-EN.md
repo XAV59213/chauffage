@@ -1,5 +1,8 @@
 # Reference
 
+[![Quality Scale](https://img.shields.io/badge/Quality%20Scale-Platinum-E5E4E2.svg)](https://developers.home-assistant.io/docs/core/integration-quality-scale/)
+
+
 ## Data updates
 Local integration, no cloud polling. Reacts instantly to sensor, window/presence and pilot-wire `select` changes; pilot-wire orders are resynced every 60 s, safety checks run every 60 s, statistics every minute (reset at midnight), heating season every 15 min.
 

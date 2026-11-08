@@ -1,6 +1,10 @@
 """Notifications Home Assistant : sondes / piles KO et fenêtres ouvertes."""
 from __future__ import annotations
 
+from collections.abc import Callable
+from homeassistant.core import Event
+from datetime import datetime
+
 import logging
 import time
 from typing import Any
@@ -18,6 +22,7 @@ from homeassistant.helpers.event import (
 from datetime import timedelta
 
 from .const import (
+    NO_OPTIONS,
     CONF_NOTIFICATIONS,
     CONF_NOTIFY_SERVICE,
     CONF_TEMPERATURE_SENSOR,
@@ -59,13 +64,13 @@ class HeaterNotifier:
         self.entry = entry
         self._active: set[str] = set()
         self._pending: dict[str, Any] = {}
-        self._unsubs: list = []
+        self._unsubs: list[Callable[[], None]] = []
         self._ready = False
         self._ko_since: dict[str, float] = {}
 
     # -- options --------------------------------------------------------
     def _opt(self, key: str, default: Any = None) -> Any:
-        value = (self.entry.options or {}).get(key, self.entry.data.get(key))
+        value = (self.entry.options or NO_OPTIONS).get(key, self.entry.data.get(key))
         return default if value is None else value
 
     def _window_delay(self) -> float:
@@ -85,7 +90,7 @@ class HeaterNotifier:
     def _window_invert(self) -> dict[str, bool]:
         result: dict[str, bool] = {}
         for entry in self.hass.config_entries.async_entries(DOMAIN):
-            inv = bool(entry.data.get("window_invert") or (entry.options or {}).get("window_invert"))
+            inv = bool(entry.data.get("window_invert") or (entry.options or NO_OPTIONS).get("window_invert"))
             for eid in windows_from_entry(entry, self.hass):
                 result.setdefault(eid, inv)
         return result
@@ -148,7 +153,7 @@ class HeaterNotifier:
 
     # -- évaluation -------------------------------------------------------
     @callback
-    def _check_sensors(self, _event=None) -> None:
+    def _check_sensors(self, _event: Event[Any] | datetime | None = None) -> None:
         for sensor, piece in self._room_sensors().items():
             key = f"sonde_{sensor}"
             if room_current_temp(self.hass, sensor) is None:
@@ -188,7 +193,7 @@ class HeaterNotifier:
                 self._clear(key, f"✅ Pile du détecteur de fenêtre « {_name(self.hass, wid)} »{detail} : OK.")
 
     @callback
-    def _check_windows(self, _event=None) -> None:
+    def _check_windows(self, _event: Event[Any] | datetime | None = None) -> None:
         for wid, invert in self._window_invert().items():
             st = self.hass.states.get(wid)
             known = st is not None and st.state not in ("unknown", "unavailable")
@@ -199,7 +204,7 @@ class HeaterNotifier:
                     continue
 
                 @callback
-                def _confirm(_now, wid=wid, key=key, invert=invert) -> None:
+                def _confirm(_now: datetime, wid: str = wid, key: str = key, invert: bool = invert) -> None:
                     self._pending.pop(wid, None)
                     cur = self.hass.states.get(wid)
                     if cur and is_window_open_state(cur) != invert:
@@ -249,7 +254,7 @@ class HeaterNotifier:
         self._unsubs.append(async_call_later(self.hass, STARTUP_GRACE, self._end_grace))
 
     @callback
-    def _end_grace(self, _now=None) -> None:
+    def _end_grace(self, _now: datetime | None = None) -> None:
         self._ready = True
         self._ko_since = {k: time.monotonic() - KO_CONFIRM for k in self._ko_since}
         self._send_startup()
@@ -277,14 +282,14 @@ class HeaterNotifier:
         occ = central.attributes.get("occupants") if central else None
         if isinstance(occ, (int, float)):
             return int(occ)
-        data = {**dict(self.entry.data), **dict(self.entry.options or {})}
+        data = {**dict(self.entry.data), **dict(self.entry.options or NO_OPTIONS)}
         try:
             return len(present_names(self.hass, data))
         except Exception:  # noqa: BLE001
             return None
 
     @callback
-    def _check_absent(self, _event=None) -> None:
+    def _check_absent(self, _event: Event[Any] | datetime | None = None) -> None:
         key = "fenetre_absents"
         if not self._ready:
             return
@@ -299,7 +304,7 @@ class HeaterNotifier:
             self._clear(key, "✅ Fenêtres fermées ou quelqu'un est rentré." if wins == [] else None)
 
     @callback
-    def _periodic(self, _now=None) -> None:
+    def _periodic(self, _now: datetime | None = None) -> None:
         self._check_sensors()
         self._check_windows()
         self._check_absent()

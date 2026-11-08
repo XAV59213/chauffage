@@ -1,5 +1,7 @@
 """Config flow : thermostat virtuel + radiateurs fil pilote."""
 from __future__ import annotations
+from homeassistant.config_entries import ConfigFlowResult
+from typing import Any, Literal, cast
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -88,34 +90,34 @@ _WINDOWS_FALLBACK = selector.EntitySelector(
 )
 _PRESET = selector.SelectSelector(
     selector.SelectSelectorConfig(
-        options=[{"value": p, "label": PRESET_LABELS[p]} for p in PRESETS],
-        mode="dropdown",
+        options=[selector.SelectOptionDict(value=p, label=PRESET_LABELS[p]) for p in PRESETS],
+        mode=selector.SelectSelectorMode.DROPDOWN,
     )
 )
 _WINDOW_MODE = selector.SelectSelector(
     selector.SelectSelectorConfig(
-        options=[{"value": p, "label": PRESET_LABELS[p]} for p in WINDOW_MODES],
-        mode="dropdown",
+        options=[selector.SelectOptionDict(value=p, label=PRESET_LABELS[p]) for p in WINDOW_MODES],
+        mode=selector.SelectSelectorMode.DROPDOWN,
     )
 )
 _ABOVE_TARGET_MODE = selector.SelectSelector(
     selector.SelectSelectorConfig(
-        options=[{"value": p, "label": PRESET_LABELS[p]} for p in ABOVE_TARGET_MODES],
-        mode="dropdown",
+        options=[selector.SelectOptionDict(value=p, label=PRESET_LABELS[p]) for p in ABOVE_TARGET_MODES],
+        mode=selector.SelectSelectorMode.DROPDOWN,
     )
 )
 _CALENDAR_OFF_MODE = selector.SelectSelector(
     selector.SelectSelectorConfig(
-        options=[{"value": p, "label": PRESET_LABELS[p]} for p in CALENDAR_OFF_MODES],
-        mode="dropdown",
+        options=[selector.SelectOptionDict(value=p, label=PRESET_LABELS[p]) for p in CALENDAR_OFF_MODES],
+        mode=selector.SelectSelectorMode.DROPDOWN,
     )
 )
 
 
-def _int_number(min_v, max_v, unit):
+def _int_number(min_v: float, max_v: float, unit: str) -> selector.NumberSelector:
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
-            min=min_v, max=max_v, step=1, mode="box", unit_of_measurement=unit
+            min=min_v, max=max_v, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement=unit
         )
     )
 
@@ -123,25 +125,27 @@ def _int_number(min_v, max_v, unit):
 _WINDOW_CLASSES = {"window", "opening", "door", "garage_door"}
 
 
-def _number(min_v, max_v, step="any"):
+def _number(min_v: float, max_v: float, step: float | Literal["any"] = "any") -> selector.NumberSelector:
     # step "any" : le frontend ne recalcule pas la valeur par pas de 0,1
     # (sinon affichage du type 20,199999999999998). Arrondi à 0,1 °C côté intégration.
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
-            min=min_v, max=max_v, step=step, mode="box", unit_of_measurement="C"
+            min=min_v, max=max_v, step=step, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="C"
         )
     )
 
 
-def _temp_default(d: dict, key: str, default: float, lo: float, hi: float) -> float:
+def _temp_default(d: dict[str, Any], key: str, default: float, lo: float, hi: float) -> float:
     """Valeur par défaut d'une consigne : arrondie à 0,1 °C et ramenée dans les bornes du champ."""
     value = round_temp(d.get(key, default))
     if value is None:
         value = default
-    return round_temp(min(max(value, lo), hi))
+    return cast(float, round_temp(min(max(value, lo), hi)))
 
 
-def _with_default(key, selector_obj, defaults, required=False):
+def _with_default(
+    key: str, selector_obj: Any, defaults: dict[str, Any] | None, required: bool = False
+) -> dict[vol.Marker, Any]:
     val = (defaults or {}).get(key)
     marker = vol.Required if required else vol.Optional
     if val:
@@ -149,14 +153,16 @@ def _with_default(key, selector_obj, defaults, required=False):
     return {marker(key): selector_obj}
 
 
-def _parse_windows(value):
+def _parse_windows(value: Any) -> list[str]:
     from .fil_pilote import parse_window_sensors
 
     return parse_window_sensors({CONF_WINDOW_SENSORS: value})
 
 
-def _window_options(hass: HomeAssistant | None, current: list[str] | None = None):
-    options = []
+def _window_options(
+    hass: HomeAssistant | None, current: list[str] | None = None
+) -> list[selector.SelectOptionDict]:
+    options: list[selector.SelectOptionDict] = []
     if hass is None:
         return options
     for state in hass.states.async_all("binary_sensor"):
@@ -166,7 +172,7 @@ def _window_options(hass: HomeAssistant | None, current: list[str] | None = None
         if dc not in _WINDOW_CLASSES and "fenetre" not in hint and "window" not in hint and "porte" not in hint:
             continue
         label = f"{state.name}  —  {eid}"
-        options.append({"value": eid, "label": label})
+        options.append(selector.SelectOptionDict(value=eid, label=label))
     # Valeurs déjà configurées toujours acceptées (même si elles ne passent plus le filtre),
     # sinon la validation échoue avec « value must be one of [...] ».
     known = {o["value"] for o in options}
@@ -179,7 +185,9 @@ def _window_options(hass: HomeAssistant | None, current: list[str] | None = None
     return options
 
 
-def _windows_selector(hass: HomeAssistant | None, current: list[str] | None = None):
+def _windows_selector(
+    hass: HomeAssistant | None, current: list[str] | None = None
+) -> selector.SelectSelector | selector.EntitySelector:
     options = _window_options(hass, current)
     if not options:
         return _WINDOWS_FALLBACK
@@ -188,12 +196,12 @@ def _windows_selector(hass: HomeAssistant | None, current: list[str] | None = No
             options=options,
             multiple=True,
             custom_value=True,
-            mode="dropdown",
+            mode=selector.SelectSelectorMode.DROPDOWN,
         )
     )
 
 
-def _windows_field(defaults, hass: HomeAssistant | None = None):
+def _windows_field(defaults: dict[str, Any] | None, hass: HomeAssistant | None = None) -> dict[vol.Marker, Any]:
     windows = _parse_windows((defaults or {}).get(CONF_WINDOW_SENSORS))
     selector_obj = _windows_selector(hass, windows)
     if windows:
@@ -201,7 +209,7 @@ def _windows_field(defaults, hass: HomeAssistant | None = None):
     return {vol.Optional(CONF_WINDOW_SENSORS): selector_obj}
 
 
-def notify_list(value) -> list[str]:
+def notify_list(value: Any) -> list[str]:
     """Services notify (liste, ou ancien texte « a, b »)."""
     if not value:
         return []
@@ -216,12 +224,12 @@ def notify_list(value) -> list[str]:
     return out
 
 
-def _notify_selector(hass: HomeAssistant | None, current=None):
+def _notify_selector(hass: HomeAssistant | None, current: Any = None) -> selector.SelectSelector:
     """Liste déroulante des services notify.* (application mobile en premier)."""
     names: list[str] = []
     if hass is not None:
         names = sorted(hass.services.async_services().get("notify", {}))
-    options = []
+    options: list[selector.SelectOptionDict] = []
     for name in sorted(names, key=lambda n: (not n.startswith("mobile_app_"), n)):
         label = name
         if name.startswith("mobile_app_"):
@@ -231,15 +239,15 @@ def _notify_selector(hass: HomeAssistant | None, current=None):
         options.append({"value": f"notify.{name}", "label": label})
     for cur in notify_list(current):
         if cur not in {o["value"] for o in options}:
-            options.append({"value": cur, "label": cur})
+            options.append(selector.SelectOptionDict(value=cur, label=cur))
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
-            options=options, mode="dropdown", custom_value=True, multiple=True
+            options=options, mode=selector.SelectSelectorMode.DROPDOWN, custom_value=True, multiple=True
         )
     )
 
 
-def _persons_field(d: dict, hass: HomeAssistant | None) -> dict:
+def _persons_field(d: dict[str, Any], hass: HomeAssistant | None) -> dict[vol.Marker, Any]:
     """Sélecteur des personnes, sans les appareils (Tablette, iPad, mqtt...) ni la maison."""
     exclude: list[str] = []
     if hass is not None:
@@ -253,9 +261,9 @@ def _persons_field(d: dict, hass: HomeAssistant | None) -> dict:
     return {vol.Optional(CONF_PERSONS, description={"suggested_value": current}): sel}
 
 
-def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = None) -> vol.Schema:
+def _central_schema(defaults: dict[str, Any] | None = None, hass: HomeAssistant | None = None) -> vol.Schema:
     d = defaults or {}
-    schema: dict = {
+    schema: dict[vol.Marker, Any] = {
         vol.Optional(CONF_NAME, default=d.get(CONF_NAME, "Thermostat virtuel")): str,
         vol.Required(
             CONF_TEMP_METHOD,
@@ -263,16 +271,10 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
         ): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=[
-                    {
-                        "value": CONF_TEMP_METHOD_REFERENCE,
-                        "label": "Sonde que je choisis",
-                    },
-                    {
-                        "value": CONF_TEMP_METHOD_AVERAGE,
-                        "label": "Moyenne des sondes des pieces",
-                    },
+                    selector.SelectOptionDict(value=CONF_TEMP_METHOD_REFERENCE, label="Sonde que je choisis",),
+                    selector.SelectOptionDict(value=CONF_TEMP_METHOD_AVERAGE, label="Moyenne des sondes des pieces",),
                 ],
-                mode="dropdown",
+                mode=selector.SelectSelectorMode.DROPDOWN,
             )
         ),
     }
@@ -380,17 +382,17 @@ def _central_schema(defaults: dict | None = None, hass: HomeAssistant | None = N
             vol.Required("min_temp", default=_temp_default(d, "min_temp", 7.0, 5, 15)): _number(5, 15),
             vol.Required("max_temp", default=_temp_default(d, "max_temp", 30.0, 20, 35)): _number(20, 35),
             vol.Required("temp_step", default=d.get("temp_step", 0.1)): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=0.1, max=1.0, step=0.1, mode="box")
+                selector.NumberSelectorConfig(min=0.1, max=1.0, step=0.1, mode=selector.NumberSelectorMode.BOX)
             ),
         }
     )
     return vol.Schema(schema)
 
 
-def _room_schema(defaults: dict | None = None, hass: HomeAssistant | None = None) -> vol.Schema:
+def _room_schema(defaults: dict[str, Any] | None = None, hass: HomeAssistant | None = None) -> vol.Schema:
     d = defaults or {}
     name_default = d.get(CONF_NAME)
-    schema: dict = {}
+    schema: dict[vol.Marker, Any] = {}
     if name_default:
         schema[vol.Required(CONF_NAME, default=name_default)] = str
     else:
@@ -409,14 +411,19 @@ def _room_schema(defaults: dict | None = None, hass: HomeAssistant | None = None
     return vol.Schema(schema)
 
 
-def _normalize_windows(value) -> str:
+def _normalize_windows(value: Any) -> str:
     return ",".join(_parse_windows(value))
+
+
+def _form(schema: vol.Schema) -> Any:
+    """Schéma voluptuous passé au formulaire (typage HA : probatio)."""
+    return schema
 
 
 class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         central_exists = any(
             e.data.get("type") == CENTRAL
             for e in self.hass.config_entries.async_entries(DOMAIN)
@@ -425,7 +432,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_central()
         return await self.async_step_room()
 
-    async def async_step_central(self, user_input=None):
+    async def async_step_central(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             for _key in ("comfort_temp", "comfort_m1_temp", "comfort_m2_temp", "eco_temp",
@@ -494,18 +501,18 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="central",
-            data_schema=_central_schema(hass=self.hass),
+            data_schema=_form(_central_schema(hass=self.hass)),
             errors=errors,
         )
 
-    async def async_step_reconfigure(self, user_input=None):
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Reconfiguration : mêmes formulaires que la création, pré-remplis."""
         entry = self._get_reconfigure_entry()
         if entry.data.get("type") == CENTRAL:
             return await self.async_step_reconfigure_central()
         return await self.async_step_reconfigure_room()
 
-    async def async_step_reconfigure_central(self, user_input=None):
+    async def async_step_reconfigure_central(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -531,11 +538,11 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
         return self.async_show_form(
             step_id="reconfigure_central",
-            data_schema=_central_schema(dict(entry.data), self.hass),
+            data_schema=_form(_central_schema(dict(entry.data), self.hass)),
             errors=errors,
         )
 
-    async def async_step_reconfigure_room(self, user_input=None):
+    async def async_step_reconfigure_room(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         if user_input is not None:
             fil_id = user_input[CONF_FIL_PILOTE_SELECT]
@@ -557,10 +564,10 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         return self.async_show_form(
             step_id="reconfigure_room",
-            data_schema=_room_schema(dict(entry.data), self.hass),
+            data_schema=_form(_room_schema(dict(entry.data), self.hass)),
         )
 
-    async def async_step_room(self, user_input=None):
+    async def async_step_room(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             fil_id = user_input[CONF_FIL_PILOTE_SELECT]
@@ -583,25 +590,25 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="room",
-            data_schema=_room_schema(hass=self.hass),
+            data_schema=_form(_room_schema(hass=self.hass)),
             errors=errors,
         )
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         return ElectricHeaterOptionsFlow()
 
 
 class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
     """Permet de changer sonde, calendrier, meteo, modes, fenetres et consignes."""
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if self.config_entry.data.get("type") == CENTRAL:
             return await self.async_step_central()
         return await self.async_step_room()
 
-    async def async_step_central(self, user_input=None):
+    async def async_step_central(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             for _key in ("comfort_temp", "comfort_m1_temp", "comfort_m2_temp", "eco_temp",
@@ -635,11 +642,11 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="central",
-            data_schema=_central_schema(dict(self.config_entry.data), self.hass),
+            data_schema=_form(_central_schema(dict(self.config_entry.data), self.hass)),
             errors=errors,
         )
 
-    async def async_step_room(self, user_input=None):
+    async def async_step_room(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             new_data = {
                 **self.config_entry.data,
@@ -658,5 +665,5 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="room",
-            data_schema=_room_schema(dict(self.config_entry.data), self.hass),
+            data_schema=_form(_room_schema(dict(self.config_entry.data), self.hass)),
         )

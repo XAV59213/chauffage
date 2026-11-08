@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Quality Scale Platinum : typage strict (py.typed, mypy --strict sans erreur, étape mypy en CI) et badge Quality Scale dans le README et le wiki. Modifications de typage uniquement, aucun changement de régulation.
+
 ## 3.1.70
 
 - Quality Scale Silver : les capteurs « Température pièce » et « Température centrale » passent indisponibles avec leur source, avec une seule ligne de journal à la perte et au retour. Les thermostats restent disponibles pour garder la sécurité Hors-gel. Aucun changement de régulation.

@@ -1,5 +1,6 @@
 """Historique des décisions de régulation par radiateur (persisté)."""
 from __future__ import annotations
+from homeassistant.core import Context
 
 from collections import deque
 import logging
@@ -44,6 +45,8 @@ def read_power(hass: HomeAssistant, sensor_id: str | None) -> float | None:
     if not sensor_id:
         return None
     st = hass.states.get(sensor_id)
+    if st is None:
+        return None
     try:
         val = float(st.state)
     except (AttributeError, TypeError, ValueError):
@@ -61,7 +64,7 @@ class DecisionHistory:
         self.name = name
         self.entry_id = entry_id
         self._loaded = False
-        self._store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.history_{entry_id}")
+        self._store: Store[list[dict[str, Any]]] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.history_{entry_id}")
         self.entries: deque[dict[str, Any]] = deque(maxlen=MAX_ENTRIES)
 
     async def async_load(self) -> None:
@@ -115,13 +118,13 @@ def signal(entry_id: str) -> str:
 
 
 def get_history(hass: HomeAssistant, entry_id: str, name: str = "") -> DecisionHistory:
-    store = hass.data.setdefault(DOMAIN, {}).setdefault("_histories", {})
+    store: dict[str, DecisionHistory] = hass.data.setdefault(DOMAIN, {}).setdefault("_histories", {})
     if entry_id not in store:
         store[entry_id] = DecisionHistory(hass, entry_id, name)
     return store[entry_id]
 
 
-REASON_LABELS = {
+REASON_LABELS: dict[Any, str] = {
     "below_target": "sous consigne",
     "above_target": "au-dessus consigne",
     "hysteresis_keep": "hystérésis (ordre gardé)",
@@ -143,7 +146,7 @@ REASON_LABELS = {
     "hors_saison": "hors saison → Arrêt",
     "hors_saison_hors_gel": "hors saison → Hors-gel (pièce froide)",
 }
-ORDER_LABELS = {
+ORDER_LABELS: dict[Any, str] = {
     "comfort": "Confort", "comfort_m1": "Confort -1", "comfort_m2": "Confort -2",
     "eco": "Eco", "frost_protection": "Hors-gel", "off": "Arrêt",
 }
@@ -160,20 +163,20 @@ def reason_label(code: str | None) -> str:
     return prefix + REASON_LABELS.get(code, code)
 
 
-def _num(v) -> str:
+def _num(v: Any) -> str:
     return "–" if not isinstance(v, (int, float)) else f"{v:.1f}".replace(".", ",")
 
 
-def _val(v) -> str:
+def _val(v: Any) -> str:
     if isinstance(v, (int, float)):
         return f"{v:g}".replace(".", ",")
     return ORDER_LABELS.get(v, MODE_LABELS.get(v, str(v) if v is not None else "–"))
 
 
-MODE_LABELS = {"auto": "Auto", "heat": "Chauffe", "off": "Arrêt"}
+MODE_LABELS: dict[Any, str] = {"auto": "Auto", "heat": "Chauffe", "off": "Arrêt"}
 
 
-def entry_summary(e: dict | None) -> str:
+def entry_summary(e: dict[str, Any] | None) -> str:
     if not e:
         return "Aucune décision"
     reason = e.get("reason") or ""
@@ -209,7 +212,7 @@ def describe_callers(limit: int = 4) -> str:
     return " <- ".join(bits[-limit:])
 
 
-async def format_context(hass: HomeAssistant, context) -> str:
+async def format_context(hass: HomeAssistant, context: Context | None) -> str:
     """Détail du contexte HA (id, utilisateur, parent, origine reconnue)."""
     if context is None:
         return "context=None"
@@ -249,7 +252,7 @@ async def format_context(hass: HomeAssistant, context) -> str:
     )
 
 
-async def resolve_who(hass: HomeAssistant, context) -> str:
+async def resolve_who(hass: HomeAssistant, context: Context | None) -> str:
     """Nom de l'auteur d'un changement à partir du contexte HA."""
     if context is None:
         return "système"
@@ -272,10 +275,8 @@ async def resolve_who(hass: HomeAssistant, context) -> str:
     return "système"
 
 
-def own_context(hass: HomeAssistant):
+def own_context(hass: HomeAssistant) -> Context:
     """Contexte des écritures de l'intégration (attribution correcte dans le journal)."""
-    from homeassistant.core import Context
-
     ctx = Context()
     own = hass.data.setdefault(DOMAIN, {}).setdefault("_own_contexts", set())
     if len(own) > 500:

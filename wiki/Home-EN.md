@@ -1,5 +1,8 @@
 # Wiki — Chauffage Électrique Fil Pilote FR (English)
 
+[![Quality Scale](https://img.shields.io/badge/Quality%20Scale-Platinum-E5E4E2.svg)](https://developers.home-assistant.io/docs/core/integration-quality-scale/)
+
+
 🇫🇷 [Français](Home.md) · 🇬🇧 English
 
 Local Home Assistant integration to drive French **pilot wire** electric radiators from a **virtual thermostat**.

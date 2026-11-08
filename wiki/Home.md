@@ -1,5 +1,8 @@
 # Wiki — Chauffage Electrique Fil Pilote FR
 
+[![Quality Scale](https://img.shields.io/badge/Quality%20Scale-Platinum-E5E4E2.svg)](https://developers.home-assistant.io/docs/core/integration-quality-scale/)
+
+
 🇫🇷 Français · 🇬🇧 [English](Home-EN.md)
 
 Integration Home Assistant locale pour piloter des radiateurs électriques français à **fil pilote** depuis un **thermostat virtuel**.
