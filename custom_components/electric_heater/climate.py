@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.core import Context, Event, State
 from datetime import datetime
@@ -21,7 +22,7 @@ from homeassistant.components.climate import (  # type: ignore[attr-defined]  # 
     HVACMode,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PRECISION_TENTHS, UnitOfTemperature
+from homeassistant.const import EVENT_STATE_CHANGED, PRECISION_TENTHS, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import Entity
 from homeassistant.exceptions import ServiceValidationError
@@ -363,7 +364,41 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     @property
     def hvac_action(self) -> HVACAction:
+        # Le central affiche « Chauffe » dès qu'un radiateur de pièce chauffe.
+        if self._hvac_action == HVACAction.HEATING or self._hvac_action == HVACAction.OFF:
+            return self._hvac_action
+        if self._any_room_heating():
+            return HVACAction.HEATING
         return self._hvac_action
+
+    def _room_climate_ids(self) -> list[str]:
+        reg = er.async_get(self.hass)
+        return [
+            e.entity_id
+            for e in reg.entities.values()
+            if e.platform == DOMAIN and e.domain == "climate" and e.entity_id != self.entity_id
+        ]
+
+    def _any_room_heating(self) -> bool:
+        for eid in self._room_climate_ids():
+            st = self.hass.states.get(eid)
+            if st and st.attributes.get("hvac_action") == HVACAction.HEATING:
+                return True
+        return False
+
+    @callback
+    def _on_room_action(self, event: Event[Any]) -> None:
+        eid = event.data.get("entity_id", "")
+        if not eid.startswith("climate.") or eid == self.entity_id:
+            return
+        if eid not in self._room_climate_ids():
+            return
+        old = event.data.get("old_state")
+        new = event.data.get("new_state")
+        before = old.attributes.get("hvac_action") if old else None
+        after = new.attributes.get("hvac_action") if new else None
+        if before != after:
+            self.async_write_ha_state()
 
     @property
     def preset_mode(self) -> str | None:
@@ -505,6 +540,9 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._notify_rooms()
         self.async_on_remove(
             async_track_time_interval(self.hass, self._season_tick, timedelta(minutes=15))
+        )
+        self.async_on_remove(
+            self.hass.bus.async_listen(EVENT_STATE_CHANGED, self._on_room_action)
         )
 
     def _unsubscribe_sensors(self) -> None:

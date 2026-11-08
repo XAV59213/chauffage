@@ -178,3 +178,18 @@ async def test_overheat_cuts_radiator(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
     await _later(hass, 120)
     assert _last(calls) == "off"
+
+
+async def test_central_shows_heating_when_a_room_heats(hass: HomeAssistant) -> None:
+    calls, central = await _house(hass, "16.0")
+    await _set(hass, central, HVACMode.HEAT, "comfort")
+    room = next(e for e in hass.states.async_entity_ids("climate") if e != central)
+    assert hass.states.get(room).attributes["hvac_action"] == "heating"
+    assert hass.states.get(central).attributes["hvac_action"] == "heating"
+    hass.states.async_set("sensor.salon_temp", "25.0")
+    hass.states.async_set("sensor.chambre_temp", "25.0")
+    await hass.async_block_till_done()
+    assert hass.states.get(room).attributes["hvac_action"] != "heating"
+    assert hass.states.get(central).attributes["hvac_action"] == "idle"
+    await _set(hass, central, HVACMode.OFF)
+    assert hass.states.get(central).attributes["hvac_action"] == "off"
