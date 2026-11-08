@@ -175,11 +175,7 @@ class RoomHeatingTimeSensor(RestoreSensor):
                 or (last_state and dt_util.as_local(last_state.last_updated).date() == dt_util.now().date())
             )
             self._hours = value if same_day else 0.0
-        self._climate = room_climate_id(self.hass, self.entry)
-        if self._climate:
-            self.async_on_remove(
-                async_track_state_change_event(self.hass, [self._climate], self._on_change)
-            )
+        self._link_climate()
         self.async_on_remove(async_track_time_interval(self.hass, self._tick, _TICK))
         if self._daily:
             self.async_on_remove(
@@ -187,8 +183,19 @@ class RoomHeatingTimeSensor(RestoreSensor):
             )
         self._on_change()
 
+    def _link_climate(self) -> None:
+        """Lie le radiateur ; réessayé tant qu'il n'est pas encore enregistré (ordre des plateformes)."""
+        if self._climate:
+            return
+        self._climate = room_climate_id(self.hass, self.entry)
+        if self._climate:
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, [self._climate], self._on_change)
+            )
+
     @callback
     def _on_change(self, _event=None) -> None:
+        self._link_climate()
         heating = _heating(self.hass, self._climate)
         if heating and self._since is None:
             self._since = time.monotonic()
@@ -199,6 +206,8 @@ class RoomHeatingTimeSensor(RestoreSensor):
 
     @callback
     def _tick(self, _now=None) -> None:
+        if not self._climate:
+            self._on_change()
         self._flush()
         self.async_write_ha_state()
 

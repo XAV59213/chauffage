@@ -100,9 +100,7 @@ async def test_heating_time_and_energy(hass: HomeAssistant) -> None:
         room = next(x for x in hass.config_entries.async_entries(DOMAIN) if x.data.get("type") != "central")
         t = _sensor(hass, stats.stat_uid(room.entry_id, "time", True))
         en = _sensor(hass, stats.stat_uid(room.entry_id, "energy", False))
-        # Ordre de chargement des plateformes : le capteur peut démarrer avant le climate (voir rapport).
-        t._climate = en._climate = stats.room_climate_id(hass, room)
-        t._on_change(); en._on_change()
+        t._tick(); en._tick()
         st = hass.states.get(stats.room_climate_id(hass, room))
         assert t.extra_state_attributes["en_chauffe"], (t._climate, st.attributes.get("hvac_action"), st.attributes.get("current_temperature"), st.attributes.get("temperature"), st.attributes.get("preset_mode"))
         clock[0] += 3600
@@ -135,3 +133,23 @@ async def test_restore_stats(hass: HomeAssistant) -> None:
     ])
     calls, central = await _house(hass, "16.0")
     assert hass.states.get("sensor.chambre_temps_de_chauffe_total") is not None
+
+
+async def test_sensor_started_before_climate(hass: HomeAssistant) -> None:
+    """Capteur démarré avant le climate : le lien est retrouvé ensuite."""
+    calls, central = await _house(hass, "16.0")
+    await _set(hass, central, HVACMode.HEAT, "comfort")
+    room = next(x for x in hass.config_entries.async_entries(DOMAIN) if x.data.get("type") != "central")
+    t = _sensor(hass, stats.stat_uid(room.entry_id, "time", True))
+    t._climate = None
+    t._since = None
+    with patch.object(stats, "room_climate_id", return_value=None):
+        t._tick()
+    assert t._climate is None and not t.extra_state_attributes["en_chauffe"]
+    t._tick()
+    assert t._climate == stats.room_climate_id(hass, room)
+    assert t.extra_state_attributes["en_chauffe"]
+    # Le lien suit ensuite les changements d'état du radiateur
+    hass.states.async_set("sensor.chambre_temp", "25.0")
+    await hass.async_block_till_done()
+    assert not t.extra_state_attributes["en_chauffe"]
