@@ -93,7 +93,7 @@ rules:
     comment: Aucune authentification.
   test-coverage:
     status: todo
-    comment: 33 tests pytest (tests/) lancés en CI ; couverture globale 78 %, loin des 95 % demandés.
+    comment: 38 tests pytest (tests/) lancés en CI ; couverture globale 79 %, loin des 95 % demandés.
 
   # Gold
   devices:
