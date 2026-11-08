@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.1.75
 
 - Consommation maison (jour et totale) : utilise le compteur kWh réel de chaque radiateur quand il existe, au lieu de l’estimation (restait à 0 sans puissance renseignée).
 
