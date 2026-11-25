@@ -2,6 +2,8 @@ DOMAIN = "electric_heater"
 
 CENTRAL = "central"
 ROOM = "room"
+# Entrée « bâtiment » : un nom, au plus un thermostat central, ses radiateurs
+BUILDING = "building"
 
 PRESET_COMFORT = "comfort"
 PRESET_COMFORT_M1 = "comfort_-1"
@@ -164,6 +166,8 @@ CENTRAL_ENTITY_ID = "climate.electric_heater_central"
 LEGACY_CENTRAL_UID = "electric_heater_central"
 # Pièce → entry_id du thermostat central de son bâtiment
 CONF_CENTRAL_ENTRY_ID = "central_entry_id"
+# Thermostat / radiateur → entry_id de son entrée bâtiment
+CONF_BUILDING_ENTRY_ID = "building_entry_id"
 
 FIL_PILOTE_DATA_KEYS = (
     CONF_FIL_PILOTE_SELECT,

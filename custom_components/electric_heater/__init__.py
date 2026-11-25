@@ -15,7 +15,9 @@ from datetime import timedelta
 
 from .const import (
     NO_OPTIONS,
+    BUILDING,
     CENTRAL,
+    CONF_BUILDING_ENTRY_ID,
     CONF_CENTRAL_ENTRY_ID,
     DOMAIN,
     EVENT_WINDOWS_CHANGED,
@@ -23,7 +25,16 @@ from .const import (
     SIGNAL_SETPOINTS_UPDATED,
     VERSION,
 )
-from .building import central_uid, default_central, get_central_entry
+from homeassistant.config_entries import SOURCE_IMPORT
+
+from .building import (
+    building_of,
+    central_uid,
+    default_central,
+    get_central_entry,
+    iter_room_entries,
+    thermostat_of,
+)
 from .fil_pilote import windows_from_entry
 from .frontend import async_register_card
 from .temps import clean_setpoints
@@ -66,12 +77,59 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if central is not None:
                 data[CONF_CENTRAL_ENTRY_ID] = central.entry_id
         hass.config_entries.async_update_entry(entry, data=data, minor_version=2)
+    if entry.minor_version < 3:
+        # 1.3 : entrée « bâtiment ». Elle est créée au démarrage du thermostat (_ensure_building),
+        # par un flux d'import : rien à modifier ici, aucun identifiant ne change.
+        hass.config_entries.async_update_entry(entry, minor_version=3)
     return True
+
+
+def building_uid_for(central_entry_id: str) -> str:
+    """unique_id de l'entrée bâtiment créée pour un thermostat existant (migration)."""
+    return f"electric_heater_building_{central_entry_id}"
+
+
+async def _ensure_building(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Thermostat sans bâtiment (installation existante) : crée son entrée bâtiment.
+
+    Un thermostat dont le bâtiment a été supprimé garde sa référence : rien n'est recréé.
+    """
+    if entry.data.get(CONF_BUILDING_ENTRY_ID):
+        return
+    uid = building_uid_for(entry.entry_id)
+    if any(e.unique_id == uid for e in hass.config_entries.async_entries(DOMAIN)):
+        return
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": SOURCE_IMPORT},
+            data={"name": entry.title or entry.data.get("name"), CONF_CENTRAL_ENTRY_ID: entry.entry_id},
+        )
+    )
+
+
+@callback
+def _link_building(hass: HomeAssistant, building: ConfigEntry) -> None:
+    """Bâtiment créé par la migration : y rattache le thermostat d'origine et ses radiateurs."""
+    central = get_central_entry(hass, building.data.get(CONF_CENTRAL_ENTRY_ID))
+    if central is None or central.entry_id != building.data.get(CONF_CENTRAL_ENTRY_ID):
+        return
+    if central.data.get(CONF_BUILDING_ENTRY_ID):
+        return
+    hass.config_entries.async_update_entry(
+        central, data={**central.data, CONF_BUILDING_ENTRY_ID: building.entry_id}
+    )
+    for room in iter_room_entries(hass, central.entry_id):
+        if not room.data.get(CONF_BUILDING_ENTRY_ID):
+            hass.config_entries.async_update_entry(
+                room, data={**room.data, CONF_BUILDING_ENTRY_ID: building.entry_id}
+            )
 
 
 def _snapshot(entry: ConfigEntry) -> tuple[str, str]:
     """Configuration hors consignes : seule sa modification recharge l'entrée."""
-    data = {k: v for k, v in entry.data.items() if k not in SETPOINT_KEYS}
+    # Le rattachement à l'entrée bâtiment seul ne recharge pas (migration sans coupure).
+    data = {k: v for k, v in entry.data.items() if k not in SETPOINT_KEYS and k != CONF_BUILDING_ENTRY_ID}
     return (repr(sorted(data.items())), repr(sorted((entry.options or NO_OPTIONS).items())))
 
 
@@ -150,6 +208,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEntr
     if (cleaned := clean_setpoints(dict(entry.data))) is not None:
         hass.config_entries.async_update_entry(entry, data=cleaned)
     entry.runtime_data = ElectricHeaterData(snapshot=_snapshot(entry))
+    if entry.data.get("type") == BUILDING:
+        # Le bâtiment ne porte aucune entité : un nom, au plus un thermostat, ses radiateurs.
+        _link_building(hass, entry)
+        _sync_orphan_issues(hass)
+        entry.async_on_unload(entry.add_update_listener(_building_updated))
+        return True
     # Carte Lovelace : ressource globale au domaine, enregistrée une seule fois.
     domain_data = hass.data.setdefault(DOMAIN, {})
     if not domain_data.get("_card_registered"):
@@ -178,11 +242,75 @@ async def async_setup_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEntr
         entry.runtime_data.notifier = notifier
         entry.async_on_unload(notifier.async_stop)
         await notifier.async_start()
+        await _ensure_building(hass, entry)
+        _adopt_rooms(hass, entry)
+        _sync_orphan_issues(hass)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 
 
+@callback
+def _adopt_rooms(hass: HomeAssistant, central: ConfigEntry) -> None:
+    """Nouveau thermostat d'un bâtiment : les radiateurs restés dans ce bâtiment le rejoignent."""
+    bid = central.data.get(CONF_BUILDING_ENTRY_ID)
+    if not bid:
+        return
+    for room in iter_room_entries(hass):
+        if room.data.get(CONF_BUILDING_ENTRY_ID) == bid and room.data.get(CONF_CENTRAL_ENTRY_ID) != central.entry_id:
+            hass.config_entries.async_update_entry(
+                room, data={**room.data, CONF_CENTRAL_ENTRY_ID: central.entry_id}
+            )
+
+
+async def _building_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Bâtiment renommé : rien à recharger (les libellés relisent le titre)."""
+
+
+def _sync_orphan_issues(hass: HomeAssistant) -> None:
+    """Réparations : thermostat sans bâtiment, radiateurs d'un bâtiment sans thermostat."""
+    for central in [e for e in hass.config_entries.async_entries(DOMAIN) if e.data.get("type") == CENTRAL]:
+        issue_id = f"thermostat_sans_batiment_{central.entry_id}"
+        bid = central.data.get(CONF_BUILDING_ENTRY_ID)
+        if bid and building_of(hass, central) is None:
+            ir.async_create_issue(
+                hass, DOMAIN, issue_id, is_fixable=False, severity=ir.IssueSeverity.WARNING,
+                translation_key="thermostat_sans_batiment",
+                translation_placeholders={"name": central.title},
+            )
+        else:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+    for building in [e for e in hass.config_entries.async_entries(DOMAIN) if e.data.get("type") == BUILDING]:
+        issue_id = f"batiment_sans_thermostat_{building.entry_id}"
+        rooms = [
+            r.title for r in hass.config_entries.async_entries(DOMAIN)
+            if r.data.get("type") not in (CENTRAL, BUILDING)
+            and r.data.get(CONF_BUILDING_ENTRY_ID) == building.entry_id
+        ]
+        if rooms and thermostat_of(hass, building.entry_id) is None:
+            ir.async_create_issue(
+                hass, DOMAIN, issue_id, is_fixable=False, severity=ir.IssueSeverity.WARNING,
+                translation_key="batiment_sans_thermostat",
+                translation_placeholders={"name": building.title, "rooms": ", ".join(rooms)},
+            )
+        else:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Suppression d'un bâtiment ou d'un thermostat non vide : rien n'est supprimé en cascade.
+
+    Le thermostat et les radiateurs restants continuent de fonctionner et une réparation
+    indique comment les rattacher (reconfiguration du thermostat ou des radiateurs).
+    """
+    if entry.data.get("type") in (BUILDING, CENTRAL):
+        _sync_orphan_issues(hass)
+    ir.async_delete_issue(hass, DOMAIN, f"thermostat_sans_batiment_{entry.entry_id}")
+    ir.async_delete_issue(hass, DOMAIN, f"batiment_sans_thermostat_{entry.entry_id}")
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEntry) -> bool:
+    if entry.data.get("type") == BUILDING:
+        return True
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         for key in _CHECKED_SOURCES:
@@ -191,6 +319,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEnt
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEntry) -> None:
+    _sync_orphan_issues(hass)
     data = getattr(entry, "runtime_data", None)
     if isinstance(data, ElectricHeaterData) and data.snapshot == _snapshot(entry):
         # Seules les consignes ont changé : pas de rechargement, le thermostat les relit.

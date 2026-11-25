@@ -28,7 +28,7 @@ from homeassistant.util import dt as dt_util
 
 from .entity import CentralEntity, RoomEntity
 from .const import NO_OPTIONS, CONF_POWER, DOMAIN
-from .building import building_id, default_central, get_central_entry
+from .building import building_id, building_name, default_central, get_central_entry
 from .fil_pilote import iter_room_entries
 
 _TICK = timedelta(minutes=1)
@@ -374,8 +374,8 @@ class GlobalStatSensor(CentralStatSensor):
         return iter_room_entries(self.hass)
 
     def _building(self, entry: ConfigEntry) -> str:
-        central = get_central_entry(self.hass, building_id(self.hass, entry))
-        return str(central.title or central.data.get("name")) if central else "?"
+        # Nom de l'entrée bâtiment (repli : titre du thermostat).
+        return building_name(self.hass, get_central_entry(self.hass, building_id(self.hass, entry)))
 
     def _label(self, entry: ConfigEntry) -> str:
         # Deux bâtiments peuvent avoir un « Salon » : le nom du bâtiment lève l'ambiguïté.

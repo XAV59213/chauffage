@@ -31,7 +31,7 @@ from .const import (
     WINDOW_OFF_DELAY,
 )
 from .occupancy import present_names
-from .building import building_entries, central_entries, is_legacy_central
+from .building import building_entries, building_name, central_entries, is_legacy_central
 from .fil_pilote import (
     get_central_state,
     open_windows,
@@ -123,7 +123,7 @@ class HeaterNotifier:
     def _send(self, notification_id: str, message: str) -> None:
         if len(central_entries(self.hass)) > 1:
             # Plusieurs bâtiments : le nom du bâtiment précède le message.
-            message = f"{self.entry.title} : {message}"
+            message = f"{building_name(self.hass, self.entry)} : {message}"
         _LOGGER.info("Notification : %s", message)
         persistent_notification.async_create(
             self.hass, message, title=_TITLE, notification_id=notification_id

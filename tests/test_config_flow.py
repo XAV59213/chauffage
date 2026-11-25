@@ -6,18 +6,153 @@ import pytest
 from homeassistant.data_entry_flow import AbortFlow, FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.electric_heater.const import CENTRAL, DOMAIN
+from custom_components.electric_heater.const import BUILDING, CENTRAL, DOMAIN
 
 
-async def test_first_flow_is_central(hass: HomeAssistant) -> None:
+def _building(hass, entry_id="BLDA", title="Maison"):
+    entry = MockConfigEntry(domain=DOMAIN, entry_id=entry_id, title=title,
+                            unique_id=f"electric_heater_building_{entry_id}",
+                            data={"type": BUILDING, "name": title})
+    entry.add_to_hass(hass)
+    return entry
+
+
+async def test_first_flow_is_building(hass: HomeAssistant) -> None:
+    """Étape 1 : rien n'existe, on commence par le bâtiment."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "central"
+    assert result["step_id"] == "building"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "   "})
+    assert result["errors"] == {"name": "name_required"}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "  Maison  "})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    entry = result["result"]
+    assert entry.title == "Maison" and entry.data == {"type": BUILDING, "name": "Maison"}
+    assert entry.unique_id.startswith("electric_heater_building_")
+
+
+async def test_building_name_unique(hass: HomeAssistant) -> None:
+    _building(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    # Bâtiment sans thermostat : menu Bâtiment / Thermostat (pas encore de radiateur possible)
+    assert result["type"] is FlowResultType.MENU and result["menu_options"] == ["building", "central"]
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "building"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": " MAISON "})
+    assert result["errors"] == {"name": "building_exists"}
+
+
+async def test_menu_full_and_without_free_building(hass: HomeAssistant) -> None:
+    _building(hass)
+    _central(hass, "BATA", "T", "electric_heater_central", "BLDA")
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    # Le seul bâtiment a son thermostat : pas de « Thermostat » (1 par bâtiment)
+    assert result["menu_options"] == ["building", "room"]
+    _building(hass, "BLDB", "Gîte")
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    assert result["menu_options"] == ["building", "central", "room"]
+
+
+async def test_thermostat_needs_free_building(hass: HomeAssistant) -> None:
+    flow = await _flow(hass)
+    result = await flow.async_step_central(dict(CENTRAL_INPUT))
+    assert result["type"] is FlowResultType.ABORT and result["reason"] == "no_free_building"
+    _building(hass)
+    _central(hass, "BATA", "T", "electric_heater_central", "BLDA")
+    flow = await _flow(hass)
+    result = await flow.async_step_central(dict(CENTRAL_INPUT))
+    assert result["reason"] == "no_free_building"
+
+
+async def test_thermostat_building_choice(hass: HomeAssistant) -> None:
+    _building(hass)
+    _building(hass, "BLDB", "Gîte")
+    _central(hass, "BATA", "T", "electric_heater_central", "BLDA")
+    _building(hass, "BLDC", "Grange")
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "central"})
+    schema = result["data_schema"].schema
+    field = next(k for k in schema if k == "building_entry_id")
+    # Seulement les bâtiments sans thermostat
+    assert [o["value"] for o in schema[field].config["options"]] == ["BLDB", "BLDC"]
+    name = next(k for k in schema if k == "name")
+    assert name.default() == "Thermostat Gîte"
+    flow = hass.config_entries.flow._progress[result["flow_id"]]
+    result = await flow.async_step_central({**CENTRAL_INPUT, "building_entry_id": "BLDA"})
+    assert result["errors"] == {"building_entry_id": "building_has_thermostat"}
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**CENTRAL_INPUT, "name": "Thermostat Grange", "building_entry_id": "BLDC"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    entry = result["result"]
+    assert entry.data["building_entry_id"] == "BLDC" and entry.unique_id != "electric_heater_central"
+
+
+async def test_import_creates_building_once(hass: HomeAssistant, no_setup) -> None:
+    data = {"name": " Maison ", "central_entry_id": "BATA"}
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_IMPORT}, data=data)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["result"].unique_id == "electric_heater_building_BATA" and result["title"] == "Maison"
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_IMPORT}, data=data)
+    assert result["reason"] == "already_configured"
+
+
+async def test_rename_building_reconfigure_and_options(hass: HomeAssistant, no_setup) -> None:
+    maison = _building(hass)
+    _building(hass, "BLDB", "Gîte")
+    result = await maison.start_reconfigure_flow(hass)
+    assert result["step_id"] == "reconfigure_building"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": " gîte"})
+    assert result["errors"] == {"name": "building_exists"}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": ""})
+    assert result["errors"] == {"name": "name_required"}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Maison"})
+    assert result["reason"] == "reconfigure_successful"
+    result = await maison.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Ferme"})
+    await hass.async_block_till_done()
+    assert maison.title == "Ferme" and maison.data["name"] == "Ferme"
+    result = await hass.config_entries.options.async_init(maison.entry_id)
+    assert result["step_id"] == "building"
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"name": "GÎTE"})
+    assert result["errors"] == {"name": "building_exists"}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"name": " "})
+    assert result["errors"] == {"name": "name_required"}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"name": "Ferme Est"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert maison.title == "Ferme Est" and maison.data == {"type": BUILDING, "name": "Ferme Est"}
+
+
+async def test_move_thermostat_rooms_follow(hass: HomeAssistant, no_setup) -> None:
+    _building(hass)
+    _building(hass, "BLDB", "Gîte")
+    central = _central(hass, "BATA", "T", "electric_heater_central", "BLDA")
+    room = _room_entry(hass)
+    hass.config_entries.async_update_entry(
+        room, data={**room.data, "central_entry_id": "BATA", "building_entry_id": "BLDA"})
+    orphan = _room_entry(hass, "select.orphan")
+    hass.config_entries.async_update_entry(
+        orphan, data={**orphan.data, "central_entry_id": "GONE", "building_entry_id": "BLDB"})
+    result = await central.start_reconfigure_flow(hass)
+    field = next(k for k in result["data_schema"].schema if k == "building_entry_id")
+    assert field.default() == "BLDA"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**CENTRAL_INPUT, "building_entry_id": "BLDB"})
+    await hass.async_block_till_done()
+    assert result["reason"] == "reconfigure_successful"
+    assert central.data["building_entry_id"] == "BLDB"
+    assert room.data["building_entry_id"] == "BLDB" and room.data["central_entry_id"] == "BATA"
+    assert orphan.data["central_entry_id"] == "BATA"
+    # Options : retour dans le premier bâtiment
+    result = await hass.config_entries.options.async_init(central.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {**CENTRAL_INPUT, "building_entry_id": "BLDA"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert central.data["building_entry_id"] == "BLDA" and room.data["building_entry_id"] == "BLDA"
 
 
 async def test_central_requires_sensor_in_reference_mode(hass: HomeAssistant) -> None:
+    _building(hass)
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -35,9 +170,9 @@ async def test_room_flow_after_central(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    # Un central existe : menu « Nouveau bâtiment » / « Nouvelle pièce »
+    # Un thermostat existe : menu Bâtiment / Radiateur
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["central", "room"]
+    assert result["menu_options"] == ["building", "room"]
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
     assert result["step_id"] == "room"
     # Un seul bâtiment : pas de champ « Bâtiment »
@@ -67,10 +202,14 @@ async def _flow(hass):
 
 
 async def test_central_created_and_rounded(hass: HomeAssistant) -> None:
+    _building(hass)
     flow = await _flow(hass)
     result = await flow.async_step_central(dict(CENTRAL_INPUT))
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["type"] == CENTRAL
+    # Un seul bâtiment libre : rattaché automatiquement ; premier thermostat = ids historiques
+    assert result["data"]["building_entry_id"] == "BLDA"
+    assert flow.unique_id == "electric_heater_central"
     assert result["data"]["comfort_temp"] == 20.2
 
 
@@ -202,9 +341,11 @@ ROOM_INPUT = {
 }
 
 
-def _central(hass, entry_id, title, unique_id):
-    entry = MockConfigEntry(domain=DOMAIN, entry_id=entry_id, title=title, unique_id=unique_id,
-                            data={"type": CENTRAL, "name": title})
+def _central(hass, entry_id, title, unique_id, building_entry_id=None):
+    data = {"type": CENTRAL, "name": title}
+    if building_entry_id:
+        data["building_entry_id"] = building_entry_id
+    entry = MockConfigEntry(domain=DOMAIN, entry_id=entry_id, title=title, unique_id=unique_id, data=data)
     entry.add_to_hass(hass)
     return entry
 
@@ -224,18 +365,24 @@ async def test_single_building_room_attached_automatically(hass: HomeAssistant) 
 
 
 async def test_second_building_from_menu(hass: HomeAssistant) -> None:
-    _central(hass, "BATA", "Maison", "electric_heater_central")
+    """Bâtiment → Thermostat : le 2e thermostat a des identifiants propres, l'historique est intact."""
+    _building(hass)
+    _central(hass, "BATA", "Maison", "electric_heater_central", "BLDA")
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "building"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Gîte"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    gite = result["result"]
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "central"})
     assert result["step_id"] == "central"
-    # Nom déjà pris par un autre bâtiment : refusé
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**CENTRAL_INPUT, "name": " maison "})
-    assert result["errors"] == {"name": "building_exists"}
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**CENTRAL_INPUT, "name": "Gîte"})
+    # Un seul bâtiment libre : pas de champ, rattachement automatique
+    assert "building_entry_id" not in result["data_schema"].schema
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**CENTRAL_INPUT, "name": "Thermostat Gîte"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     entry = result["result"]
     assert entry.unique_id.startswith("electric_heater_central_") and entry.unique_id != "electric_heater_central"
-    assert entry.data["type"] == CENTRAL and entry.title == "Gîte"
+    assert entry.data["type"] == CENTRAL and entry.data["building_entry_id"] == gite.entry_id
     # Le central historique est intact
     assert hass.config_entries.async_get_entry("BATA").unique_id == "electric_heater_central"
 
