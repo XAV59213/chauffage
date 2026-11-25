@@ -36,6 +36,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .entity import central_device_info, room_device_info
 from .const import (
+    SIGNAL_BUILDING_RENAMED,
     NO_OPTIONS,
     DOMAIN,
     CONF_WINDOW_INVERT,
@@ -77,7 +78,14 @@ from .const import (
     WINDOW_OFF_DELAY,
 )
 from .stats import room_energy_sensor
-from .building import building_id, central_history_id, central_uid, is_legacy_central
+from .building import (
+    building_id,
+    building_name,
+    central_history_id,
+    central_uid,
+    get_central_entry,
+    is_legacy_central,
+)
 from .fil_pilote import (
     central_entity_id,
     room_current_temp,
@@ -456,6 +464,9 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "saison_chauffe": not self._hors_saison,
             "saison": self._season_info,
             "user_off": self._user_off,
+            # Carte multi-bâtiments : nom et identifiant du bâtiment (= entrée du thermostat).
+            "batiment": building_name(self.hass, self.entry),
+            "central_entry_id": self.entry.entry_id,
         }
 
     async def _note_change(self, kind: str, old: Any, new: Any) -> None:
@@ -473,6 +484,9 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, SIGNAL_BUILDING_RENAMED, self.async_write_ha_state)
+        )
         await self._central_history.async_load()
         previous_calendar: bool | None = None
         if last_state := await self.async_get_last_state():
@@ -1368,10 +1382,16 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "consigne_max_securite": safety.max_safe_temp(self.hass, self._bid()),
             "dernier_changement_par": self._last_changer,
             "historique": self._history.last(ATTR_ENTRIES),
+            # Carte multi-bâtiments : bâtiment suivi par ce radiateur.
+            "batiment": building_name(self.hass, get_central_entry(self.hass, self._bid())),
+            "central_entry_id": self._bid(),
         }
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, SIGNAL_BUILDING_RENAMED, self.async_write_ha_state)
+        )
         await self._history.async_load()
         if (last_state := await self.async_get_last_state()) and (
             last_state.attributes.get("follow_central") is False

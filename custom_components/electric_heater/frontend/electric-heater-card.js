@@ -5,6 +5,8 @@
  * tous les radiateurs ajoutés et les capteurs résumé de l'intégration.
  * Options (fallback) : central, radiateurs (liste), fenetres, sondes_ko, alerte_pile,
  * presents, titre.
+ * Plusieurs bâtiments : un onglet par bâtiment + le total « toutes dépendances » ;
+ * option `batiment` (nom du bâtiment) pour n'en afficher qu'un.
  */
 const CARD_TAG = "electric-heater-card";
 const DOMAIN = "electric_heater";
@@ -46,19 +48,25 @@ function _statsFor(hass, id) {
     const n = s ? Number(s.state) : NaN;
     return Number.isFinite(n) ? n : null;
   };
-  const h = ids.filter((x) => x.includes("temps_de_chauffe") && x.includes("aujourd")).map(val)[0];
-  const kwh = ids.filter((x) => x.includes("consommation") && x.includes("aujourd") && !x.includes("compteur")).map(val)[0];
-  const meterDay = ids.filter((x) => x.includes("compteur") && x.includes("aujourd")).map(val)[0];
+  // Clé de traduction (registre) d'abord, indépendante de la langue et des entity_id ;
+  // repli sur les noms d'entités pour les anciennes versions.
+  const byKey = (...keys) => ids.find((x) => reg[x] && keys.includes(reg[x].translation_key));
+  const hId = byKey("maison_chauffe_jour", "chauffe_jour");
+  const kwhId = byKey("maison_conso_jour", "conso_jour");
+  const meterDayId = byKey("conso_compteurs_jour", "conso_compteur_jour");
+  const h = hId ? val(hId) : ids.filter((x) => x.includes("temps_de_chauffe") && x.includes("aujourd")).map(val)[0];
+  const kwh = kwhId ? val(kwhId) : ids.filter((x) => x.includes("consommation") && x.includes("aujourd") && !x.includes("compteur")).map(val)[0];
+  const meterDay = meterDayId ? val(meterDayId) : ids.filter((x) => x.includes("compteur") && x.includes("aujourd")).map(val)[0];
   // Compteur réel (sensor.*_energy) lié au radiateur ou somme centrale.
   let meter = null;
   const linked = hass.states[id] && hass.states[id].attributes.energy_sensor;
-  const meterId = linked || ids.find((x) => x.includes("conso_compteurs") || x.includes("consommation_radiateurs"));
+  const meterId = linked || byKey("conso_compteurs") || ids.find((x) => x.includes("conso_compteurs") || x.includes("consommation_radiateurs"));
   if (meterId && hass.states[meterId]) {
     const ms = hass.states[meterId];
     const n = Number(ms.state);
     if (Number.isFinite(n)) meter = ms.attributes.unit_of_measurement === "Wh" ? n / 1000 : n;
   }
-  const dayId = ids.find((x) => x.includes("compteur") && x.includes("aujourd"))
+  const dayId = meterDayId || kwhId || ids.find((x) => x.includes("compteur") && x.includes("aujourd"))
     || ids.find((x) => x.includes("consommation") && x.includes("aujourd") && !x.includes("compteur"))
     || null;
   return { h: h ?? null, kwh: kwh ?? null, meter, meterDay: meterDay ?? null, dayId };
@@ -79,7 +87,83 @@ function _fmtMeter(st) {
   return st.meter !== null && st.meter !== undefined ? `🔌 ${st.meter.toFixed(1)} kWh compteur` : "";
 }
 
-function _discover(hass) {
+/* Bâtiments, uniquement par le registre HA :
+ * - thermostats centraux : climate de l'intégration de clé de traduction « central » ;
+ * - radiateurs : attribut central_entry_id du radiateur = celui du thermostat, sinon appareil
+ *   rattaché (via_device_id) à l'appareil du thermostat ;
+ * - capteurs : entités de l'intégration portées par ces appareils.
+ * Ni suffixe d'entity_id ni climate.electric_heater_central en dur. */
+function _buildings(hass) {
+  const states = hass.states || {};
+  const reg = hass.entities || {};
+  const devs = hass.devices || {};
+  const ours = Object.keys(reg).filter((id) => reg[id] && reg[id].platform === DOMAIN && states[id]);
+  const attrs = (id) => (states[id] && states[id].attributes) || {};
+  const climates = ours.filter((id) => id.startsWith("climate."));
+  const isCentral = (id) => reg[id].translation_key === "central"
+    || (!reg[id].translation_key && "base_preset" in attrs(id) && "temperatures" in attrs(id));
+  const centrals = climates.filter(isCentral);
+  const rooms = climates.filter((id) => !isCentral(id));
+  const list = centrals.map((cid) => {
+    const dev = reg[cid].device_id || null;
+    const ceid = attrs(cid).central_entry_id || null;
+    const radiateurs = rooms.filter((id) => {
+      const own = attrs(id).central_entry_id;
+      if (own && ceid) return own === ceid;
+      const d = reg[id].device_id && devs[reg[id].device_id];
+      return !!(dev && d && d.via_device_id === dev);
+    }).sort((a, b) => _name(hass, a).localeCompare(_name(hass, b), "fr"));
+    const devices = new Set([dev, ...radiateurs.map((r) => reg[r].device_id)].filter(Boolean));
+    return {
+      id: ceid || cid,
+      name: String(attrs(cid).batiment || _name(hass, cid)),
+      central: cid,
+      device: dev,
+      radiateurs,
+      pool: ours.filter((id) => devices.has(reg[id].device_id)),
+    };
+  });
+  return list.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+}
+
+/* Option `batiment` : nom du bâtiment (majuscules / espaces ignorés), central_entry_id ou entity_id du thermostat. */
+function _pickBuilding(list, wanted) {
+  if (wanted === undefined || wanted === null || wanted === "") return null;
+  const norm = (t) => String(t).trim().replace(/\s+/g, " ").toLowerCase();
+  const w = norm(wanted);
+  return list.find((b) => norm(b.name) === w || b.id === wanted || b.central === wanted) || null;
+}
+
+/* Capteurs résumé d'un bâtiment : ceux de l'appareil de son thermostat (clé de traduction). */
+function _discoverIn(hass, b) {
+  const reg = hass.entities || {};
+  const attrs = (id) => (hass.states[id] && hass.states[id].attributes) || {};
+  const own = b.pool.filter((id) => b.device && reg[id].device_id === b.device);
+  const sensors = own.filter((id) => id.startsWith("sensor."));
+  const bins = own.filter((id) => id.startsWith("binary_sensor."));
+  const key = (list, k) => list.find((id) => reg[id].translation_key === k);
+  return {
+    central: b.central,
+    radiateurs: b.radiateurs,
+    fenetres: key(sensors, "fenetres_ouvertes") || sensors.find((id) => "fenetres" in attrs(id) && "entites" in attrs(id)) || "",
+    sondes_ko: key(sensors, "sondes_ko") || sensors.find((id) => "sondes" in attrs(id) && "liste" in attrs(id)) || "",
+    alerte_pile: key(bins, "alerte_pile") || bins.find((id) => "sondes" in attrs(id) && attrs(id).device_class === "problem") || "",
+    etat_fenetres: key(sensors, "etat_fenetre") || sensors.find((id) => "windows" in attrs(id) && "sources" in attrs(id)) || "",
+    presents: key(sensors, "presents") || sensors.find((id) => "source" in attrs(id) && "count" in attrs(id)) || "",
+  };
+}
+
+/* Totaux « toutes dépendances » (capteurs globaux de l'intégration). */
+function _globalTotals(hass) {
+  const reg = hass.entities || {};
+  const find = (k) => Object.keys(reg).find((id) => reg[id].platform === DOMAIN && reg[id].translation_key === k && hass.states[id]);
+  const val = (id) => { const n = id ? Number(hass.states[id].state) : NaN; return Number.isFinite(n) ? n : null; };
+  const hId = find("global_chauffe_jour");
+  const kId = find("global_conso_jour");
+  return { h: val(hId), kwh: val(kId), id: kId || hId || "" };
+}
+
+function _discover(hass, only) {
   const states = hass.states || {};
   const reg = hass.entities || {};
   const ours = Object.keys(states).filter(
@@ -90,6 +174,7 @@ function _discover(hass) {
   const climates = pool.filter((id) => id.startsWith("climate."));
 
   const central =
+    (only && only.central) ||
     climates.find((id) => id === "climate.electric_heater_central") ||
     climates.find((id) => "base_preset" in attrs(id) && "temperatures" in attrs(id)) ||
     "";
@@ -328,11 +413,19 @@ class ElectricHeaterCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    const auto = _discover(hass);
     const c = this._config || {};
+    // Bâtiments (registre) : un seul → rendu historique ; plusieurs → onglets ou bâtiment épinglé.
+    const blds = _buildings(hass);
+    const pinned = blds.length > 1 ? _pickBuilding(blds, c.batiment) : null;
+    this._blds = blds.length > 1 ? blds : [];
+    this._bld = blds.length > 1 ? pinned || blds.find((b) => b.id === this._tab) || blds[0] : null;
+    this._tabs = !!this._bld && !pinned;
+    const auto = this._bld ? _discoverIn(hass, this._bld) : _discover(hass, blds.length === 1 ? blds[0] : null);
+    // Avec des onglets, chaque onglet montre son bâtiment : central / radiateurs imposés ignorés.
+    const own = (k) => (this._tabs ? undefined : c[k]);
     this._ents = {
-      central: c.central || auto.central,
-      radiateurs: Array.isArray(c.radiateurs) && c.radiateurs.length ? c.radiateurs : auto.radiateurs,
+      central: own("central") || auto.central,
+      radiateurs: !this._tabs && Array.isArray(c.radiateurs) && c.radiateurs.length ? c.radiateurs : auto.radiateurs,
       fenetres: c.fenetres || auto.fenetres,
       sondes_ko: c.sondes_ko || auto.sondes_ko,
       alerte_pile: c.alerte_pile || auto.alerte_pile,
@@ -340,7 +433,9 @@ class ElectricHeaterCard extends HTMLElement {
       etat_fenetres: c.etat_fenetres || auto.etat_fenetres,
     };
     const allWin = new Set();
+    const scope = this._bld ? new Set(this._bld.pool) : null;
     for (const id of Object.keys(hass.states)) {
+      if (scope && !scope.has(id)) continue; // plusieurs bâtiments : capteurs fenêtre de ce bâtiment
       const a = hass.states[id].attributes;
       if (id.startsWith("sensor.") && Array.isArray(a.windows) && a.sources) {
         a.windows
@@ -423,7 +518,8 @@ class ElectricHeaterCard extends HTMLElement {
       const s = hass.states[id];
       return s ? `${id}|${s.last_updated}|${s.attributes.hors_saison || ""}` : id;
     }).join(";") + "#" + Object.keys(hass.states)
-      .filter((id) => id.startsWith("person.") && hass.states[id].state === "home").join(",");
+      .filter((id) => id.startsWith("person.") && hass.states[id].state === "home").join(",")
+      + (this._bld ? `#${this._bld.id}|${this._blds.map((b) => b.name).join("|")}|${_globalTotals(hass).id}` : "");
     this._loadHistory();
     if (sig === this._sig) { if (this._mainEl) this._natives(); return; }
     this._sig = sig;
@@ -521,6 +617,18 @@ class ElectricHeaterCard extends HTMLElement {
       <div class="muted" style="font-size:11px;line-height:1.8">${legend}</div></div>`;
   }
 
+  _selectTab(id) {
+    if (!id || id === this._tab) return;
+    this._tab = id;
+    // Autre bâtiment : graphique et rendu recalculés tout de suite.
+    this._sig = null;
+    this._hist = null;
+    this._lastGraph = null;
+    this._histAt = 0;
+    this._renderAt = 0;
+    if (this._hass) this.hass = this._hass;
+  }
+
   _more(id) {
     if (!id) return;
     const ev = new Event("hass-more-info", { bubbles: true, composed: true });
@@ -535,7 +643,7 @@ class ElectricHeaterCard extends HTMLElement {
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
 
     const central = st(e.central);
-    const titre = this._config.titre || (central && central.attributes.friendly_name) || "Chauffage";
+    const titre = this._config.titre || (this._bld && this._bld.name) || (central && central.attributes.friendly_name) || "Chauffage";
     let head;
     if (central) {
       const a = central.attributes;
@@ -609,10 +717,15 @@ class ElectricHeaterCard extends HTMLElement {
         <br><span class="muted">Radiateurs concernés en Hors-gel par sécurité.</span></div>`;
     }
 
-    Object.keys(hass.states).filter((id) => id.startsWith("binary_sensor.")).forEach((id) => {
+    const bld = this._bld;
+    const regE = hass.entities || {};
+    // Plusieurs bâtiments : alertes de ce bâtiment ; « central » = appareil de son thermostat.
+    const inBld = (x) => !bld || bld.pool.includes(x);
+    const isCentralAlert = (x) => (bld ? !!regE[x] && regE[x].device_id === bld.device : x.includes("central"));
+    Object.keys(hass.states).filter((id) => id.startsWith("binary_sensor.") && inBld(id)).forEach((id) => {
       const st = hass.states[id];
       const kind = st.attributes.electric_heater_alerte;
-      if (!kind || st.state !== "on" || !id.includes("central") && Object.keys(hass.states).some((x) => x.startsWith("binary_sensor.") && x.includes("central") && hass.states[x].attributes.electric_heater_alerte === kind)) return;
+      if (!kind || st.state !== "on" || !isCentralAlert(id) && Object.keys(hass.states).some((x) => x.startsWith("binary_sensor.") && inBld(x) && isCentralAlert(x) && hass.states[x].attributes.electric_heater_alerte === kind)) return;
       const msgs = (st.attributes.messages || []).filter(Boolean);
       const icon = kind === "surchauffe" ? "🔥 Surchauffe" : "📶 Détecteur fenêtre instable";
       alerts += `<div class="alert" data-id="${_esc(id)}">${icon} : ${_esc(msgs.join(" · ") || (st.attributes.pieces || []).join(", "))}</div>`;
@@ -626,7 +739,7 @@ class ElectricHeaterCard extends HTMLElement {
     const pilesSondes = _batteries(hass, e.sondes || []);
     const faibles = [...piles, ...pilesSondes].filter((p) => p.low);
     if (piles.length || pilesSondes.length) {
-      chips.push(`<div class="chip ${faibles.length ? "bad" : ""}" data-id="${_esc((faibles[0] || piles[0]).id)}">
+      chips.push(`<div class="chip ${faibles.length ? "bad" : ""}" data-id="${_esc((faibles[0] || piles[0] || pilesSondes[0]).id)}">
         <ha-icon icon="${faibles.length ? "mdi:battery-alert" : "mdi:battery-high"}"></ha-icon>
         ${faibles.length ? `${faibles.length} pile${faibles.length > 1 ? "s" : ""} faible${faibles.length > 1 ? "s" : ""}` : "Piles OK"}</div>`);
     }
@@ -702,14 +815,24 @@ class ElectricHeaterCard extends HTMLElement {
           }).join("");
           if (!lines) return "";
           return `<div class="rows"><div class="muted">🔌 compteur réel · ≈ estimation</div>${lines}
-            <div class="row" data-id="${_esc((() => { const all = Object.keys(hass.states).filter((x) => x.startsWith("sensor.")); return all.find((x) => x.endsWith("consommation_compteurs_aujourd_hui")) || all.find((x) => x.endsWith("consommation_maison_aujourd_hui")) || ""; })())}"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
+            <div class="row" data-id="${_esc((() => { if (bld) { const own = bld.pool.filter((x) => regE[x].device_id === bld.device); const k = (t) => own.find((x) => regE[x].translation_key === t); return k("conso_compteurs_jour") || k("maison_conso_jour") || ""; } const all = Object.keys(hass.states).filter((x) => x.startsWith("sensor.")); return all.find((x) => x.endsWith("consommation_compteurs_aujourd_hui")) || all.find((x) => x.endsWith("consommation_maison_aujourd_hui")) || ""; })())}"><ha-icon icon="mdi:sigma"></ha-icon><div class="n"><b>Total</b></div>
               <span class="badge">${fmtH(totH)}</span><div class="t"><b>${anyK ? `${totK.toFixed(2)} kWh` : "–"}</b></div></div></div>`;
         })();
     if (S("afficher_graphique") && this._config.graphique !== false) {
       const g = this._graph();
       if (g) this._lastGraph = g;
     }
+    // Plusieurs bâtiments : onglets (sauf bâtiment épinglé) et total « toutes dépendances ».
+    const tabsHtml = !bld ? "" : (() => {
+      const g = _globalTotals(hass);
+      const tabs = this._tabs ? `<div class="tabs">${this._blds.map((b) =>
+        `<div class="tab${b.id === bld.id ? " on" : ""}" data-tab="${_esc(b.id)}">${_esc(b.name)}</div>`).join("")}</div>` : "";
+      const tot = _fmtStats({ h: g.h, kwh: g.kwh, meterDay: null });
+      const all = `<div class="chip" data-id="${_esc(g.id)}"><ha-icon icon="mdi:home-group"></ha-icon>Toutes dépendances : ${tot ? `${tot} aujourd'hui` : "–"}</div>`;
+      return `${tabs}<div class="chips" style="margin:6px 0 0">${all}</div>`;
+    })();
     const blocks = [
+      ["tabs", tabsHtml ? blk("", tabsHtml) : ""],
       ["top", blk("", topHtml)],
       ["rad", S("afficher_radiateurs") ? blk("Radiateurs", `<div class="rows">${rows || `<div class="muted empty">Aucun radiateur trouvé.</div>`}</div>`) : ""],
       ["graph", S("afficher_graphique") && this._config.graphique !== false && this._lastGraph ? blk("", this._lastGraph) : ""],
@@ -722,7 +845,10 @@ class ElectricHeaterCard extends HTMLElement {
         .eh-blocks{display:flex;flex-direction:column;gap:8px}
         .eh-blocks > div:empty{display:none}
         .bt{font-size:1.1em;font-weight:600;margin-bottom:6px}
-        .blk .rows{margin-top:0}</style><div class="eh-blocks"></div>`;
+        .blk .rows{margin-top:0}
+        .tabs{display:flex;flex-wrap:wrap;gap:6px}
+        .tab{padding:6px 12px;border-radius:16px;cursor:pointer;background:var(--secondary-background-color);font-size:.95em}
+        .tab.on{background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}</style><div class="eh-blocks"></div>`;
       this._blocksEl = this._mainEl.querySelector(".eh-blocks");
       this._blockEls = {};
       this._blockHtml = {};
@@ -734,6 +860,8 @@ class ElectricHeaterCard extends HTMLElement {
       }
       // Un seul écouteur (délégation) : pas de ré-abonnement à chaque rendu.
       this._blocksEl.addEventListener("click", (ev) => {
+        const tab = ev.composedPath().find((n) => n && n.getAttribute && n.getAttribute("data-tab"));
+        if (tab) { this._selectTab(tab.getAttribute("data-tab")); return; }
         const el = ev.composedPath().find((n) => n && n.getAttribute && n.getAttribute("data-id"));
         if (el) this._more(el.getAttribute("data-id"));
       });
@@ -845,7 +973,7 @@ const SECTIONS = [
   ["afficher_courbes_puissance", "Courbes de puissance des radiateurs"],
 ];
 const LABELS = Object.assign(Object.fromEntries(SECTIONS), {
-  titre: "Titre", central: "Thermostat central", radiateurs: "Radiateurs (vide = tous)",
+  titre: "Titre", batiment: "Bâtiment affiché", central: "Thermostat central", radiateurs: "Radiateurs (vide = tous)",
   heures: "Durée du graphique (heures)", detecteurs_fenetre: "Détecteurs de fenêtre (vide = auto)",
   exclure_personnes: "Personnes à masquer",
   thermostat_entite: "Thermostat affiché (vide = central)",
@@ -861,11 +989,19 @@ class ElectricHeaterCardEditor extends HTMLElement {
   }
   set hass(h) {
     this._hass = h;
-    if (this._form) this._form.hass = h; else this._draw();
+    const names = _buildings(h).map((b) => b.name).join("|");
+    if (this._form && names === this._names) { this._form.hass = h; return; }
+    this._names = names;
+    this._draw();
   }
   _schema() {
+    const blds = this._hass ? _buildings(this._hass) : [];
+    // Plusieurs bâtiments : liste déroulante pour n'en afficher qu'un (vide = onglets).
+    const batiment = blds.length > 1 ? [{ name: "batiment", selector: { select: { mode: "dropdown", options: [
+      { value: "", label: "Tous (un onglet par bâtiment)" }, ...blds.map((b) => ({ value: b.name, label: b.name }))] } } }] : [];
     return [
       { name: "titre", selector: { text: {} } },
+      ...batiment,
       { name: "central", selector: { entity: { domain: "climate" } } },
       { name: "radiateurs", selector: { entity: { domain: "climate", multiple: true } } },
       { type: "grid", name: "", schema: SECTIONS.map(([n]) => ({ name: n, selector: { boolean: {} } })) },
