@@ -12,7 +12,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.electric_heater import async_migrate_entry, central_runtime
 from custom_components.electric_heater import building, fil_pilote, safety, season, stats
-from custom_components.electric_heater.const import CENTRAL, DOMAIN, ROOM
+from homeassistant.helpers import issue_registry as ir
+
+from custom_components.electric_heater.const import BUILDING, CENTRAL, DOMAIN, ROOM
 
 from .test_init import CENTRAL_DATA
 
@@ -144,8 +146,23 @@ async def test_single_building_ids_frozen(hass: HomeAssistant) -> None:
     room_dev = _dev(devices, (DOMAIN, "room_ROOMID"))
     assert central_dev is not None and room_dev is not None
     assert room_dev.via_device_id == central_dev.id
-    # Migration 1.1 → 1.2 : la pièce est rattachée au central, sans autre changement.
-    assert room.minor_version == 2 and room.data["central_entry_id"] == "CENTRALID"
+    # Migration : la pièce est rattachée au central, puis une entrée « bâtiment » est créée
+    # (nom = titre du central) ; aucun identifiant ne change (liste ci-dessus).
+    assert room.minor_version == 3 and room.data["central_entry_id"] == "CENTRALID"
+    bld = [e for e in hass.config_entries.async_entries(DOMAIN) if e.data.get("type") == BUILDING]
+    assert len(bld) == 1 and bld[0].title == "Thermostat virtuel"
+    assert bld[0].unique_id == "electric_heater_building_CENTRALID"
+    assert central.data["building_entry_id"] == bld[0].entry_id
+    assert room.data["building_entry_id"] == bld[0].entry_id
+    assert central.unique_id == "electric_heater_central"
+    # Le bâtiment n'a ni entité ni appareil
+    assert not er.async_entries_for_config_entry(reg, bld[0].entry_id)
+    assert not dr.async_entries_for_config_entry(devices, bld[0].entry_id)
+    # Redémarrage : rien n'est recréé, toujours les mêmes identifiants
+    assert await hass.config_entries.async_reload(central.entry_id)
+    await hass.async_block_till_done()
+    assert len([e for e in hass.config_entries.async_entries(DOMAIN) if e.data.get("type") == BUILDING]) == 1
+    assert sorted((e.unique_id, e.entity_id) for e in reg.entities.values() if e.platform == DOMAIN) == sorted(FROZEN + GLOBAL)
 
 
 async def test_migration(hass: HomeAssistant) -> None:
@@ -154,9 +171,9 @@ async def test_migration(hass: HomeAssistant) -> None:
     room = MockConfigEntry(domain=DOMAIN, data={"type": ROOM, "name": "R"}, minor_version=1)
     room.add_to_hass(hass)
     assert await async_migrate_entry(hass, room)
-    assert room.minor_version == 2 and room.data["central_entry_id"] == central.entry_id
+    assert room.minor_version == 3 and room.data["central_entry_id"] == central.entry_id
     assert await async_migrate_entry(hass, central)
-    assert "central_entry_id" not in central.data and central.minor_version == 2
+    assert "central_entry_id" not in central.data and central.minor_version == 3
     # Déjà rattachée : rien ne change
     other = MockConfigEntry(domain=DOMAIN, data={"type": ROOM, "name": "O", "central_entry_id": "X"}, minor_version=1)
     other.add_to_hass(hass)
@@ -364,3 +381,143 @@ async def test_unregistered_second_central(hass: HomeAssistant) -> None:
     assert building.central_uid(b, "presents") == "electric_heater_central_X_presents"
     assert building.central_history_id(b) == "central_X"
     assert building.central_history_id(None) == "central"
+
+
+async def test_change_building_reloads_and_relinks(hass: HomeAssistant) -> None:
+    """Pièce déplacée de Maison vers Gîte : rechargée, via_device mis à jour, suit le Gîte."""
+    calls, a, b = await _two_buildings(hass)
+    room = hass.config_entries.async_get_entry("ROOMA")
+    for central, preset in ((a, "comfort"), (b, "eco")):
+        await _svc(hass, "set_hvac_mode", central, hvac_mode=HVACMode.HEAT)
+        await _svc(hass, "set_preset_mode", central, preset_mode=preset)
+    assert _last(calls, SEL_A) == "comfort"
+    result = await room.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {
+        "name": "Salon", "fil_pilote_select": SEL_A, "temperature_sensor": "sensor.salon_temp",
+        "central_entry_id": "BATB", "power": 1000})
+    await hass.async_block_till_done()
+    assert result["reason"] == "reconfigure_successful"
+    devices = dr.async_get(hass)
+    dev_b = _dev(devices, (DOMAIN, "electric_heater_central_BATB"))
+    assert _dev(devices, (DOMAIN, "room_ROOMA")).via_device_id == dev_b.id
+    assert [e.entry_id for e in building.iter_room_entries(hass, "BATB")] == ["ROOMA", "ROOMB"]
+    assert hass.states.get(b).attributes["rooms"] == ["Salon", "Salon"]
+    assert hass.states.get(a).attributes["rooms"] == []
+    await _svc(hass, "set_preset_mode", b, preset_mode="frost_protection")
+    assert _last(calls, SEL_A) == "anti_freeze"
+    await _svc(hass, "set_preset_mode", a, preset_mode="comfort")
+    assert _last(calls, SEL_A) == "anti_freeze"
+
+
+async def test_rename_building(hass: HomeAssistant) -> None:
+    """Renommage de l'entrée bâtiment : libellés suivis, ids inchangés, nom unique."""
+    from homeassistant.data_entry_flow import FlowResultType
+
+    await _two_buildings(hass)
+    reg = er.async_get(hass)
+    before = sorted((e.unique_id, e.entity_id) for e in reg.entities.values() if e.platform == DOMAIN)
+    gite = _bld(hass, "BATB")
+    assert gite.title == "Gîte" and _bld(hass, "BATA").title == "Maison"
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "reconfigure", "entry_id": gite.entry_id})
+    assert result["step_id"] == "reconfigure_building"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "  MAISON "})
+    assert result["type"] is FlowResultType.FORM and result["errors"] == {"name": "building_exists"}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Grange"})
+    await hass.async_block_till_done()
+    assert result["reason"] == "reconfigure_successful"
+    assert gite.title == "Grange"
+    # Les libellés suivent le nom du bâtiment (totaux, notifications)
+    from custom_components.electric_heater.building import building_name
+
+    assert building_name(hass, hass.config_entries.async_get_entry("BATB")) == "Grange"
+    result = await hass.config_entries.options.async_init(gite.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"name": "maison"})
+    assert result["errors"] == {"name": "building_exists"}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"name": "Grange Est"})
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY and gite.title == "Grange Est"
+    # Mise à jour immédiate des totaux (sans attendre le rafraîchissement périodique)
+    total = next(e.entity_id for e in reg.entities.values() if e.unique_id == "electric_heater_global_conso_jour")
+    assert "Grange Est" in hass.states.get(total).attributes["par_batiment"]
+    after = sorted((e.unique_id, e.entity_id) for e in reg.entities.values() if e.platform == DOMAIN)
+    assert after == before
+
+
+def _bld(hass, central_id):
+    central = hass.config_entries.async_get_entry(central_id)
+    return hass.config_entries.async_get_entry(central.data["building_entry_id"])
+
+
+async def test_delete_non_empty_building(hass: HomeAssistant) -> None:
+    """Bâtiment non vide supprimé : rien en cascade, thermostat actif, réparation créée."""
+    calls, _cid_a, cid_b = await _two_buildings(hass)
+    gite = _bld(hass, "BATB")
+    issues = ir.async_get(hass)
+    assert await hass.config_entries.async_remove(gite.entry_id)
+    await hass.async_block_till_done()
+    assert hass.config_entries.async_get_entry("BATB") is not None
+    assert hass.config_entries.async_get_entry("ROOMB") is not None
+    assert issues.async_get_issue(DOMAIN, "thermostat_sans_batiment_BATB") is not None
+    # Le thermostat du gîte commande toujours ses radiateurs (et pas le central)
+    await _svc(hass, "set_hvac_mode", cid_b, hvac_mode=HVACMode.OFF)
+    assert _last(calls, SEL_B) == "off"
+    # Redémarrage : le bâtiment supprimé n'est pas recréé
+    assert await hass.config_entries.async_reload("BATB")
+    await hass.async_block_till_done()
+    assert len([e for e in hass.config_entries.async_entries(DOMAIN) if e.data.get("type") == BUILDING]) == 1
+    # Rattachement à un nouveau bâtiment depuis la configuration du thermostat : réparation levée
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "building"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Gîte 2"})
+    await hass.async_block_till_done()
+    new = result["result"]
+    from .test_config_flow import CENTRAL_INPUT
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "reconfigure", "entry_id": "BATB"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**CENTRAL_INPUT, "name": "Gîte", "temperature_sensor": "sensor.ref_gite",
+                            "building_entry_id": new.entry_id})
+    await hass.async_block_till_done()
+    assert result["reason"] == "reconfigure_successful"
+    assert hass.config_entries.async_get_entry("ROOMB").data["building_entry_id"] == new.entry_id
+    assert issues.async_get_issue(DOMAIN, "thermostat_sans_batiment_BATB") is None
+
+
+async def test_delete_thermostat_with_radiators(hass: HomeAssistant) -> None:
+    """Thermostat supprimé : ses radiateurs restent dans le bâtiment (réparation), puis
+    rejoignent automatiquement le nouveau thermostat de ce bâtiment."""
+    calls, cid_a, _cid_b = await _two_buildings(hass)
+    gite = _bld(hass, "BATB")
+    issues = ir.async_get(hass)
+    assert await hass.config_entries.async_remove("BATB")
+    await hass.async_block_till_done()
+    issue = issues.async_get_issue(DOMAIN, f"batiment_sans_thermostat_{gite.entry_id}")
+    assert issue is not None and issue.translation_placeholders["rooms"] == "Salon"
+    # Le radiateur suit le thermostat par défaut en attendant
+    assert building.building_id(hass, hass.config_entries.async_get_entry("ROOMB")) == "BATA"
+    # Nouveau thermostat dans le gîte : le radiateur le rejoint, la réparation disparaît
+    from .test_config_flow import CENTRAL_INPUT
+
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    assert "central" in result["menu_options"]
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "central"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**CENTRAL_INPUT, "name": "Thermostat Gîte", "temperature_sensor": "sensor.ref_gite"})
+    await hass.async_block_till_done()
+    new = result["result"]
+    assert new.data["building_entry_id"] == gite.entry_id and new.unique_id != "electric_heater_central"
+    room_b = hass.config_entries.async_get_entry("ROOMB")
+    assert room_b.data["central_entry_id"] == new.entry_id
+    assert building.building_id(hass, room_b) == new.entry_id
+    assert issues.async_get_issue(DOMAIN, f"batiment_sans_thermostat_{gite.entry_id}") is None
+    # Supprimer un bâtiment vide : aucune réparation
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "building"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Vide"})
+    await hass.async_block_till_done()
+    empty = result["result"]
+    assert await hass.config_entries.async_remove(empty.entry_id)
+    await hass.async_block_till_done()
+    assert not [i for i in issues.issues.values() if i.domain == DOMAIN and empty.entry_id in i.issue_id]

@@ -2,12 +2,17 @@
   "title": "Chauffage Electrique Fil Pilote FR",
   "config": {
     "initiate_flow": {
-      "user": "Ajouter un radiateur"
+      "user": "Ajouter un bâtiment ou un radiateur"
     },
     "step": {
       "user": {
         "title": "Chauffage Electrique Fil Pilote FR",
-        "description": "Creez d'abord le thermostat virtuel, puis ajoutez chaque radiateur."
+        "description": "Étape 1 : un bâtiment. Étape 2 : son thermostat virtuel (un par bâtiment). Étape 3 : ses radiateurs.",
+        "menu_options": {
+          "building": "Bâtiment",
+          "central": "Thermostat (un par bâtiment)",
+          "room": "Radiateur"
+        }
       },
       "central": {
         "title": "Configurer le thermostat",
@@ -46,7 +51,8 @@
           "capteur_temperature_exterieure": "Capteur / meteo exterieur (optionnel, coupe si trop chaud)",
           "seuil_exterieur": "Seuil exterieur hors saison (C, moyenne 24 h, hyst. 1 C)",
           "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
-          "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"
+          "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)",
+          "building_entry_id": "Bâtiment"
         }
       },
       "room": {
@@ -58,7 +64,8 @@
           "temperature_sensor": "Sonde de temperature de la piece",
           "window_sensors": "Capteurs fenetre de la piece (optionnel)",
           "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)",
-          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)"
+          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)",
+          "central_entry_id": "Bâtiment"
         }
       },
       "reconfigure_central": {
@@ -97,7 +104,8 @@
           "capteur_temperature_exterieure": "Capteur / meteo exterieur (optionnel, coupe si trop chaud)",
           "seuil_exterieur": "Seuil exterieur hors saison (C, moyenne 24 h, hyst. 1 C)",
           "notify_service": "Services notify en plus (plusieurs possibles : ex. application mobile de Maman et de Papa)",
-          "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)"
+          "persons": "Personnes suivies pour « Presents » (vide = automatique, sans tablettes / appareils)",
+          "building_entry_id": "Bâtiment"
         }
       },
       "reconfigure_room": {
@@ -108,18 +116,38 @@
           "temperature_sensor": "Sonde de temperature de la piece",
           "window_sensors": "Capteurs fenetre de la piece (optionnel)",
           "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)",
-          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)"
+          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)",
+          "central_entry_id": "Bâtiment"
+        }
+      },
+      "building": {
+        "title": "Bâtiment",
+        "description": "Nom du bâtiment (maison, dépendance…). Ajoutez ensuite son thermostat, puis ses radiateurs.",
+        "data": {
+          "name": "Nom du bâtiment"
+        }
+      },
+      "reconfigure_building": {
+        "title": "Renommer le bâtiment",
+        "description": "Les identifiants des entités et l'historique sont conservés.",
+        "data": {
+          "name": "Nom du bâtiment"
         }
       }
     },
     "error": {
       "invalid_sensor": "Capteur invalide ou inexistant",
       "sensor_required": "Choisissez une sonde de temperature",
-      "unknown": "Erreur inconnue"
+      "unknown": "Erreur inconnue",
+      "building_exists": "Un bâtiment porte déjà ce nom",
+      "building_has_thermostat": "Ce bâtiment a déjà un thermostat",
+      "name_required": "Saisissez un nom"
     },
     "abort": {
       "already_configured": "Cet equipement est deja configure",
-      "reconfigure_successful": "Configuration mise à jour."
+      "reconfigure_successful": "Configuration mise à jour.",
+      "no_central": "Ajoutez d'abord un bâtiment et son thermostat : un radiateur suit toujours le thermostat de son bâtiment.",
+      "no_free_building": "Chaque bâtiment a déjà son thermostat : ajoutez d'abord un bâtiment."
     }
   },
   "options": {
@@ -167,7 +195,8 @@
           "debut_saison": "Debut de saison (MM-JJ, ex. 10-15)",
           "fin_saison": "Fin de saison (MM-JJ, ex. 04-15)",
           "capteur_temperature_exterieure": "Capteur / meteo exterieur (optionnel, coupe si trop chaud)",
-          "seuil_exterieur": "Seuil exterieur hors saison (C, moyenne 24 h, hyst. 1 C)"
+          "seuil_exterieur": "Seuil exterieur hors saison (C, moyenne 24 h, hyst. 1 C)",
+          "building_entry_id": "Bâtiment"
         }
       },
       "room": {
@@ -179,9 +208,22 @@
           "temperature_sensor": "Sonde de temperature de la piece",
           "window_sensors": "Capteurs fenetre de la piece",
           "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)",
-          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)"
+          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)",
+          "central_entry_id": "Bâtiment"
+        }
+      },
+      "building": {
+        "title": "Renommer le bâtiment",
+        "description": "Les identifiants des entités et l'historique sont conservés.",
+        "data": {
+          "name": "Nom du bâtiment"
         }
       }
+    },
+    "error": {
+      "building_exists": "Un bâtiment porte déjà ce nom",
+      "building_has_thermostat": "Ce bâtiment a déjà un thermostat",
+      "name_required": "Saisissez un nom"
     }
   },
   "entity": {
@@ -329,6 +371,14 @@
     "missing_entity": {
       "title": "Entité introuvable",
       "description": "L'entité `{entity_id}` configurée pour « {name} » n'existe plus. Ouvrez les options de cette entrée et choisissez une entité valide."
+    },
+    "batiment_sans_thermostat": {
+      "title": "Le bâtiment « {name} » n'a plus de thermostat",
+      "description": "Le thermostat du bâtiment « {name} » a été supprimé. Ses radiateurs ({rooms}) continuent de fonctionner avec le thermostat par défaut. Ajoutez un thermostat à ce bâtiment (ils le rejoindront automatiquement) ou déplacez-les dans un autre bâtiment depuis leur configuration."
+    },
+    "thermostat_sans_batiment": {
+      "title": "Le thermostat « {name} » n'a plus de bâtiment",
+      "description": "Le bâtiment du thermostat « {name} » a été supprimé. Le thermostat et ses radiateurs continuent de fonctionner. Créez un bâtiment puis choisissez-le dans la configuration du thermostat (champ Bâtiment) : ses radiateurs suivent."
     }
   },
   "exceptions": {

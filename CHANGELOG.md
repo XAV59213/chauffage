@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Multi-bâtiments (refonte en 3 étapes) : entrée « Bâtiment » distincte (un nom unique), puis « Thermostat » (au plus un par bâtiment, il porte tous les réglages du bâtiment), puis « Radiateur » (seulement dans un bâtiment qui a un thermostat) ; menu Bâtiment / Thermostat / Radiateur ; migration automatique (un bâtiment créé par thermostat existant, nommé comme lui, aucun identifiant ni historique modifié) ; le renommage se fait désormais sur l'entrée bâtiment ; déplacer un thermostat de bâtiment emmène ses radiateurs ; suppression d'un bâtiment ou d'un thermostat non vide : rien n'est supprimé en cascade, une réparation explique comment rattacher les éléments restants.
+- Multi-bâtiments (partie B) : l'ajout propose « Nouveau bâtiment (thermostat central) » ou « Nouvelle pièce » ; chaque nouveau bâtiment a ses propres identifiants (le thermostat existant reste identique) ; champ « Bâtiment » dans le formulaire d'une pièce (affiché à partir de deux bâtiments), modifiable en reconfiguration et en options.
+- Multi-bâtiments : renommer un bâtiment depuis sa reconfiguration ou ses options (titre et nom de l'appareil mis à jour, identifiants inchangés) ; refusé si un autre bâtiment porte déjà ce nom.
 - Multi-bâtiments (préparation, partie A) : chaque pièce est rattachée à son thermostat central (migration automatique, aucun identifiant ni historique modifié) ; réglages, saison, sécurité, notifications, fenêtres et statistiques par bâtiment ; nouveaux capteurs « toutes dépendances » (consommation et temps de chauffe, jour et total). Un seul bâtiment : comportement inchangé.
 
 ## 3.1.77

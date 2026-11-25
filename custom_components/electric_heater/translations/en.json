@@ -2,12 +2,17 @@
   "title": "French Pilot-Wire Electric Heating",
   "config": {
     "initiate_flow": {
-      "user": "Add a radiator"
+      "user": "Add a building or a radiator"
     },
     "step": {
       "user": {
         "title": "French Pilot-Wire Electric Heating",
-        "description": "Create the virtual thermostat first, then add each radiator."
+        "description": "Step 1: a building. Step 2: its virtual thermostat (one per building). Step 3: its radiators.",
+        "menu_options": {
+          "building": "Building",
+          "central": "Thermostat (one per building)",
+          "room": "Radiator"
+        }
       },
       "central": {
         "title": "Configure the thermostat",
@@ -46,7 +51,8 @@
           "capteur_temperature_exterieure": "Outdoor sensor / weather (optional, stops if too warm)",
           "seuil_exterieur": "Outdoor threshold for off-season (C, 24h avg, 1 C hyst.)",
           "notify_service": "Extra notify services (several allowed, e.g. mum's and dad's mobile apps)",
-          "persons": "People tracked for “Present” (empty = automatic, devices excluded)"
+          "persons": "People tracked for “Present” (empty = automatic, devices excluded)",
+          "building_entry_id": "Building"
         }
       },
       "room": {
@@ -58,7 +64,8 @@
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors (optional)",
           "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
-          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)",
+          "central_entry_id": "Building"
         }
       },
       "reconfigure_central": {
@@ -97,7 +104,8 @@
           "capteur_temperature_exterieure": "Outdoor sensor / weather (optional, stops if too warm)",
           "seuil_exterieur": "Outdoor threshold for off-season (C, 24h avg, 1 C hyst.)",
           "notify_service": "Extra notify services (several allowed, e.g. mum's and dad's mobile apps)",
-          "persons": "People tracked for “Present” (empty = automatic, devices excluded)"
+          "persons": "People tracked for “Present” (empty = automatic, devices excluded)",
+          "building_entry_id": "Building"
         }
       },
       "reconfigure_room": {
@@ -108,18 +116,38 @@
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors (optional)",
           "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
-          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)",
+          "central_entry_id": "Building"
+        }
+      },
+      "building": {
+        "title": "Building",
+        "description": "Name of the building (house, outbuilding…). Then add its thermostat, then its radiators.",
+        "data": {
+          "name": "Building name"
+        }
+      },
+      "reconfigure_building": {
+        "title": "Rename the building",
+        "description": "Entity IDs and history are kept.",
+        "data": {
+          "name": "Building name"
         }
       }
     },
     "error": {
       "invalid_sensor": "Invalid or missing sensor",
       "sensor_required": "Please choose a temperature sensor",
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "building_exists": "A building with this name already exists",
+      "building_has_thermostat": "This building already has a thermostat",
+      "name_required": "Please enter a name"
     },
     "abort": {
       "already_configured": "This device is already configured",
-      "reconfigure_successful": "Configuration updated."
+      "reconfigure_successful": "Configuration updated.",
+      "no_central": "Add a building and its thermostat first: a radiator always follows its building's thermostat.",
+      "no_free_building": "Every building already has its thermostat: add a building first."
     }
   },
   "options": {
@@ -167,7 +195,8 @@
           "debut_saison": "Season start (MM-DD, e.g. 10-15)",
           "fin_saison": "Season end (MM-DD, e.g. 04-15)",
           "capteur_temperature_exterieure": "Outdoor sensor / weather (optional, stops if too warm)",
-          "seuil_exterieur": "Outdoor threshold for off-season (C, 24h avg, 1 C hyst.)"
+          "seuil_exterieur": "Outdoor threshold for off-season (C, 24h avg, 1 C hyst.)",
+          "building_entry_id": "Building"
         }
       },
       "room": {
@@ -179,9 +208,22 @@
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors",
           "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
-          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)",
+          "central_entry_id": "Building"
+        }
+      },
+      "building": {
+        "title": "Rename the building",
+        "description": "Entity IDs and history are kept.",
+        "data": {
+          "name": "Building name"
         }
       }
+    },
+    "error": {
+      "building_exists": "A building with this name already exists",
+      "building_has_thermostat": "This building already has a thermostat",
+      "name_required": "Please enter a name"
     }
   },
   "entity": {
@@ -329,6 +371,14 @@
     "missing_entity": {
       "title": "Entity not found",
       "description": "The entity `{entity_id}` configured for \"{name}\" no longer exists. Open this entry's options and pick a valid entity."
+    },
+    "batiment_sans_thermostat": {
+      "title": "Building « {name} » has no thermostat",
+      "description": "The thermostat of building « {name} » was removed. Its radiators ({rooms}) keep running with the default thermostat. Add a thermostat to this building (they will join it automatically) or move them to another building in their configuration."
+    },
+    "thermostat_sans_batiment": {
+      "title": "Thermostat « {name} » has no building",
+      "description": "The building of thermostat « {name} » was removed. The thermostat and its radiators keep working. Create a building, then choose it in the thermostat's configuration (Building field): its radiators follow."
     }
   },
   "exceptions": {
