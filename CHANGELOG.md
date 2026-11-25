@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.2.0
 
 - Carte Lovelace multi-bâtiments : un onglet par bâtiment, le total « Toutes dépendances » du jour, et l'option `batiment` (liste déroulante dans l'éditeur visuel) pour n'afficher qu'un bâtiment. La découverte passe par le registre HA (clés de traduction, appareils), sans dépendre des entity_id. Rendu inchangé avec un seul bâtiment. Nouveaux attributs `batiment` et `central_entry_id` sur les thermostats et les radiateurs. Le JS est rechargé dès que son contenu change (empreinte dans `?v=`). Correctif : la carte ne plante plus quand seules des sondes ont une pile (aucun détecteur de fenêtre).
 - Multi-bâtiments (refonte en 3 étapes) : entrée « Bâtiment » distincte (un nom unique), puis « Thermostat » (au plus un par bâtiment, il porte tous les réglages du bâtiment), puis « Radiateur » (seulement dans un bâtiment qui a un thermostat) ; menu Bâtiment / Thermostat / Radiateur ; migration automatique (un bâtiment créé par thermostat existant, nommé comme lui, aucun identifiant ni historique modifié) ; le renommage se fait désormais sur l'entrée bâtiment ; déplacer un thermostat de bâtiment emmène ses radiateurs ; suppression d'un bâtiment ou d'un thermostat non vide : rien n'est supprimé en cascade, une réparation explique comment rattacher les éléments restants.

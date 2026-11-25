@@ -185,7 +185,7 @@ EVENT_CENTRAL_COMMAND = f"{DOMAIN}_central_command"
 SIGNAL_SETPOINTS_UPDATED = f"{DOMAIN}_setpoints_updated_{{}}"
 SIGNAL_BUILDING_RENAMED = f"{DOMAIN}_building_renamed"
 
-VERSION = "3.1.77"
+VERSION = "3.2.0"
 CONF_ENERGY_SENSOR = "energy_sensor"  # compteur kWh du radiateur (vide = auto)
 CONF_POWER = "power"  # puissance du radiateur (W) pour la conso estimée
 

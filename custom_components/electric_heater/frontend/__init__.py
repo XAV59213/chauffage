@@ -31,7 +31,7 @@ async def async_register_card(hass: HomeAssistant) -> None:
 
 
 async def card_version(hass: HomeAssistant) -> str:
-    """« 3.1.77-1a2b3c4d » : version de l'intégration + empreinte du JS livré."""
+    """« 3.2.0-1a2b3c4d » : version de l'intégration + empreinte du JS livré."""
     path = Path(__file__).parent / CARD_FILENAME
     try:
         content = await hass.async_add_executor_job(path.read_bytes)
