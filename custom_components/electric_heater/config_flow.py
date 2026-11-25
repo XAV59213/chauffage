@@ -413,6 +413,16 @@ def _building_field(d: dict[str, Any], hass: HomeAssistant | None) -> dict[vol.M
     return {vol.Required(CONF_CENTRAL_ENTRY_ID, default=default): sel}
 
 
+def _building_name_taken(hass: HomeAssistant, name: Any, exclude: str | None = None) -> bool:
+    """Nom déjà porté par un autre bâtiment (sans tenir compte des majuscules ni des espaces)."""
+    wanted = " ".join(str(name or "").split()).casefold()
+    return any(
+        " ".join(str(e.title or e.data.get(CONF_NAME, "")).split()).casefold() == wanted
+        for e in central_entries(hass)
+        if e.entry_id != exclude
+    )
+
+
 def _chosen_building(hass: HomeAssistant, user_input: dict[str, Any], current: Any = None) -> str | None:
     """Bâtiment choisi (champ du formulaire), sinon l'actuel, sinon le central par défaut."""
     central = get_central_entry(hass, user_input.get(CONF_CENTRAL_ENTRY_ID) or current)
@@ -472,10 +482,9 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             method = user_input[CONF_TEMP_METHOD]
             sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
             existing = central_entries(self.hass)
-            name = str(user_input.get(CONF_NAME, "")).strip().casefold()
             if method == CONF_TEMP_METHOD_REFERENCE and not sensor:
                 errors[CONF_TEMPERATURE_SENSOR] = "sensor_required"
-            elif any(str(e.title or e.data.get(CONF_NAME, "")).strip().casefold() == name for e in existing):
+            elif _building_name_taken(self.hass, user_input.get(CONF_NAME)):
                 errors[CONF_NAME] = "building_exists"
             else:
                 # 1er central : identifiants historiques. Bâtiment suivant : unique_id non fixe,
@@ -563,6 +572,9 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_TEMPERATURE_SENSOR
             ):
                 errors[CONF_TEMPERATURE_SENSOR] = "sensor_required"
+            elif _building_name_taken(self.hass, user_input.get(CONF_NAME, entry.title), entry.entry_id):
+                # Renommage du bâtiment : refusé si un autre bâtiment porte déjà ce nom.
+                errors[CONF_NAME] = "building_exists"
             else:
                 updates = {
                     **user_input,
@@ -665,6 +677,10 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
             sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
             if method == CONF_TEMP_METHOD_REFERENCE and not sensor:
                 errors[CONF_TEMPERATURE_SENSOR] = "sensor_required"
+            elif _building_name_taken(
+                self.hass, user_input.get(CONF_NAME, self.config_entry.title), self.config_entry.entry_id
+            ):
+                errors[CONF_NAME] = "building_exists"
             else:
                 new_data = {
                     **self.config_entry.data,

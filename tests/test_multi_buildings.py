@@ -390,3 +390,44 @@ async def test_change_building_reloads_and_relinks(hass: HomeAssistant) -> None:
     assert _last(calls, SEL_A) == "anti_freeze"
     await _svc(hass, "set_preset_mode", a, preset_mode="comfort")
     assert _last(calls, SEL_A) == "anti_freeze"
+
+
+async def test_rename_building(hass: HomeAssistant) -> None:
+    """Renommage depuis la reconfiguration ou les options : titre + appareil, ids inchangés."""
+    from homeassistant.data_entry_flow import FlowResultType
+
+    from .test_config_flow import CENTRAL_INPUT
+
+    await _two_buildings(hass)
+    reg = er.async_get(hass)
+    before = sorted((e.unique_id, e.entity_id) for e in reg.entities.values() if e.platform == DOMAIN)
+    gite = hass.config_entries.async_get_entry("BATB")
+    form = {**CENTRAL_INPUT, "temperature_sensor": "sensor.ref_gite"}
+    # Nom d'un autre bâtiment (majuscules / espaces ignorés) : refusé
+    result = await gite.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**form, "name": "  MAISON "})
+    assert result["type"] is FlowResultType.FORM and result["errors"] == {"name": "building_exists"}
+    # Renommage accepté (garder son propre nom aussi)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**form, "name": "Grange"})
+    await hass.async_block_till_done()
+    assert result["reason"] == "reconfigure_successful"
+    assert gite.title == "Grange" and gite.data["name"] == "Grange"
+    devices = dr.async_get(hass)
+    assert _dev(devices, (DOMAIN, "electric_heater_central_BATB")).name == "Grange"
+    # Options : même règle
+    result = await hass.config_entries.options.async_init("BATB")
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {**form, "name": "maison"})
+    assert result["errors"] == {"name": "building_exists"}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {**form, "name": "Grange Est"})
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert gite.title == "Grange Est"
+    assert _dev(devices, (DOMAIN, "electric_heater_central_BATB")).name == "Grange Est"
+    # Le bâtiment historique peut garder son nom tel quel
+    maison = hass.config_entries.async_get_entry("BATA")
+    result = await maison.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**CENTRAL_INPUT, "name": "Maison"})
+    await hass.async_block_till_done()
+    assert result["reason"] == "reconfigure_successful"
+    after = sorted((e.unique_id, e.entity_id) for e in reg.entities.values() if e.platform == DOMAIN)
+    assert after == before

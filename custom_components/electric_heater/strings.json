@@ -191,6 +191,9 @@
           "central_entry_id": "Building"
         }
       }
+    },
+    "error": {
+      "building_exists": "A building with this name already exists"
     }
   },
   "entity": {
