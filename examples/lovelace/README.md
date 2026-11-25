@@ -28,6 +28,25 @@ Si elle n'apparaît pas dans la liste des cartes :
 - URL : `/electric_heater/electric-heater-card.js`
 - Type : Module JavaScript
 
+## Plusieurs bâtiments (dépendances)
+
+Avec plusieurs bâtiments, la carte affiche **un onglet par bâtiment** (nom du bâtiment), chacun avec son
+thermostat, ses radiateurs, ses fenêtres, ses alertes et sa consommation, ainsi que le total
+**« Toutes dépendances »** du jour (temps de chauffe et consommation). Avec un seul bâtiment, rien ne change.
+
+Pour n'afficher qu'un bâtiment (une carte par dépendance, par exemple), épinglez-le avec l'option `batiment`.
+Dans l'éditeur visuel, c'est la liste déroulante « Bâtiment affiché ».
+
+```yaml
+type: custom:electric-heater-card
+batiment: Gîte
+```
+
+La découverte passe par le registre de Home Assistant (thermostats, radiateurs rattachés, capteurs de
+chaque appareil) : elle ne dépend ni des entity_id ni de la langue. Avec des onglets, les options `central`
+et `radiateurs` sont ignorées (chaque onglet montre son bâtiment) ; elles restent utilisables avec un seul
+bâtiment ou un bâtiment épinglé.
+
 ## Options (facultatif, seulement si la découverte ne convient pas)
 
 ```yaml

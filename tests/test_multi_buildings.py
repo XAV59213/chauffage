@@ -215,6 +215,27 @@ async def _two_buildings(hass: HomeAssistant, central_b_extra=None, room_b_extra
     return calls, cid_a, cid_b
 
 
+def _room_climate(hass, room_id):
+    reg = er.async_get(hass)
+    return next(e.entity_id for e in reg.entities.values() if e.unique_id == f"electric_heater_room_{room_id}")
+
+
+async def test_card_attributes(hass: HomeAssistant) -> None:
+    """Attributs lus par la carte : bâtiment (nom) et central_entry_id, thermostat et radiateurs."""
+    _calls, cid_a, cid_b = await _two_buildings(hass)
+    a, b = hass.states.get(cid_a).attributes, hass.states.get(cid_b).attributes
+    assert (a["batiment"], a["central_entry_id"]) == ("Maison", "BATA")
+    assert (b["batiment"], b["central_entry_id"]) == ("Gîte", "BATB")
+    ra = hass.states.get(_room_climate(hass, "ROOMA")).attributes
+    rb = hass.states.get(_room_climate(hass, "ROOMB")).attributes
+    assert (ra["batiment"], ra["central_entry_id"]) == ("Maison", "BATA")
+    assert (rb["batiment"], rb["central_entry_id"]) == ("Gîte", "BATB")
+    # Registre : la carte reconnaît les thermostats par leur clé de traduction
+    reg = er.async_get(hass)
+    assert reg.async_get(cid_b).translation_key == "central"
+    assert reg.async_get(_room_climate(hass, "ROOMB")).translation_key == "room"
+
+
 async def test_two_buildings_ids_and_devices(hass: HomeAssistant) -> None:
     await _two_buildings(hass)
     reg = er.async_get(hass)
@@ -440,6 +461,10 @@ async def test_rename_building(hass: HomeAssistant) -> None:
     # Mise à jour immédiate des totaux (sans attendre le rafraîchissement périodique)
     total = next(e.entity_id for e in reg.entities.values() if e.unique_id == "electric_heater_global_conso_jour")
     assert "Grange Est" in hass.states.get(total).attributes["par_batiment"]
+    # Carte : le nom du bâtiment des thermostats et radiateurs suit tout de suite
+    cid_b = building.central_entity_id(hass, "BATB")
+    assert hass.states.get(cid_b).attributes["batiment"] == "Grange Est"
+    assert hass.states.get(_room_climate(hass, "ROOMB")).attributes["batiment"] == "Grange Est"
     after = sorted((e.unique_id, e.entity_id) for e in reg.entities.values() if e.platform == DOMAIN)
     assert after == before
 

@@ -1,6 +1,7 @@
 """Enregistre la carte Lovelace « Chauffage Fil Pilote » livrée avec l'intégration."""
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 
@@ -17,7 +18,8 @@ async def async_register_card(hass: HomeAssistant) -> None:
     """Sert le JS depuis le paquet de l'intégration et le charge dans le frontend.
 
     Aucune copie dans www, aucune ressource Lovelace créée : le paramètre ?v=
-    force le rechargement à chaque nouvelle version.
+    (version + empreinte du fichier) force le rechargement dès que la carte change,
+    même sans changement de numéro de version.
     """
     try:
         await hass.http.async_register_static_paths(
@@ -25,4 +27,14 @@ async def async_register_card(hass: HomeAssistant) -> None:
         )
     except RuntimeError:
         _LOGGER.debug("Chemin statique déjà enregistré : %s", CARD_URL_BASE)
-    add_extra_js_url(hass, f"{CARD_URL_BASE}/{CARD_FILENAME}?v={VERSION}")
+    add_extra_js_url(hass, f"{CARD_URL_BASE}/{CARD_FILENAME}?v={await card_version(hass)}")
+
+
+async def card_version(hass: HomeAssistant) -> str:
+    """« 3.1.77-1a2b3c4d » : version de l'intégration + empreinte du JS livré."""
+    path = Path(__file__).parent / CARD_FILENAME
+    try:
+        content = await hass.async_add_executor_job(path.read_bytes)
+    except OSError:
+        return VERSION
+    return f"{VERSION}-{hashlib.sha256(content).hexdigest()[:8]}"
