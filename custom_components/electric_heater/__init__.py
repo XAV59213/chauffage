@@ -19,6 +19,7 @@ from .const import (
     CENTRAL,
     CONF_BUILDING_ENTRY_ID,
     CONF_CENTRAL_ENTRY_ID,
+    SIGNAL_BUILDING_RENAMED,
     DOMAIN,
     EVENT_WINDOWS_CHANGED,
     SETPOINT_KEYS,
@@ -264,6 +265,7 @@ def _adopt_rooms(hass: HomeAssistant, central: ConfigEntry) -> None:
 
 async def _building_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Bâtiment renommé : rien à recharger (les libellés relisent le titre)."""
+    async_dispatcher_send(hass, SIGNAL_BUILDING_RENAMED)
 
 
 def _sync_orphan_issues(hass: HomeAssistant) -> None:

@@ -437,7 +437,7 @@ async def test_rename_building(hass: HomeAssistant) -> None:
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"name": "Grange Est"})
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY and gite.title == "Grange Est"
-    await _later(hass, 120)
+    # Mise à jour immédiate des totaux (sans attendre le rafraîchissement périodique)
     total = next(e.entity_id for e in reg.entities.values() if e.unique_id == "electric_heater_global_conso_jour")
     assert "Grange Est" in hass.states.get(total).attributes["par_batiment"]
     after = sorted((e.unique_id, e.entity_id) for e in reg.entities.values() if e.platform == DOMAIN)

@@ -19,6 +19,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_time_change,
@@ -27,7 +28,7 @@ from homeassistant.helpers.event import (
 from homeassistant.util import dt as dt_util
 
 from .entity import CentralEntity, RoomEntity
-from .const import NO_OPTIONS, CONF_POWER, DOMAIN
+from .const import NO_OPTIONS, CONF_POWER, DOMAIN, SIGNAL_BUILDING_RENAMED
 from .building import building_id, building_name, default_central, get_central_entry
 from .fil_pilote import iter_room_entries
 
@@ -391,6 +392,12 @@ class GlobalStatSensor(CentralStatSensor):
             building = label.split(" · ", 1)[0]
             by_building[building] = round(by_building.get(building, 0.0) + value, 3)
         self._by_building = by_building
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # Bâtiment renommé : libellés « Bâtiment · Pièce » et « par_batiment » à jour tout de suite.
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_BUILDING_RENAMED, self._update))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
