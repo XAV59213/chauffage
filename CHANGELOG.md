@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Multi-bâtiments (partie B) : l'ajout propose « Nouveau bâtiment (thermostat central) » ou « Nouvelle pièce » ; chaque nouveau bâtiment a ses propres identifiants (le thermostat existant reste identique) ; champ « Bâtiment » dans le formulaire d'une pièce (affiché à partir de deux bâtiments), modifiable en reconfiguration et en options.
 - Multi-bâtiments (préparation, partie A) : chaque pièce est rattachée à son thermostat central (migration automatique, aucun identifiant ni historique modifié) ; réglages, saison, sécurité, notifications, fenêtres et statistiques par bâtiment ; nouveaux capteurs « toutes dépendances » (consommation et temps de chauffe, jour et total). Un seul bâtiment : comportement inchangé.
 
 ## 3.1.77

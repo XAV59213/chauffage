@@ -2,12 +2,16 @@
   "title": "Chauffage Electrique Fil Pilote FR",
   "config": {
     "initiate_flow": {
-      "user": "Ajouter un radiateur"
+      "user": "Ajouter un bâtiment ou un radiateur"
     },
     "step": {
       "user": {
         "title": "Chauffage Electrique Fil Pilote FR",
-        "description": "Creez d'abord le thermostat virtuel, puis ajoutez chaque radiateur."
+        "description": "Ajoutez un nouveau bâtiment (avec son propre thermostat virtuel) ou un radiateur dans un bâtiment existant.",
+        "menu_options": {
+          "central": "Nouveau bâtiment (thermostat central)",
+          "room": "Nouvelle pièce (radiateur)"
+        }
       },
       "central": {
         "title": "Configurer le thermostat",
@@ -58,7 +62,8 @@
           "temperature_sensor": "Sonde de temperature de la piece",
           "window_sensors": "Capteurs fenetre de la piece (optionnel)",
           "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)",
-          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)"
+          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)",
+          "central_entry_id": "Bâtiment"
         }
       },
       "reconfigure_central": {
@@ -108,18 +113,21 @@
           "temperature_sensor": "Sonde de temperature de la piece",
           "window_sensors": "Capteurs fenetre de la piece (optionnel)",
           "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)",
-          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)"
+          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)",
+          "central_entry_id": "Bâtiment"
         }
       }
     },
     "error": {
       "invalid_sensor": "Capteur invalide ou inexistant",
       "sensor_required": "Choisissez une sonde de temperature",
-      "unknown": "Erreur inconnue"
+      "unknown": "Erreur inconnue",
+      "building_exists": "Un bâtiment porte déjà ce nom"
     },
     "abort": {
       "already_configured": "Cet equipement est deja configure",
-      "reconfigure_successful": "Configuration mise à jour."
+      "reconfigure_successful": "Configuration mise à jour.",
+      "no_central": "Créez d'abord un bâtiment (thermostat central)."
     }
   },
   "options": {
@@ -179,7 +187,8 @@
           "temperature_sensor": "Sonde de temperature de la piece",
           "window_sensors": "Capteurs fenetre de la piece",
           "power": "Puissance du radiateur (W, pour la consommation estimée ; 0 = non suivie)",
-          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)"
+          "energy_sensor": "Compteur d'énergie du radiateur (optionnel ; vide = détection auto d'un sensor *_energy)",
+          "central_entry_id": "Bâtiment"
         }
       }
     }

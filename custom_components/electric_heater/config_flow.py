@@ -10,7 +10,9 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .temps import round_temp
-from .building import default_central
+import uuid
+
+from .building import central_entries, get_central_entry
 from .season import (
     CONF_SAISON_ACTIVE,
     CONF_DEBUT_SAISON,
@@ -45,6 +47,7 @@ from .const import (
     WINDOW_OFF_DELAY,
     CENTRAL,
     CONF_CENTRAL_ENTRY_ID,
+    LEGACY_CENTRAL_UID,
     CONF_CALENDAR_OFF_MODE,
     CONF_CALENDAR_ON_MODE,
     CONF_FIL_PILOTE_SELECT,
@@ -391,6 +394,31 @@ def _central_schema(defaults: dict[str, Any] | None = None, hass: HomeAssistant 
     return vol.Schema(schema)
 
 
+def _building_field(d: dict[str, Any], hass: HomeAssistant | None) -> dict[vol.Marker, Any]:
+    """Champ « Bâtiment » : affiché seulement s'il existe plusieurs thermostats centraux."""
+    if hass is None:
+        return {}
+    centrals = central_entries(hass)
+    if len(centrals) < 2:
+        return {}
+    current = get_central_entry(hass, d.get(CONF_CENTRAL_ENTRY_ID))
+    options = [
+        selector.SelectOptionDict(value=e.entry_id, label=str(e.title or e.data.get(CONF_NAME) or e.entry_id))
+        for e in centrals
+    ]
+    sel = selector.SelectSelector(
+        selector.SelectSelectorConfig(options=options, mode=selector.SelectSelectorMode.DROPDOWN)
+    )
+    default = current.entry_id if current else centrals[0].entry_id
+    return {vol.Required(CONF_CENTRAL_ENTRY_ID, default=default): sel}
+
+
+def _chosen_building(hass: HomeAssistant, user_input: dict[str, Any], current: Any = None) -> str | None:
+    """Bâtiment choisi (champ du formulaire), sinon l'actuel, sinon le central par défaut."""
+    central = get_central_entry(hass, user_input.get(CONF_CENTRAL_ENTRY_ID) or current)
+    return central.entry_id if central else None
+
+
 def _room_schema(defaults: dict[str, Any] | None = None, hass: HomeAssistant | None = None) -> vol.Schema:
     d = defaults or {}
     name_default = d.get(CONF_NAME)
@@ -399,6 +427,7 @@ def _room_schema(defaults: dict[str, Any] | None = None, hass: HomeAssistant | N
         schema[vol.Required(CONF_NAME, default=name_default)] = str
     else:
         schema[vol.Required(CONF_NAME)] = str
+    schema.update(_building_field(d, hass))
     schema.update(_with_default(CONF_FIL_PILOTE_SELECT, _FIL_PILOTE, d, required=True))
     schema.update(_with_default(CONF_TEMPERATURE_SENSOR, _TEMP_SENSOR, d, required=True))
     schema.update(_windows_field(d, hass))
@@ -428,13 +457,10 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     MINOR_VERSION = 2
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        central_exists = any(
-            e.data.get("type") == CENTRAL
-            for e in self.hass.config_entries.async_entries(DOMAIN)
-        )
-        if not central_exists:
+        """Premier ajout : le thermostat central. Ensuite : nouveau bâtiment ou nouvelle pièce."""
+        if not central_entries(self.hass):
             return await self.async_step_central()
-        return await self.async_step_room()
+        return self.async_show_menu(step_id="user", menu_options=["central", "room"])
 
     async def async_step_central(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -445,10 +471,19 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input[_key] = round_temp(user_input[_key])
             method = user_input[CONF_TEMP_METHOD]
             sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
+            existing = central_entries(self.hass)
+            name = str(user_input.get(CONF_NAME, "")).strip().casefold()
             if method == CONF_TEMP_METHOD_REFERENCE and not sensor:
                 errors[CONF_TEMPERATURE_SENSOR] = "sensor_required"
+            elif any(str(e.title or e.data.get(CONF_NAME, "")).strip().casefold() == name for e in existing):
+                errors[CONF_NAME] = "building_exists"
             else:
-                await self.async_set_unique_id("electric_heater_central")
+                # 1er central : identifiants historiques. Bâtiment suivant : unique_id non fixe,
+                # ses entités sont préfixées par son entry_id (central_uid).
+                if existing:
+                    await self.async_set_unique_id(f"{LEGACY_CENTRAL_UID}_{uuid.uuid4().hex}")
+                else:
+                    await self.async_set_unique_id(LEGACY_CENTRAL_UID)
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=user_input.get(CONF_NAME, "Thermostat virtuel"),
@@ -561,6 +596,9 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 title=user_input[CONF_NAME],
                 data_updates={
                     **user_input,
+                    CONF_CENTRAL_ENTRY_ID: _chosen_building(
+                        self.hass, user_input, entry.data.get(CONF_CENTRAL_ENTRY_ID)
+                    ),
                     CONF_WINDOW_SENSORS: _normalize_windows(user_input.get(CONF_WINDOW_SENSORS)),
                     CONF_POWER: int(user_input.get(CONF_POWER) or 0),
                     CONF_ENERGY_SENSOR: user_input.get(CONF_ENERGY_SENSOR) or "",
@@ -573,6 +611,9 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_room(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
+        if not central_entries(self.hass):
+            # Une pièce suit toujours un thermostat central : il faut d'abord en créer un.
+            return self.async_abort(reason="no_central")
         if user_input is not None:
             fil_id = user_input[CONF_FIL_PILOTE_SELECT]
             await self.async_set_unique_id(f"electric_heater_room_{fil_id}")
@@ -581,8 +622,7 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 title=user_input[CONF_NAME],
                 data={
                     "type": ROOM,
-                    # Bâtiment : le central par défaut (choix du bâtiment dans le formulaire : PR B).
-                    CONF_CENTRAL_ENTRY_ID: central.entry_id if (central := default_central(self.hass)) else None,
+                    CONF_CENTRAL_ENTRY_ID: _chosen_building(self.hass, user_input),
                     CONF_NAME: user_input[CONF_NAME],
                     CONF_FIL_PILOTE_SELECT: fil_id,
                     CONF_TEMPERATURE_SENSOR: user_input[CONF_TEMPERATURE_SENSOR],
@@ -657,6 +697,9 @@ class ElectricHeaterOptionsFlow(config_entries.OptionsFlow):
             new_data = {
                 **self.config_entry.data,
                 **user_input,
+                CONF_CENTRAL_ENTRY_ID: _chosen_building(
+                    self.hass, user_input, self.config_entry.data.get(CONF_CENTRAL_ENTRY_ID)
+                ),
                 CONF_ENERGY_SENSOR: user_input.get(CONF_ENERGY_SENSOR) or "",
                 CONF_WINDOW_SENSORS: _normalize_windows(
                     user_input.get(CONF_WINDOW_SENSORS)

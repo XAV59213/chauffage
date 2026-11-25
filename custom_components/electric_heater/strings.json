@@ -2,12 +2,16 @@
   "title": "French Pilot-Wire Electric Heating",
   "config": {
     "initiate_flow": {
-      "user": "Add a radiator"
+      "user": "Add a building or a radiator"
     },
     "step": {
       "user": {
         "title": "French Pilot-Wire Electric Heating",
-        "description": "Create the virtual thermostat first, then add each radiator."
+        "description": "Add a new building (its own virtual thermostat) or a radiator in an existing building.",
+        "menu_options": {
+          "central": "New building (virtual thermostat)",
+          "room": "New room (radiator)"
+        }
       },
       "central": {
         "title": "Configure the thermostat",
@@ -58,7 +62,8 @@
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors (optional)",
           "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
-          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)",
+          "central_entry_id": "Building"
         }
       },
       "reconfigure_central": {
@@ -108,18 +113,21 @@
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors (optional)",
           "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
-          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)",
+          "central_entry_id": "Building"
         }
       }
     },
     "error": {
       "invalid_sensor": "Invalid or missing sensor",
       "sensor_required": "Please choose a temperature sensor",
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "building_exists": "A building with this name already exists"
     },
     "abort": {
       "already_configured": "This device is already configured",
-      "reconfigure_successful": "Configuration updated."
+      "reconfigure_successful": "Configuration updated.",
+      "no_central": "Create a building (virtual thermostat) first."
     }
   },
   "options": {
@@ -179,7 +187,8 @@
           "temperature_sensor": "Room temperature sensor",
           "window_sensors": "Window sensors",
           "power": "Radiator power (W, for estimated consumption; 0 = not tracked)",
-          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)"
+          "energy_sensor": "Radiator energy meter (optional; empty = auto-detect a *_energy sensor)",
+          "central_entry_id": "Building"
         }
       }
     }

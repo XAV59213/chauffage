@@ -364,3 +364,29 @@ async def test_unregistered_second_central(hass: HomeAssistant) -> None:
     assert building.central_uid(b, "presents") == "electric_heater_central_X_presents"
     assert building.central_history_id(b) == "central_X"
     assert building.central_history_id(None) == "central"
+
+
+async def test_change_building_reloads_and_relinks(hass: HomeAssistant) -> None:
+    """Pièce déplacée de Maison vers Gîte : rechargée, via_device mis à jour, suit le Gîte."""
+    calls, a, b = await _two_buildings(hass)
+    room = hass.config_entries.async_get_entry("ROOMA")
+    for central, preset in ((a, "comfort"), (b, "eco")):
+        await _svc(hass, "set_hvac_mode", central, hvac_mode=HVACMode.HEAT)
+        await _svc(hass, "set_preset_mode", central, preset_mode=preset)
+    assert _last(calls, SEL_A) == "comfort"
+    result = await room.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {
+        "name": "Salon", "fil_pilote_select": SEL_A, "temperature_sensor": "sensor.salon_temp",
+        "central_entry_id": "BATB", "power": 1000})
+    await hass.async_block_till_done()
+    assert result["reason"] == "reconfigure_successful"
+    devices = dr.async_get(hass)
+    dev_b = _dev(devices, (DOMAIN, "electric_heater_central_BATB"))
+    assert _dev(devices, (DOMAIN, "room_ROOMA")).via_device_id == dev_b.id
+    assert [e.entry_id for e in building.iter_room_entries(hass, "BATB")] == ["ROOMA", "ROOMB"]
+    assert hass.states.get(b).attributes["rooms"] == ["Salon", "Salon"]
+    assert hass.states.get(a).attributes["rooms"] == []
+    await _svc(hass, "set_preset_mode", b, preset_mode="frost_protection")
+    assert _last(calls, SEL_A) == "anti_freeze"
+    await _svc(hass, "set_preset_mode", a, preset_mode="comfort")
+    assert _last(calls, SEL_A) == "anti_freeze"
