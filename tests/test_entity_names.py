@@ -41,7 +41,12 @@ EXPECTED = {
     "sensor.thermostat_virtuel_temperature_centrale": "Thermostat virtuel Temperature Centrale",
     "sensor.thermostat_virtuel_temperature_exterieure": "Thermostat virtuel Temperature exterieure",
     "sensor.thermostat_virtuel_temps_de_chauffe_maison_aujourd_hui": "Thermostat virtuel Temps de chauffe maison aujourd'hui",
-    "sensor.thermostat_virtuel_temps_de_chauffe_maison_total": "Thermostat virtuel Temps de chauffe maison total"
+    "sensor.thermostat_virtuel_temps_de_chauffe_maison_total": "Thermostat virtuel Temps de chauffe maison total",
+    # Total « toutes dépendances » (multi-bâtiments) : nouveaux capteurs, rien d'existant ne change.
+    "sensor.thermostat_virtuel_consommation_toutes_dependances_aujourd_hui": "Thermostat virtuel Consommation toutes dépendances aujourd'hui",
+    "sensor.thermostat_virtuel_consommation_toutes_dependances_totale": "Thermostat virtuel Consommation toutes dépendances totale",
+    "sensor.thermostat_virtuel_temps_de_chauffe_toutes_dependances_aujourd_hui": "Thermostat virtuel Temps de chauffe toutes dépendances aujourd'hui",
+    "sensor.thermostat_virtuel_temps_de_chauffe_toutes_dependances_total": "Thermostat virtuel Temps de chauffe toutes dépendances total",
 }
 
 DISABLED = ("sensor.thermostat_virtuel_temperature_centrale", "sensor.thermostat_virtuel_temperature_exterieure")

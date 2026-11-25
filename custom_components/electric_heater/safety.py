@@ -30,31 +30,31 @@ EVENT_ALERT = f"{DOMAIN}_alerte"
 _TITLE = "Chauffage fil pilote"
 
 
-def max_safe_temp(hass: HomeAssistant) -> float:
+def max_safe_temp(hass: HomeAssistant, central_id: str | None = None) -> float:
     try:
-        return float(central_option(hass, CONF_MAX_SAFE_TEMP, DEFAULT_MAX_SAFE_TEMP))
+        return float(central_option(hass, CONF_MAX_SAFE_TEMP, DEFAULT_MAX_SAFE_TEMP, central_id))
     except (TypeError, ValueError):
         return DEFAULT_MAX_SAFE_TEMP
 
 
-def overheat_margin(hass: HomeAssistant) -> float:
+def overheat_margin(hass: HomeAssistant, central_id: str | None = None) -> float:
     try:
-        return float(central_option(hass, CONF_OVERHEAT_MARGIN, DEFAULT_OVERHEAT_MARGIN))
+        return float(central_option(hass, CONF_OVERHEAT_MARGIN, DEFAULT_OVERHEAT_MARGIN, central_id))
     except (TypeError, ValueError):
         return DEFAULT_OVERHEAT_MARGIN
 
 
-def unstable_count(hass: HomeAssistant) -> int:
+def unstable_count(hass: HomeAssistant, central_id: str | None = None) -> int:
     try:
-        return int(central_option(hass, CONF_UNSTABLE_COUNT, DEFAULT_UNSTABLE_COUNT))
+        return int(central_option(hass, CONF_UNSTABLE_COUNT, DEFAULT_UNSTABLE_COUNT, central_id))
     except (TypeError, ValueError):
         return DEFAULT_UNSTABLE_COUNT
 
 
-def clamp_target(hass: HomeAssistant, value: Any) -> Any:
+def clamp_target(hass: HomeAssistant, value: Any, central_id: str | None = None) -> Any:
     if not isinstance(value, (int, float)):
         return value
-    return min(float(value), max_safe_temp(hass))
+    return min(float(value), max_safe_temp(hass, central_id))
 
 
 def alerts(hass: HomeAssistant) -> dict[str, dict[str, Any]]:
@@ -74,8 +74,11 @@ def set_alert(hass: HomeAssistant, entry_id: str, piece: str, kind: str, on: boo
     return changed
 
 
-def send_alert(hass: HomeAssistant, key: str, message: str, rate: float, data: dict[str, Any]) -> None:
-    """Événement + notification persistante + services notify (limité dans le temps)."""
+def send_alert(
+    hass: HomeAssistant, key: str, message: str, rate: float, data: dict[str, Any],
+    central_id: str | None = None,
+) -> None:
+    """Événement + notification persistante + services notify du bâtiment (limité dans le temps)."""
     hass.bus.async_fire(EVENT_ALERT, {**data, "message": message})
     _LOGGER.warning("Alerte chauffage : %s", message)
     last = hass.data.setdefault(DOMAIN, {}).setdefault("_alert_sent", {})
@@ -86,7 +89,7 @@ def send_alert(hass: HomeAssistant, key: str, message: str, rate: float, data: d
     persistent_notification.async_create(
         hass, message, title=_TITLE, notification_id=f"{DOMAIN}_{key}"
     )
-    raw = central_option(hass, CONF_NOTIFY_SERVICE, []) or []
+    raw = central_option(hass, CONF_NOTIFY_SERVICE, [], central_id) or []
     items = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
     for item in items:
         service = str(item).strip().removeprefix("notify.")

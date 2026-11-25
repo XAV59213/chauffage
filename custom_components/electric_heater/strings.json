@@ -278,6 +278,18 @@
       },
       "conso_compteurs_jour": {
         "name": "Consommation compteurs aujourd'hui"
+      },
+      "global_chauffe_jour": {
+        "name": "Temps de chauffe toutes dépendances aujourd'hui"
+      },
+      "global_chauffe_total": {
+        "name": "Temps de chauffe toutes dépendances total"
+      },
+      "global_conso_jour": {
+        "name": "Consommation toutes dépendances aujourd'hui"
+      },
+      "global_conso_total": {
+        "name": "Consommation toutes dépendances totale"
       }
     },
     "binary_sensor": {

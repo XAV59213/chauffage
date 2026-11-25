@@ -21,7 +21,6 @@ from .entity import CentralEntity, RoomEntity, SourceAvailabilityMixin, central_
 from .const import (
     NO_OPTIONS,
     CENTRAL,
-    CENTRAL_ENTITY_ID,
     CONF_PERSONS,
     CONF_PRESENCE_SENSOR,
     CONF_TEMPERATURE_SENSOR,
@@ -29,9 +28,8 @@ from .const import (
     DOMAIN,
     EVENT_WINDOWS_CHANGED,
 )
+from .building import central_history_id, central_uid
 from .fil_pilote import (
-    central_entity_id,
-
     all_configured_windows,
     entry_windows_open,
     get_central_state,
@@ -44,7 +42,15 @@ from .fil_pilote import (
 from .history import ATTR_ENTRIES, CHANGE_LABELS, MERGED_ID, entry_summary, get_history, signal as history_signal
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .occupancy import occupancy_count, present_names
-from .stats import CentralMeterDailySensor, CentralMeteredEnergySensor, RoomMeterDailySensor, CentralStatSensor, RoomHeatingTimeSensor
+from .stats import (
+    CentralMeterDailySensor,
+    CentralMeteredEnergySensor,
+    CentralStatSensor,
+    GlobalStatSensor,
+    RoomHeatingTimeSensor,
+    RoomMeterDailySensor,
+    is_global_stats_host,
+)
 from .weather import outdoor_temperature, weather_condition
 
 if TYPE_CHECKING:
@@ -57,17 +63,22 @@ PARALLEL_UPDATES = 0
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     entities: list[SensorEntity] = []
     if entry.data.get("type") == CENTRAL:
-        entities.append(CentralTemperatureSensor(hass))
+        entities.append(CentralTemperatureSensor(hass, entry))
         entities.append(WindowStateSensor(hass, entry, central=True))
         entities.append(WhoIsHomeSensor(hass, entry))
         entities.append(OutdoorWeatherSensor(hass, entry))
-        entities.append(OpenWindowsSensor(hass))
-        entities.append(SensorKoSensor(hass))
+        entities.append(OpenWindowsSensor(hass, entry))
+        entities.append(SensorKoSensor(hass, entry))
         for kind in ("time", "energy"):
             for daily in (True, False):
-                entities.append(CentralStatSensor(hass, daily=daily, kind=kind))
-        entities.append(CentralMeteredEnergySensor(hass))
-        entities.append(CentralMeterDailySensor(hass))
+                entities.append(CentralStatSensor(hass, daily=daily, kind=kind, entry=entry))
+        entities.append(CentralMeteredEnergySensor(hass, entry))
+        entities.append(CentralMeterDailySensor(hass, entry))
+        if is_global_stats_host(hass, entry):
+            # Total « toutes dépendances » : créé une seule fois (central historique, sinon le premier).
+            for kind in ("time", "energy"):
+                for daily in (True, False):
+                    entities.append(GlobalStatSensor(hass, daily=daily, kind=kind, entry=entry))
         entities.append(LastChangeSensor(hass, entry))
         entities.append(CentralLastDecisionSensor(hass, entry))
     else:
@@ -92,20 +103,21 @@ class CentralTemperatureSensor(SourceAvailabilityMixin, CentralEntity, SensorEnt
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._unsub = None
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [central_entity_id(self.hass) or CENTRAL_ENTITY_ID], self._update)
+            async_track_state_change_event(self.hass, self._central_eids(), self._update)
         )
         self._update()
 
     @callback
     def _update(self, event: Event[Any] | datetime | None = None) -> None:
-        central = get_central_state(self.hass)
+        central = get_central_state(self.hass, self.central_id)
         value = None
         if central:
             raw = central.attributes.get("current_temperature")
@@ -120,6 +132,7 @@ class CentralTemperatureSensor(SourceAvailabilityMixin, CentralEntity, SensorEnt
 
 
 class OutdoorWeatherSensor(CentralEntity, SensorEntity):
+    entry: ConfigEntry
     _attr_has_entity_name = True
     _attr_translation_key = "temperature_exterieure"
     # Doublon de l'entité météo choisie : désactivé par défaut.
@@ -164,6 +177,7 @@ class OutdoorWeatherSensor(CentralEntity, SensorEntity):
 class WhoIsHomeSensor(CentralEntity, SensorEntity):
     """Un seul capteur : suit Nombre famille home."""
 
+    entry: ConfigEntry
     _attr_has_entity_name = True
     _attr_translation_key = "presents"
     _attr_unique_id = "electric_heater_central_presents"
@@ -275,20 +289,20 @@ class WindowStateSensor(SensorEntity):
         self._central = central
         self._unsub = None
         if central:
-            self._attr_unique_id = "electric_heater_central_etat_fenetre"
+            self._attr_unique_id = central_uid(entry, "etat_fenetre")
         else:
             self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_etat_fenetre"
 
     @property
     def device_info(self) -> DeviceInfo:
         if self._central:
-            return central_device_info()
+            return central_device_info(self.entry)
         return room_device_info(getattr(self, "hass", None), self.entry)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         sensors = (
-            all_configured_windows(self.hass)
+            all_configured_windows(self.hass, self.entry.entry_id)
             if self._central
             else windows_from_entry(self.entry, self.hass)
         )
@@ -300,7 +314,7 @@ class WindowStateSensor(SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         sensors = (
-            all_configured_windows(self.hass)
+            all_configured_windows(self.hass, self.entry.entry_id)
             if self._central
             else windows_from_entry(self.entry, self.hass)
         )
@@ -316,12 +330,12 @@ class WindowStateSensor(SensorEntity):
         current = self.hass.config_entries.async_get_entry(self.entry.entry_id)
         self.entry = current or self.entry
         opened = (
-            house_window_open(self.hass)
+            house_window_open(self.hass, self.entry.entry_id)
             if self._central
             else entry_windows_open(self.hass, self.entry)
         )
         sensors = (
-            all_configured_windows(self.hass)
+            all_configured_windows(self.hass, self.entry.entry_id)
             if self._central
             else windows_from_entry(self.entry, self.hass)
         )
@@ -343,10 +357,10 @@ class WindowStateSensor(SensorEntity):
         self.async_write_ha_state()
 
 
-def _room_temp_sensors(hass: HomeAssistant) -> list[str]:
+def _room_temp_sensors(hass: HomeAssistant, central_id: str | None = None) -> list[str]:
     return [
         e.data[CONF_TEMPERATURE_SENSOR]
-        for e in iter_room_entries(hass)
+        for e in iter_room_entries(hass, central_id)
         if e.data.get(CONF_TEMPERATURE_SENSOR)
     ]
 
@@ -359,8 +373,9 @@ class OpenWindowsSensor(CentralEntity, SensorEntity):
     _attr_unique_id = "electric_heater_central_fenetres_ouvertes"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._open: list[dict[str, Any]] = []
 
     @property
@@ -377,7 +392,7 @@ class OpenWindowsSensor(CentralEntity, SensorEntity):
         }
 
     async def async_added_to_hass(self) -> None:
-        sensors = all_configured_windows(self.hass)
+        sensors = all_configured_windows(self.hass, self.central_id)
         if sensors:
             self.async_on_remove(
                 async_track_state_change_event(self.hass, sensors, self._update)
@@ -390,7 +405,7 @@ class OpenWindowsSensor(CentralEntity, SensorEntity):
 
     @callback
     def _update(self, event: Event[Any] | datetime | None = None) -> None:
-        self._open = open_windows(self.hass)
+        self._open = open_windows(self.hass, self.central_id)
         self._attr_native_value = len(self._open)
         self.async_write_ha_state()
 
@@ -403,8 +418,9 @@ class SensorKoSensor(CentralEntity, SensorEntity):
     _attr_unique_id = "electric_heater_central_sondes_ko"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._ko: list[dict[str, Any]] = []
 
     @property
@@ -421,7 +437,7 @@ class SensorKoSensor(CentralEntity, SensorEntity):
         }
 
     async def async_added_to_hass(self) -> None:
-        sensors = _room_temp_sensors(self.hass)
+        sensors = _room_temp_sensors(self.hass, self.central_id)
         if sensors:
             self.async_on_remove(
                 async_track_state_change_event(self.hass, sensors, self._update)
@@ -433,7 +449,7 @@ class SensorKoSensor(CentralEntity, SensorEntity):
 
     @callback
     def _update(self, event: Event[Any] | datetime | None = None) -> None:
-        self._ko = rooms_sensor_ko(self.hass)
+        self._ko = rooms_sensor_ko(self.hass, self.central_id)
         self._attr_native_value = len(self._ko)
         self.async_write_ha_state()
 
@@ -501,6 +517,7 @@ def _last_change(history: DecisionHistory) -> str | None:
 class LastChangeSensor(CentralEntity, SensorEntity):
     """Dernier changement de consigne / mode / preset du thermostat central (Activité)."""
 
+    entry: ConfigEntry
     _attr_has_entity_name = True
     _attr_translation_key = "dernier_changement"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -509,7 +526,7 @@ class LastChangeSensor(CentralEntity, SensorEntity):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
-        self._history = get_history(hass, "central", "Thermostat central")
+        self._history = get_history(hass, central_history_id(entry), "Thermostat central")
 
     def _last(self) -> dict[str, Any] | None:
         found = _change_entries(self._history, 1)
@@ -535,7 +552,7 @@ class LastChangeSensor(CentralEntity, SensorEntity):
     async def async_added_to_hass(self) -> None:
         await self._history.async_load()
         self.async_on_remove(
-            async_dispatcher_connect(self.hass, history_signal("central"), self._updated)
+            async_dispatcher_connect(self.hass, history_signal(central_history_id(self.entry)), self._updated)
         )
 
     @callback
@@ -546,6 +563,7 @@ class LastChangeSensor(CentralEntity, SensorEntity):
 class CentralLastDecisionSensor(CentralEntity, SensorEntity):
     """Dernière décision toutes pièces confondues (appareil central)."""
 
+    entry: ConfigEntry
     _attr_has_entity_name = True
     _attr_translation_key = "derniere_decision"
     _attr_entity_category = EntityCategory.DIAGNOSTIC

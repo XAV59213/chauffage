@@ -25,16 +25,14 @@ from . import safety
 from .entity import CentralEntity, RoomEntity, central_device_info, room_device_info
 from .const import (
     CENTRAL,
-    CENTRAL_ENTITY_ID,
     CONF_HEATING_CALENDAR,
     CONF_PRESENCE_SENSOR,
     CONF_TEMPERATURE_SENSOR,
     DOMAIN,
     EVENT_WINDOWS_CHANGED,
 )
+from .building import central_uid
 from .fil_pilote import (
-    central_entity_id,
-
     entry_windows_open,
     get_central_state,
     iter_room_entries,
@@ -57,12 +55,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     if entry.data.get("type") == CENTRAL:
         entities.extend(
             [
-                CentralHeatingActive(hass),
+                CentralHeatingActive(hass, entry),
                 CentralPresence(hass, entry),
-                CentralAutoEcoMode(hass),
+                CentralAutoEcoMode(hass, entry),
                 CentralCalendarActive(hass, entry),
-                CentralCalendarEnabled(hass),
-                BatteryAlert(hass),
+                CentralCalendarEnabled(hass, entry),
+                BatteryAlert(hass, entry),
                 SafetyAlert(hass, entry, "surchauffe", central=True),
                 SafetyAlert(hass, entry, "instable", central=True),
                 SeasonActive(hass, entry),
@@ -85,20 +83,21 @@ class CentralHeatingActive(CentralEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_is_on = False
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._unsub: Callable[[], None] | None = None
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [central_entity_id(self.hass) or CENTRAL_ENTITY_ID], self._update)
+            async_track_state_change_event(self.hass, self._central_eids(), self._update)
         )
         self._update()
 
     @callback
     def _update(self, event: Event[Any] | datetime | None = None) -> None:
-        central = get_central_state(self.hass)
+        central = get_central_state(self.hass, self.central_id)
         if not central:
             self._attr_is_on = False
         else:
@@ -110,6 +109,7 @@ class CentralHeatingActive(CentralEntity, BinarySensorEntity):
 
 
 class CentralPresence(CentralEntity, BinarySensorEntity):
+    entry: ConfigEntry
     _attr_has_entity_name = True
     _attr_translation_key = "presence"
     _attr_unique_id = "electric_heater_central_presence"
@@ -118,6 +118,7 @@ class CentralPresence(CentralEntity, BinarySensorEntity):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
+        self.entry = entry
         self._sensor = entry.data.get(CONF_PRESENCE_SENSOR)
 
     async def async_added_to_hass(self) -> None:
@@ -148,20 +149,21 @@ class CentralAutoEcoMode(CentralEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_is_on = False
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._unsub: Callable[[], None] | None = None
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [central_entity_id(self.hass) or CENTRAL_ENTITY_ID], self._update)
+            async_track_state_change_event(self.hass, self._central_eids(), self._update)
         )
         self._update()
 
     @callback
     def _update(self, event: Event[Any] | datetime | None = None) -> None:
-        central = get_central_state(self.hass)
+        central = get_central_state(self.hass, self.central_id)
         self._attr_is_on = bool(central and central.attributes.get("auto_eco_active"))
         self.async_write_ha_state()
 
@@ -175,21 +177,20 @@ class CentralCalendarEnabled(CentralEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.RUNNING
     _attr_is_on = False
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(self.hass.bus.async_listen(f"{DOMAIN}_central_changed", self._update))
-        from .fil_pilote import central_entity_id
-        eid = central_entity_id(self.hass) or CENTRAL_ENTITY_ID
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [eid], self._update)
+            async_track_state_change_event(self.hass, self._central_eids(), self._update)
         )
         self._update()
 
     @callback
     def _update(self, event: Event[Any] | datetime | None = None) -> None:
-        central = get_central_state(self.hass)
+        central = get_central_state(self.hass, self.central_id)
         self._attr_is_on = bool(
             central and central.state == "auto" and central.attributes.get("calendar_active") is True
         )
@@ -201,6 +202,7 @@ class CentralCalendarEnabled(CentralEntity, BinarySensorEntity):
 
 
 class CentralCalendarActive(CentralEntity, BinarySensorEntity):
+    entry: ConfigEntry
     _attr_has_entity_name = True
     _attr_translation_key = "calendrier"
     _attr_unique_id = "electric_heater_central_calendrier"
@@ -306,8 +308,9 @@ class BatteryAlert(CentralEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_is_on = False
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._ko: list[dict[str, Any]] = []
 
     @property
@@ -321,7 +324,7 @@ class BatteryAlert(CentralEntity, BinarySensorEntity):
     async def async_added_to_hass(self) -> None:
         sensors = [
             e.data[CONF_TEMPERATURE_SENSOR]
-            for e in iter_room_entries(self.hass)
+            for e in iter_room_entries(self.hass, self.central_id)
             if e.data.get(CONF_TEMPERATURE_SENSOR)
         ]
         if sensors:
@@ -335,7 +338,7 @@ class BatteryAlert(CentralEntity, BinarySensorEntity):
 
     @callback
     def _update(self, event: Event[Any] | datetime | None = None) -> None:
-        self._ko = rooms_sensor_ko(self.hass)
+        self._ko = rooms_sensor_ko(self.hass, self.central_id)
         self._attr_is_on = bool(self._ko)
         self.async_write_ha_state()
 
@@ -352,19 +355,23 @@ class SafetyAlert(BinarySensorEntity):
         self._kind = kind
         self._central = central
         self._attr_translation_key = "alerte_surchauffe" if kind == "surchauffe" else "detecteur_instable"
-        scope = "central" if central else f"room_{entry.entry_id}"
-        self._attr_unique_id = f"electric_heater_{scope}_alerte_{kind}"
+        if central:
+            self._attr_unique_id = central_uid(entry, f"alerte_{kind}")
+        else:
+            self._attr_unique_id = f"electric_heater_room_{entry.entry_id}_alerte_{kind}"
 
     @property
     def device_info(self) -> DeviceInfo:
         if self._central:
-            return central_device_info()
+            return central_device_info(self.entry)
         return room_device_info(getattr(self, "hass", None), self.entry)
 
     def _rooms(self) -> list[dict[str, Any]]:
         data = safety.alerts(self.hass)
         if self._central:
-            return [r for r in data.values() if r.get(self._kind)]
+            # Seulement les pièces de ce bâtiment
+            mine = {e.entry_id for e in iter_room_entries(self.hass, self.entry.entry_id)}
+            return [r for eid, r in data.items() if eid in mine and r.get(self._kind)]
         r = data.get(self.entry.entry_id) or {}
         return [r] if r.get(self._kind) else []
 
@@ -391,6 +398,7 @@ class SafetyAlert(BinarySensorEntity):
 class SeasonActive(CentralEntity, BinarySensorEntity):
     """Saison de chauffe en cours (central)."""
 
+    entry: ConfigEntry
     _attr_has_entity_name = True
     _attr_translation_key = "saison_chauffe"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -402,14 +410,14 @@ class SeasonActive(CentralEntity, BinarySensorEntity):
 
     def _info(self) -> dict[str, Any]:
         from . import season as season_mod
-        st = self.hass.states.get(central_entity_id(self.hass) or CENTRAL_ENTITY_ID)
+        st = get_central_state(self.hass, self.central_id)
         if st and isinstance(st.attributes.get("saison"), dict):
             return cast(dict[str, Any], st.attributes["saison"])
-        return season_mod.get_season(self.hass).evaluate()
+        return season_mod.get_season(self.hass, self.central_id).evaluate()
 
     @property
     def is_on(self) -> bool:
-        st = self.hass.states.get(central_entity_id(self.hass) or CENTRAL_ENTITY_ID)
+        st = get_central_state(self.hass, self.central_id)
         if st is not None and "hors_saison" in st.attributes:
             return not bool(st.attributes.get("hors_saison"))
         return bool(self._info().get("in_season", True))
@@ -429,7 +437,7 @@ class SeasonActive(CentralEntity, BinarySensorEntity):
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(
-            async_track_state_change_event(self.hass, [central_entity_id(self.hass) or CENTRAL_ENTITY_ID], self._upd)
+            async_track_state_change_event(self.hass, self._central_eids(), self._upd)
         )
         self.async_on_remove(
             async_track_time_interval(self.hass, self._upd, timedelta(minutes=15))

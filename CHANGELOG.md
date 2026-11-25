@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Multi-bâtiments (préparation, partie A) : chaque pièce est rattachée à son thermostat central (migration automatique, aucun identifiant ni historique modifié) ; réglages, saison, sécurité, notifications, fenêtres et statistiques par bâtiment ; nouveaux capteurs « toutes dépendances » (consommation et temps de chauffe, jour et total). Un seul bâtiment : comportement inchangé.
+
 ## 3.1.77
 
 - README : bouton « Discuter sur Forum Domotique » et badge des étoiles GitHub.
