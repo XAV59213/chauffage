@@ -1,7 +1,7 @@
 """Climate : thermostat virtuel + radiateurs fil pilote."""
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.core import Context, Event, State
@@ -77,6 +77,7 @@ from .const import (
     WINDOW_OFF_DELAY,
 )
 from .stats import room_energy_sensor
+from .building import building_id, central_history_id, central_uid, is_legacy_central
 from .fil_pilote import (
     central_entity_id,
     room_current_temp,
@@ -165,6 +166,11 @@ class _TunablesMixin:
     """Réglages avancés lus sur le thermostat central (défauts = const.py)."""
 
     hass: HomeAssistant
+    entry: ConfigEntry
+
+    def _bid(self) -> str | None:
+        """entry_id du central du bâtiment (le central lui-même, ou celui de la pièce)."""
+        return building_id(getattr(self, "hass", None), self.entry)
 
     def _safe_write_ha_state(self) -> None:
         """Écrit l'état uniquement depuis la boucle d'événements."""
@@ -180,16 +186,16 @@ class _TunablesMixin:
     @property
     def max_temp(self) -> float:
         base = getattr(self, "_attr_max_temp", None) or 35.0
-        return min(float(base), safety.max_safe_temp(self.hass))
+        return min(float(base), safety.max_safe_temp(self.hass, self._bid()))
 
     def _comfort_hyst(self) -> float:
-        return float(central_option(self.hass, CONF_HYSTERESIS, HYSTERESIS[PRESET_COMFORT]))
+        return float(central_option(self.hass, CONF_HYSTERESIS, HYSTERESIS[PRESET_COMFORT], self._bid()))
 
     def _window_off_delay(self) -> float:
-        return float(central_option(self.hass, CONF_WINDOW_OFF_DELAY, WINDOW_OFF_DELAY))
+        return float(central_option(self.hass, CONF_WINDOW_OFF_DELAY, WINDOW_OFF_DELAY, self._bid()))
 
     def _resync_interval(self) -> float:
-        return max(1.0, float(central_option(self.hass, CONF_RESYNC_INTERVAL, RESYNC_INTERVAL_MIN)))
+        return max(1.0, float(central_option(self.hass, CONF_RESYNC_INTERVAL, RESYNC_INTERVAL_MIN, self._bid())))
 
 
 def _r1(value: Any) -> Any:
@@ -211,8 +217,6 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     _attr_has_entity_name = True
     _attr_name = None
     _attr_translation_key = "central"
-    _attr_unique_id = "electric_heater_central"
-    entity_id = CENTRAL_ENTITY_ID
     if _NATIVE_CLIMATE:
         _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     else:
@@ -225,6 +229,10 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
+        # Central historique : unique_id et entity_id inchangés ; autre bâtiment : préfixés.
+        self._attr_unique_id = central_uid(entry)
+        if is_legacy_central(entry):
+            self.entity_id = CENTRAL_ENTITY_ID
         self._load_from_entry()
         self._current_temp: float | None = None
         self._target_temp: float | None = None
@@ -240,7 +248,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._manual_hold = False
         self._last_changer: str | None = None
         self._last_change: dict[str, Any] | None = None
-        self._central_history = get_history(hass, "central", "Thermostat central")
+        self._central_history = get_history(hass, central_history_id(entry), "Thermostat central")
         self._hors_saison = False
         self._user_off = False  # Off manuel : ne pas reprendre auto en fin de hors-saison
         self._season_info: dict[str, Any] = {}
@@ -284,7 +292,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         }
 
     def _windows_live_open(self) -> bool:
-        return central_window_open(self.hass) or entry_windows_open(self.hass, self.entry)
+        return central_window_open(self.hass, self.entry.entry_id) or entry_windows_open(self.hass, self.entry)
 
     def _cancel_window_delay(self) -> None:
         if self._window_delay:
@@ -340,6 +348,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     @property
     def device_info(self) -> DeviceInfo:
         return central_device_info(
+            self.entry,
             name=self.entry.data.get("name", "Thermostat virtuel"),
             manufacturer="XAV59213",
             model="Thermostat virtuel 6 ordres",
@@ -372,11 +381,14 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         return self._hvac_action
 
     def _room_climate_ids(self) -> list[str]:
+        """Radiateurs de CE bâtiment uniquement."""
         reg = er.async_get(self.hass)
+        rooms = {e.entry_id for e in iter_room_entries(self.hass, self.entry.entry_id)}
         return [
             e.entity_id
             for e in reg.entities.values()
             if e.platform == DOMAIN and e.domain == "climate" and e.entity_id != self.entity_id
+            and e.config_entry_id in rooms
         ]
 
     def _any_room_heating(self) -> bool:
@@ -436,7 +448,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "fenetre": "Ouverte" if (self._window_open or self._windows_live_open()) else "Fermee",
             "fenetre_detectee": self._windows_live_open(),
             "hysteresis": hysteresis_for(self._preset_mode, self._comfort_hyst()),
-            "rooms": [e.title for e in iter_room_entries(self.hass)],
+            "rooms": [e.title for e in iter_room_entries(self.hass, self.entry.entry_id)],
             "dernier_changement_par": self._last_changer,
             "dernier_changement": self._last_change,
             "hors_saison": self._hors_saison,
@@ -615,7 +627,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if self._temp_method == CONF_TEMP_METHOD_AVERAGE:
             sensors = [
                 e.data.get(CONF_TEMPERATURE_SENSOR)
-                for e in iter_room_entries(self.hass)
+                for e in iter_room_entries(self.hass, self.entry.entry_id)
                 if e.data.get(CONF_TEMPERATURE_SENSOR)
             ]
             if self._reference_sensor:
@@ -634,7 +646,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     def _apply_season(self, push: bool = True) -> None:
         """Hors saison → Arrêt (flag interne) ; reprise Auto sauf Off manuel."""
-        info = season_mod.get_season(self.hass).evaluate()
+        info = season_mod.get_season(self.hass, self._bid()).evaluate()
         self._season_info = info
         want_off = not info["in_season"]
         if want_off == self._hors_saison:
@@ -833,7 +845,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if self._window_open:
             return
         if temp := kwargs.get("temperature"):
-            limit = safety.max_safe_temp(self.hass)
+            limit = safety.max_safe_temp(self.hass, self._bid())
             if temp > limit:
                 await self._note_change("consigne_limitee", _r1(temp), limit)
                 temp = limit
@@ -875,7 +887,7 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             # Reprise manuelle Auto : si encore hors saison, le prochain _season_tick
             # recoupera ; on ne bloque pas l'utilisateur (flag hors_saison recalculé).
             if self._hors_saison:
-                info = season_mod.get_season(self.hass).evaluate()
+                info = season_mod.get_season(self.hass, self._bid()).evaluate()
                 if info.get("in_season"):
                     self._hors_saison = False
         self._hvac_mode = hvac_mode
@@ -935,9 +947,10 @@ class CentralThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
     @callback
     def _notify_rooms(self, command: bool = False) -> None:
         """Les radiateurs lisent l'état du thermostat et appliquent eux-mêmes l'ordre."""
+        data = {"central_entry_id": self.entry.entry_id, "entity_id": self.entity_id}
         if command:
-            self.hass.bus.async_fire(EVENT_CENTRAL_COMMAND)
-        self.hass.bus.async_fire(EVENT_CENTRAL_CHANGED)
+            self.hass.bus.async_fire(EVENT_CENTRAL_COMMAND, data)
+        self.hass.bus.async_fire(EVENT_CENTRAL_CHANGED, data)
 
 
 class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
@@ -971,6 +984,8 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._hysteresis = 0.3
         self._follow_central = True
         self._central_window_open = False
+        self._central_eid: str | None = None
+        self._central_unsub: Callable[[], None] | None = None
         self._window_mode = DEFAULT_WINDOW_MODE
         self._temp_sensor = entry.data[CONF_TEMPERATURE_SENSOR]
         self._sensor_ko = False
@@ -1101,7 +1116,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         eid = self.entry.entry_id
         current = room_current_temp(self.hass, self._temp_sensor)
         target = self._effective_target()
-        margin = safety.overheat_margin(self.hass)
+        margin = safety.overheat_margin(self.hass, self._bid())
         power = self._power_w()
         hot = (isinstance(current, (int, float)) and isinstance(target, (int, float))
                and target > 0 and current > target + margin
@@ -1124,7 +1139,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             if safety.set_alert(self.hass, eid, name, "surchauffe", True, detail) or not self._safety_off:
                 self._record(self._expected_preset, PRESET_OFF, reason, target=target, current=current)
             safety.send_alert(self.hass, f"surchauffe_{eid}", msg, safety.OVERHEAT_RATE,
-                              {"type": reason, "piece": name, "entry_id": eid})
+                              {"type": reason, "piece": name, "entry_id": eid}, self._bid())
             if not self._safety_off:
                 self._safety_off = True
                 # Arrêt forcé = ordre fil pilote de la pièce uniquement, jamais le HVAC du central.
@@ -1164,7 +1179,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self._unavail_times.append(now)
         self._unavail_times = [t for t in self._unavail_times if now - t < safety.UNSTABLE_WINDOW]
         n = len(self._unavail_times)
-        if n >= safety.unstable_count(self.hass):
+        if n >= safety.unstable_count(self.hass, self._bid()):
             name = str(self.entry.data.get("name", "")).strip()
             eid = self.entry.entry_id
             det = str(new.attributes.get("friendly_name") or new.entity_id).strip()
@@ -1178,7 +1193,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                              {"message": msg, "detecteur": new.entity_id, "nombre": n})
             safety.send_alert(self.hass, f"instable_{eid}", msg, safety.UNSTABLE_RATE,
                               {"type": "detecteur_instable", "piece": name, "entry_id": eid,
-                               "detecteur": new.entity_id})
+                               "detecteur": new.entity_id}, self._bid())
 
     def _cancel_window_delay(self) -> None:
         if self._window_delay:
@@ -1301,9 +1316,9 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         if self._any_window_open():
             return cast(
                 "float | None",
-                safety.clamp_target(self.hass, self._temps.get(PRESET_TO_TEMP_KEY.get(base, "comfort"))),
+                safety.clamp_target(self.hass, self._temps.get(PRESET_TO_TEMP_KEY.get(base, "comfort")), self._bid()),
             )
-        target = safety.clamp_target(self.hass, self._effective_target())
+        target = safety.clamp_target(self.hass, self._effective_target(), self._bid())
         return target if isinstance(target, (int, float)) and target > 0 else None
 
     @property
@@ -1350,7 +1365,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
             "radiateur_desobeit": self._not_obeying,
             "alerte_surchauffe": self._safety_off,
             "detecteur_instable": self._unstable,
-            "consigne_max_securite": safety.max_safe_temp(self.hass),
+            "consigne_max_securite": safety.max_safe_temp(self.hass, self._bid()),
             "dernier_changement_par": self._last_changer,
             "historique": self._history.last(ATTR_ENTRIES),
         }
@@ -1376,15 +1391,13 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
         self.async_on_remove(self._cancel_window_delay)
         self.async_on_remove(self._cancel_relay_check)
         self.async_on_remove(
-            self.hass.bus.async_listen(EVENT_CENTRAL_CHANGED, self._sync_from_central)
+            self.hass.bus.async_listen(EVENT_CENTRAL_CHANGED, self._on_central_changed)
         )
         self.async_on_remove(
             self.hass.bus.async_listen(EVENT_CENTRAL_COMMAND, self._on_central_command)
         )
-        _central_eid = central_entity_id(self.hass) or CENTRAL_ENTITY_ID
-        self.async_on_remove(
-            async_track_state_change_event(self.hass, [_central_eid], self._sync_from_central)
-        )
+        self._bind_central()
+        self.async_on_remove(self._unbind_central)
         if self._temp_sensor:
             self.async_on_remove(
                 async_track_state_change_event(
@@ -1417,7 +1430,9 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                 self.hass, self._periodic_resync, timedelta(minutes=self._resync_interval())
             )
         )
-        self.async_on_remove(lambda: self.hass.bus.async_fire(EVENT_ROOMS_CHANGED))
+        self.async_on_remove(
+            lambda: self.hass.bus.async_fire(EVENT_ROOMS_CHANGED, {"central_entry_id": self._bid()})
+        )
         steps: tuple[Callable[[], None], ...] = (
             lambda: self._update_room_temp(apply=False),
             lambda: self._check_windows(apply=False),
@@ -1430,14 +1445,50 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
                 _LOGGER.exception("Initialisation radiateur %s", self.entry.data.get("name"))
         self.async_write_ha_state()
         self._schedule_apply()
-        self.hass.bus.async_fire(EVENT_ROOMS_CHANGED)
+        self.hass.bus.async_fire(EVENT_ROOMS_CHANGED, {"central_entry_id": self._bid()})
 
     def _central_state(self) -> State | None:
-        return self.hass.states.get(CENTRAL_ENTITY_ID) or get_central_state(self.hass)
+        """État du thermostat central de SON bâtiment."""
+        return get_central_state(self.hass, self._bid())
+
+    def _is_my_central_event(self, event: Event[Any] | datetime | None) -> bool:
+        """Événement central sans bâtiment (ancien format) ou du bâtiment de cette pièce."""
+        data = getattr(event, "data", None)
+        if not isinstance(data, Mapping):
+            return True
+        cid = data.get("central_entry_id")
+        return cid is None or cid == self._bid()
+
+    def _bind_central(self) -> None:
+        """Suit l'état du thermostat central de son bâtiment (réabonné s'il change)."""
+        eid = central_entity_id(self.hass, self._bid())
+        if eid == self._central_eid:
+            return
+        self._unbind_central()
+        self._central_eid = eid
+        if eid:
+            self._central_unsub = async_track_state_change_event(
+                self.hass, [eid], self._sync_from_central
+            )
+
+    def _unbind_central(self) -> None:
+        if self._central_unsub:
+            self._central_unsub()
+        self._central_unsub = None
+        self._central_eid = None
+
+    @callback
+    def _on_central_changed(self, event: Event[Any] | datetime | None = None) -> None:
+        if not self._is_my_central_event(event):
+            return
+        self._bind_central()
+        self._sync_from_central()
 
     @callback
     def _on_central_command(self, event: Event[Any] | datetime | None = None) -> None:
         """Commande manuelle sur le thermostat virtuel : le radiateur le suit de nouveau."""
+        if not self._is_my_central_event(event):
+            return
         self._follow_central = True
         self._sync_from_central()
 
@@ -1719,7 +1770,7 @@ class RoomThermostat(_TunablesMixin, ClimateEntity, RestoreEntity):
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         if temp := kwargs.get("temperature"):
-            limit = safety.max_safe_temp(self.hass)
+            limit = safety.max_safe_temp(self.hass, self._bid())
             if temp > limit:
                 await self._record_user_change("consigne_limitee", temp, limit)
                 temp = limit

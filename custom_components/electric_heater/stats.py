@@ -28,6 +28,7 @@ from homeassistant.util import dt as dt_util
 
 from .entity import CentralEntity, RoomEntity
 from .const import NO_OPTIONS, CONF_POWER, DOMAIN
+from .building import building_id, default_central, get_central_entry
 from .fil_pilote import iter_room_entries
 
 _TICK = timedelta(minutes=1)
@@ -221,13 +222,14 @@ class RoomHeatingTimeSensor(RoomEntity, RestoreSensor):
 
 
 class CentralStatSensor(CentralEntity, SensorEntity):
-    """Somme de tous les radiateurs (temps de chauffe ou consommation)."""
+    """Somme des radiateurs du bâtiment (temps de chauffe ou consommation)."""
 
     _attr_has_entity_name = True
     _attr_suggested_display_precision = 2
 
-    def __init__(self, hass: HomeAssistant, daily: bool, kind: str) -> None:
+    def __init__(self, hass: HomeAssistant, daily: bool, kind: str, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._daily = daily
         self._kind = kind
         self._attr_translation_key = f"maison_{_KEYS[(kind, daily)]}"
@@ -243,13 +245,19 @@ class CentralStatSensor(CentralEntity, SensorEntity):
             self._attr_last_reset = dt_util.start_of_local_day()
         self._detail: dict[str, float] = {}
 
+    def _rooms(self) -> list[ConfigEntry]:
+        return iter_room_entries(self.hass, self.central_id)
+
+    def _label(self, entry: ConfigEntry) -> str:
+        return str(entry.data.get("name") or entry.title)
+
     def _sources(self) -> dict[str, str]:
         reg = er.async_get(self.hass)
         out = {}
-        for entry in iter_room_entries(self.hass):
+        for entry in self._rooms():
             eid = reg.async_get_entity_id("sensor", DOMAIN, stat_uid(entry.entry_id, self._kind, self._daily))
             if eid:
-                out[eid] = entry.data.get("name") or entry.title
+                out[eid] = self._label(entry)
         return out
 
     def _metered(self, est_eid: str) -> float | None:
@@ -310,8 +318,9 @@ class CentralMeteredEnergySensor(CentralEntity, SensorEntity):
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_suggested_display_precision = 2
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._detail: dict[str, float] = {}
         self._links: dict[str, str] = {}
 
@@ -323,7 +332,7 @@ class CentralMeteredEnergySensor(CentralEntity, SensorEntity):
     def _update(self, _now: datetime | None = None) -> None:
         detail: dict[str, float] = {}
         links: dict[str, str] = {}
-        for entry in iter_room_entries(self.hass):
+        for entry in iter_room_entries(self.hass, self.central_id):
             eid = room_energy_sensor(self.hass, entry)
             if not eid:
                 continue
@@ -344,6 +353,48 @@ class CentralMeteredEnergySensor(CentralEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"par_radiateur": self._detail, "compteurs": self._links}
+
+
+def is_global_stats_host(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Le total « toutes dépendances » est porté par un seul central (historique, sinon le premier)."""
+    host = default_central(hass)
+    return host is not None and host.entry_id == entry.entry_id
+
+
+class GlobalStatSensor(CentralStatSensor):
+    """Total « toutes dépendances » : somme des radiateurs de tous les bâtiments."""
+
+    def __init__(self, hass: HomeAssistant, daily: bool, kind: str, entry: ConfigEntry | None = None) -> None:
+        super().__init__(hass, daily=daily, kind=kind, entry=entry)
+        self._attr_translation_key = f"global_{_KEYS[(kind, daily)]}"
+        self._attr_unique_id = f"electric_heater_global_{_KEYS[(kind, daily)]}"
+        self._by_building: dict[str, float] = {}
+
+    def _rooms(self) -> list[ConfigEntry]:
+        return iter_room_entries(self.hass)
+
+    def _building(self, entry: ConfigEntry) -> str:
+        central = get_central_entry(self.hass, building_id(self.hass, entry))
+        return str(central.title or central.data.get("name")) if central else "?"
+
+    def _label(self, entry: ConfigEntry) -> str:
+        # Deux bâtiments peuvent avoir un « Salon » : le nom du bâtiment lève l'ambiguïté.
+        return f"{self._building(entry)} · {super()._label(entry)}"
+
+    @callback
+    def _update(self, _now: datetime | None = None) -> None:
+        by_building: dict[str, float] = {}
+        for entry in self._rooms():
+            by_building.setdefault(self._building(entry), 0.0)
+        super()._update(_now)
+        for label, value in self._detail.items():
+            building = label.split(" · ", 1)[0]
+            by_building[building] = round(by_building.get(building, 0.0) + value, 3)
+        self._by_building = by_building
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"par_radiateur": self._detail, "par_batiment": self._by_building}
 
 
 def _kwh(state: State | None) -> float | None:
@@ -458,8 +509,9 @@ class CentralMeterDailySensor(CentralEntity, SensorEntity):
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_suggested_display_precision = 2
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry | None = None) -> None:
         self.hass = hass
+        self.entry = entry
         self._detail: dict[str, float] = {}
         self._attr_last_reset = dt_util.start_of_local_day()
 
@@ -471,7 +523,7 @@ class CentralMeterDailySensor(CentralEntity, SensorEntity):
     def _update(self, _now: datetime | None = None) -> None:
         reg = er.async_get(self.hass)
         detail: dict[str, float] = {}
-        for entry in iter_room_entries(self.hass):
+        for entry in iter_room_entries(self.hass, self.central_id):
             eid = reg.async_get_entity_id("sensor", DOMAIN, f"electric_heater_room_{entry.entry_id}_compteur_jour")
             st = self.hass.states.get(eid) if eid else None
             try:

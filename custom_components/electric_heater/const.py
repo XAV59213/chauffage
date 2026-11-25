@@ -160,6 +160,10 @@ SETPOINT_KEYS = (
 )
 
 CENTRAL_ENTITY_ID = "climate.electric_heater_central"
+# Bâtiments : le central historique garde ses identifiants, les suivants sont préfixés par leur entry_id.
+LEGACY_CENTRAL_UID = "electric_heater_central"
+# Pièce → entry_id du thermostat central de son bâtiment
+CONF_CENTRAL_ENTRY_ID = "central_entry_id"
 
 FIL_PILOTE_DATA_KEYS = (
     CONF_FIL_PILOTE_SELECT,

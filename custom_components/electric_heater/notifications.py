@@ -31,6 +31,7 @@ from .const import (
     WINDOW_OFF_DELAY,
 )
 from .occupancy import present_names
+from .building import building_entries, central_entries, is_legacy_central
 from .fil_pilote import (
     get_central_state,
     open_windows,
@@ -67,6 +68,8 @@ class HeaterNotifier:
         self._unsubs: list[Callable[[], None]] = []
         self._ready = False
         self._ko_since: dict[str, float] = {}
+        # Bâtiment historique : identifiants de notification inchangés ; autres : préfixés.
+        self._prefix = DOMAIN if is_legacy_central(entry) else f"{DOMAIN}_{entry.entry_id}"
 
     # -- options --------------------------------------------------------
     def _opt(self, key: str, default: Any = None) -> Any:
@@ -83,13 +86,13 @@ class HeaterNotifier:
     def _room_sensors(self) -> dict[str, str]:
         return {
             e.data[CONF_TEMPERATURE_SENSOR]: e.data.get("name") or e.title
-            for e in iter_room_entries(self.hass)
+            for e in iter_room_entries(self.hass, self.entry.entry_id)
             if e.data.get(CONF_TEMPERATURE_SENSOR)
         }
 
     def _window_invert(self) -> dict[str, bool]:
         result: dict[str, bool] = {}
-        for entry in self.hass.config_entries.async_entries(DOMAIN):
+        for entry in building_entries(self.hass, self.entry.entry_id):
             inv = bool(entry.data.get("window_invert") or (entry.options or NO_OPTIONS).get("window_invert"))
             for eid in windows_from_entry(entry, self.hass):
                 result.setdefault(eid, inv)
@@ -99,7 +102,7 @@ class HeaterNotifier:
         """Capteur batterie (même appareil) -> détecteur de fenêtre."""
         ent_reg = er.async_get(self.hass)
         out: dict[str, str] = {}
-        for wid in all_configured_windows(self.hass):
+        for wid in all_configured_windows(self.hass, self.entry.entry_id):
             ent = ent_reg.async_get(wid)
             if not ent or not ent.device_id:
                 continue
@@ -114,10 +117,13 @@ class HeaterNotifier:
         if key in self._active:
             return
         self._active.add(key)
-        persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_{key}_ok")
-        self._send(f"{DOMAIN}_{key}", message)
+        persistent_notification.async_dismiss(self.hass, f"{self._prefix}_{key}_ok")
+        self._send(f"{self._prefix}_{key}", message)
 
     def _send(self, notification_id: str, message: str) -> None:
+        if len(central_entries(self.hass)) > 1:
+            # Plusieurs bâtiments : le nom du bâtiment précède le message.
+            message = f"{self.entry.title} : {message}"
         _LOGGER.info("Notification : %s", message)
         persistent_notification.async_create(
             self.hass, message, title=_TITLE, notification_id=notification_id
@@ -141,9 +147,9 @@ class HeaterNotifier:
         self._ko_since.pop(key, None)
         if key in self._active:
             self._active.discard(key)
-            persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_{key}")
+            persistent_notification.async_dismiss(self.hass, f"{self._prefix}_{key}")
             if ok_message:
-                self._send(f"{DOMAIN}_{key}_ok", ok_message)
+                self._send(f"{self._prefix}_{key}_ok", ok_message)
 
     def _confirmed_ko(self, key: str) -> bool:
         """Vrai si le problème dure depuis KO_CONFIRM secondes (et après la grâce de démarrage)."""
@@ -229,7 +235,7 @@ class HeaterNotifier:
             self._unsubs.append(
                 async_track_state_change_event(self.hass, watched, self._check_sensors)
             )
-        windows = all_configured_windows(self.hass)
+        windows = all_configured_windows(self.hass, self.entry.entry_id)
         if windows:
             self._unsubs.append(
                 async_track_state_change_event(self.hass, windows, self._check_windows)
@@ -267,18 +273,18 @@ class HeaterNotifier:
         ko = [p for s, p in self._room_sensors().items() if room_current_temp(self.hass, s) is None]
         if ko:
             problems.append("sonde(s) KO : " + ", ".join(ko))
-        wins = [w["name"] for w in open_windows(self.hass)]
+        wins = [w["name"] for w in open_windows(self.hass, self.entry.entry_id)]
         if wins:
             problems.append("fenêtre(s) ouverte(s) : " + ", ".join(wins))
         if problems:
             msg = "✅ Chauffage fil pilote opérationnel. ⚠️ Problème(s) : " + " ; ".join(problems) + "."
         else:
             msg = "✅ Chauffage fil pilote opérationnel : tout est OK."
-        self._send(f"{DOMAIN}_demarrage", msg)
+        self._send(f"{self._prefix}_demarrage", msg)
 
     # -- fenêtre ouverte + maison vide --------------------------------------
     def _occupants(self) -> int | None:
-        central = get_central_state(self.hass)
+        central = get_central_state(self.hass, self.entry.entry_id)
         occ = central.attributes.get("occupants") if central else None
         if isinstance(occ, (int, float)):
             return int(occ)
@@ -293,7 +299,7 @@ class HeaterNotifier:
         key = "fenetre_absents"
         if not self._ready:
             return
-        wins = open_windows(self.hass)
+        wins = open_windows(self.hass, self.entry.entry_id)
         occ = self._occupants()
         if wins and occ == 0:
             if not self._confirmed_ko(key):

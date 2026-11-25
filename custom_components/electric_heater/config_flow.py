@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .temps import round_temp
+from .building import default_central
 from .season import (
     CONF_SAISON_ACTIVE,
     CONF_DEBUT_SAISON,
@@ -43,6 +44,7 @@ from .const import (
     RESYNC_INTERVAL_MIN,
     WINDOW_OFF_DELAY,
     CENTRAL,
+    CONF_CENTRAL_ENTRY_ID,
     CONF_CALENDAR_OFF_MODE,
     CONF_CALENDAR_ON_MODE,
     CONF_FIL_PILOTE_SELECT,
@@ -422,6 +424,8 @@ def _form(schema: vol.Schema) -> Any:
 
 class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
+    # 1.2 : pièces rattachées à un central (data["central_entry_id"]), voir async_migrate_entry.
+    MINOR_VERSION = 2
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         central_exists = any(
@@ -577,6 +581,8 @@ class ElectricHeaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 title=user_input[CONF_NAME],
                 data={
                     "type": ROOM,
+                    # Bâtiment : le central par défaut (choix du bâtiment dans le formulaire : PR B).
+                    CONF_CENTRAL_ENTRY_ID: central.entry_id if (central := default_central(self.hass)) else None,
                     CONF_NAME: user_input[CONF_NAME],
                     CONF_FIL_PILOTE_SELECT: fil_id,
                     CONF_TEMPERATURE_SENSOR: user_input[CONF_TEMPERATURE_SENSOR],

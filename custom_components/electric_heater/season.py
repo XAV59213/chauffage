@@ -10,6 +10,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
+from .building import get_central_entry
 from .fil_pilote import central_option
 from .weather import outdoor_temperature
 
@@ -74,8 +75,9 @@ def read_outdoor(hass: HomeAssistant, entity_id: str | None) -> float | None:
 class SeasonController:
     """Décide si on est en saison de chauffe (dates + seuil extérieur anti-flap)."""
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, central_id: str | None = None) -> None:
         self.hass = hass
+        self.central_id = central_id
         self._pending_out: bool | None = None
         self._pending_since: float | None = None
         self._outdoor_override: bool | None = None  # True = forcer hors saison par T°ext
@@ -83,11 +85,11 @@ class SeasonController:
 
     def options(self) -> dict[str, Any]:
         return {
-            "active": bool(central_option(self.hass, CONF_SAISON_ACTIVE, True)),
-            "debut": central_option(self.hass, CONF_DEBUT_SAISON, DEFAULT_DEBUT) or DEFAULT_DEBUT,
-            "fin": central_option(self.hass, CONF_FIN_SAISON, DEFAULT_FIN) or DEFAULT_FIN,
-            "capteur": central_option(self.hass, CONF_CAPTEUR_EXT),
-            "seuil": float(central_option(self.hass, CONF_SEUIL_EXT, DEFAULT_SEUIL) or DEFAULT_SEUIL),
+            "active": bool(central_option(self.hass, CONF_SAISON_ACTIVE, True, self.central_id)),
+            "debut": central_option(self.hass, CONF_DEBUT_SAISON, DEFAULT_DEBUT, self.central_id) or DEFAULT_DEBUT,
+            "fin": central_option(self.hass, CONF_FIN_SAISON, DEFAULT_FIN, self.central_id) or DEFAULT_FIN,
+            "capteur": central_option(self.hass, CONF_CAPTEUR_EXT, central_id=self.central_id),
+            "seuil": float(central_option(self.hass, CONF_SEUIL_EXT, DEFAULT_SEUIL, self.central_id) or DEFAULT_SEUIL),
         }
 
     def _avg_24h(self, current: float | None) -> float | None:
@@ -165,8 +167,11 @@ class SeasonController:
         }
 
 
-def get_season(hass: HomeAssistant) -> SeasonController:
+def get_season(hass: HomeAssistant, central_id: str | None = None) -> SeasonController:
+    """Contrôleur de saison du bâtiment (central par défaut si central_id est None)."""
     store: dict[str, SeasonController] = hass.data.setdefault("electric_heater", {}).setdefault("_season", {})
-    if "ctrl" not in store:
-        store["ctrl"] = SeasonController(hass)
-    return store["ctrl"]
+    central = get_central_entry(hass, central_id)
+    key = central.entry_id if central is not None else "ctrl"
+    if key not in store:
+        store[key] = SeasonController(hass, central.entry_id if central is not None else None)
+    return store[key]

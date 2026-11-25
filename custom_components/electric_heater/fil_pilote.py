@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant, State
 from .const import (
     NO_OPTIONS,
     CENTRAL,
+    CENTRAL_ENTITY_ID,
     CONF_ABOVE_TARGET_MODE,
     CONF_HYSTERESIS,
     DEFAULT_ABOVE_TARGET_MODE,
@@ -27,6 +28,16 @@ from .const import (
     PRESET_OFF,
 )
 from .hysteresis import regulate_preset
+from .building import (
+    building_entries,
+    building_id as building_id,  # réexport
+    central_entity_id as central_entity_id,  # réexport
+    central_entries,
+    get_central_entry,
+    is_central_unique_id,
+    is_legacy_central,
+    iter_room_entries as iter_room_entries,  # réexport
+)
 
 if TYPE_CHECKING:
     from typing_extensions import TypeIs
@@ -52,51 +63,24 @@ def room_fil_pilote_id(data: Mapping[str, Any]) -> str | None:
     return None
 
 
-def iter_room_entries(hass: HomeAssistant) -> list[ConfigEntry]:
-    rooms = []
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        if entry.data.get("type") == CENTRAL:
-            continue
-        rooms.append(entry)
-    return rooms
+def central_option(hass: HomeAssistant, key: str, default: Any = None, central_id: str | None = None) -> Any:
+    """Réglage du thermostat central du bâtiment (options puis données), sinon la valeur par défaut."""
+    entry = get_central_entry(hass, central_id)
+    if entry is None:
+        return default
+    value = (entry.options or NO_OPTIONS).get(key, entry.data.get(key))
+    return default if value is None else value
 
 
-def central_option(hass: HomeAssistant, key: str, default: Any = None) -> Any:
-    """Réglage du thermostat central (options puis données), sinon la valeur par défaut."""
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        if entry.data.get("type") == CENTRAL:
-            value = (entry.options or NO_OPTIONS).get(key, entry.data.get(key))
-            return default if value is None else value
-    return default
-
-
-def central_entity_id(hass: HomeAssistant | None) -> str | None:
-    """Entity_id réel du thermostat virtuel (registre), pas l'id figé du code."""
-    from .const import CENTRAL_ENTITY_ID, DOMAIN
-    if hass is None:
-        return CENTRAL_ENTITY_ID
-    try:
-        from homeassistant.helpers import entity_registry as er
-        reg = er.async_get(hass)
-        # unique_id fixe du CentralThermostat
-        ent = reg.async_get_entity_id("climate", DOMAIN, "electric_heater_central")
-        if ent:
-            return ent
-        # Repli : unique_id partiel / attribut virtual
-        for e in reg.entities.values():
-            if e.domain == "climate" and e.platform == DOMAIN and e.unique_id == "electric_heater_central":
-                return e.entity_id
-    except Exception:  # noqa: BLE001
-        pass
-    return CENTRAL_ENTITY_ID
-
-
-def get_central_state(hass: HomeAssistant) -> State | None:
-    eid = central_entity_id(hass)
+def get_central_state(hass: HomeAssistant, central_id: str | None = None) -> State | None:
+    """État du thermostat central du bâtiment (central par défaut si central_id est None)."""
+    eid = central_entity_id(hass, central_id)
     if eid:
         state = hass.states.get(eid)
         if state is not None:
             return state
+    if not is_legacy_central(get_central_entry(hass, central_id)):
+        return None
     for cand in (
         "climate.electric_heater_central",
         "climate.electric_heater_electric_heater_central",
@@ -113,17 +97,22 @@ def get_central_state(hass: HomeAssistant) -> State | None:
 
 
 def is_central_climate(hass: HomeAssistant, entity_id: str | None) -> bool:
-    """True si entity_id désigne le thermostat virtuel central (ne jamais lui envoyer fil pilote)."""
+    """True si entity_id désigne UN thermostat central, quel que soit le bâtiment.
+
+    Règle absolue : un central ne reçoit jamais d'ordre fil pilote.
+    """
     if not entity_id or not entity_id.startswith("climate."):
         return False
-    if entity_id == central_entity_id(hass):
+    if entity_id == CENTRAL_ENTITY_ID:
         return True
     try:
         from homeassistant.helpers import entity_registry as er
-        from .const import DOMAIN
         ent = er.async_get(hass).async_get(entity_id)
-        if ent and ent.platform == DOMAIN and ent.unique_id == "electric_heater_central":
+        if ent and ent.platform == DOMAIN and is_central_unique_id(ent.unique_id):
             return True
+        for central in central_entries(hass):
+            if entity_id == central_entity_id(hass, central.entry_id):
+                return True
     except Exception:  # noqa: BLE001
         pass
     st = hass.states.get(entity_id)
@@ -229,9 +218,10 @@ def windows_from_entry(entry: ConfigEntry, hass: HomeAssistant | None = None) ->
     return result
 
 
-def all_configured_windows(hass: HomeAssistant) -> list[str]:
+def all_configured_windows(hass: HomeAssistant, central_id: str | None = None) -> list[str]:
+    """Détecteurs configurés (bâtiment donné, ou tous si central_id est None)."""
     seen: list[str] = []
-    for entry in hass.config_entries.async_entries(DOMAIN):
+    for entry in building_entries(hass, central_id):
         for eid in windows_from_entry(entry, hass):
             if eid not in seen:
                 seen.append(eid)
@@ -276,11 +266,11 @@ def any_window_open(hass: HomeAssistant, sensors: list[str]) -> bool:
     return any(_window_open_cached(hass, eid) for eid in sensors or [])
 
 
-def open_windows(hass: HomeAssistant) -> list[dict[str, Any]]:
-    """Fenêtres ouvertes (toutes entrées), en tenant compte de l'inversion par entrée."""
+def open_windows(hass: HomeAssistant, central_id: str | None = None) -> list[dict[str, Any]]:
+    """Fenêtres ouvertes du bâtiment (toutes si central_id est None), inversion par entrée."""
     result: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for entry in hass.config_entries.async_entries(DOMAIN):
+    for entry in building_entries(hass, central_id):
         invert = bool(
             entry.data.get(CONF_WINDOW_INVERT) or (entry.options or NO_OPTIONS).get(CONF_WINDOW_INVERT)
         )
@@ -297,10 +287,10 @@ def open_windows(hass: HomeAssistant) -> list[dict[str, Any]]:
     return result
 
 
-def rooms_sensor_ko(hass: HomeAssistant) -> list[dict[str, Any]]:
-    """Pièces dont la sonde de température configurée est indisponible ou invalide."""
+def rooms_sensor_ko(hass: HomeAssistant, central_id: str | None = None) -> list[dict[str, Any]]:
+    """Pièces (du bâtiment) dont la sonde de température est indisponible ou invalide."""
     result: list[dict[str, Any]] = []
-    for entry in iter_room_entries(hass):
+    for entry in iter_room_entries(hass, central_id):
         sensor = entry.data.get(CONF_TEMPERATURE_SENSOR)
         if sensor and room_current_temp(hass, sensor) is None:
             result.append({"piece": entry.data.get("name"), "sonde": sensor})
@@ -317,18 +307,14 @@ def entry_windows_open(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return opened
 
 
-def house_window_open(hass: HomeAssistant) -> bool:
-    return any(
-        entry_windows_open(hass, entry)
-        for entry in hass.config_entries.async_entries(DOMAIN)
-    )
+def house_window_open(hass: HomeAssistant, central_id: str | None = None) -> bool:
+    return any(entry_windows_open(hass, entry) for entry in building_entries(hass, central_id))
 
 
-def central_window_open(hass: HomeAssistant) -> bool:
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        if entry.data.get("type") == CENTRAL:
-            return entry_windows_open(hass, entry)
-    return False
+def central_window_open(hass: HomeAssistant, central_id: str | None = None) -> bool:
+    """Fenêtres rattachées au thermostat central du bâtiment."""
+    entry = get_central_entry(hass, central_id)
+    return entry_windows_open(hass, entry) if entry is not None else False
 
 
 def resolve_fil_pilote_option(preset: str, available: list[str] | None) -> str | None:
@@ -505,6 +491,7 @@ def room_order(
     """Ordre à envoyer au radiateur (régulation par la sonde sauf en mode exact)."""
     if exact:
         return base_preset
+    bid = building_id(hass, entry)
     sensor = entry.data.get(CONF_TEMPERATURE_SENSOR)
     current = room_current_temp(hass, sensor)
     if sensor and current is None and base_preset not in (PRESET_OFF, PRESET_FROST_PROTECTION):
@@ -518,6 +505,6 @@ def room_order(
         current,
         target,
         last,
-        above=central_option(hass, CONF_ABOVE_TARGET_MODE, DEFAULT_ABOVE_TARGET_MODE),
-        comfort_hyst=central_option(hass, CONF_HYSTERESIS),
+        above=central_option(hass, CONF_ABOVE_TARGET_MODE, DEFAULT_ABOVE_TARGET_MODE, bid),
+        comfort_hyst=central_option(hass, CONF_HYSTERESIS, central_id=bid),
     )

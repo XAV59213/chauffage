@@ -16,12 +16,14 @@ from datetime import timedelta
 from .const import (
     NO_OPTIONS,
     CENTRAL,
+    CONF_CENTRAL_ENTRY_ID,
     DOMAIN,
     EVENT_WINDOWS_CHANGED,
     SETPOINT_KEYS,
     SIGNAL_SETPOINTS_UPDATED,
     VERSION,
 )
+from .building import central_uid, default_central, get_central_entry
 from .fil_pilote import windows_from_entry
 from .frontend import async_register_card
 from .temps import clean_setpoints
@@ -41,12 +43,30 @@ class ElectricHeaterData:
 type ElectricHeaterConfigEntry = ConfigEntry[ElectricHeaterData]
 
 
-def central_runtime(hass: HomeAssistant) -> ElectricHeaterData | None:
-    """Données du thermostat central chargé (recherche inter-entrées)."""
+def central_runtime(hass: HomeAssistant, central_id: str | None = None) -> ElectricHeaterData | None:
+    """Données du thermostat central chargé du bâtiment (central par défaut si central_id est None)."""
+    central = get_central_entry(hass, central_id)
     for entry in hass.config_entries.async_loaded_entries(DOMAIN):
-        if entry.data.get("type") == CENTRAL:
+        if central is not None and entry.entry_id == central.entry_id:
             return cast(ElectricHeaterData, entry.runtime_data)
     return None
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """1.1 → 1.2 : chaque pièce est rattachée explicitement au central de son bâtiment.
+
+    Aucun unique_id ni entity_id n'est modifié (historique conservé).
+    """
+    if entry.version > 1:
+        return False  # version future : retour arrière non géré
+    if entry.minor_version < 2:
+        data = dict(entry.data)
+        if data.get("type") != CENTRAL and not data.get(CONF_CENTRAL_ENTRY_ID):
+            central = default_central(hass)
+            if central is not None:
+                data[CONF_CENTRAL_ENTRY_ID] = central.entry_id
+        hass.config_entries.async_update_entry(entry, data=data, minor_version=2)
+    return True
 
 
 def _snapshot(entry: ConfigEntry) -> tuple[str, str]:
@@ -116,7 +136,7 @@ async def async_remove_config_entry_device(
     hass: HomeAssistant, entry: ConfigEntry, device_entry: dr.DeviceEntry
 ) -> bool:
     """Autorise la suppression manuelle d'un appareil obsolète (pas le central actif)."""
-    if (DOMAIN, "electric_heater_central") in device_entry.identifiers and entry.data.get("type") == CENTRAL:
+    if entry.data.get("type") == CENTRAL and (DOMAIN, central_uid(entry)) in device_entry.identifiers:
         return False
     registry = er.async_get(hass)
     return not any(
@@ -141,13 +161,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ElectricHeaterConfigEntr
         device_registry = dr.async_get(hass)
         device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, "electric_heater_central")},
+            identifiers={(DOMAIN, central_uid(entry))},
             name=entry.data.get("name", "Chauffage Central"),
             manufacturer="XAV59213",
             model="Thermostat virtuel 6 ordres",
             sw_version=VERSION,
         )
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if entry.data.get("type") == CENTRAL:
+        # Le climate d'abord : ses capteurs retrouvent ensuite son entity_id dans le registre.
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS[:1])
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS[1:])
+    else:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     if entry.data.get("type") == CENTRAL:
         notifier = HeaterNotifier(hass, entry)
         entry.runtime_data.notifier = notifier
