@@ -128,6 +128,10 @@ See [wiki/Depannage-EN.md](wiki/Depannage-EN.md).
 
 ---
 
+## 🌐 More content
+
+Guides, product reviews and Home Assistant news on my showcase site (in French): [Forum Domotique – XAV59213's showcase](https://xav59213.github.io/forumdomotique/)
+
 ## License
 
 MIT · © [XAV59213](https://github.com/XAV59213)
